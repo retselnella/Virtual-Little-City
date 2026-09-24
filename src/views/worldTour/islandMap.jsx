@@ -1,15 +1,17 @@
 import { ROADS } from '../../models/worldTour/worldAdventure.js';
 import { ACTIVE_UNIT } from '../../models/worldTour/worldPolice.js';
-import { CITY_EDGE, LANDMARKS, MOUNTAINS, ROUTES, coastline } from '../../models/worldTour/worldIsland.js';
+import { CABINS, CITY_EDGE, FIELDS, FOREST_CELLS, LAKE, LANDMARKS, MOUNTAINS, ROUTES, coastline } from '../../models/worldTour/worldIsland.js';
 
 // The island drawn in world coordinates (x right, z down, north up), shared by the minimap and the full map.
 const path = points => points.map((p, i) => `${i ? 'L' : 'M'}${Math.round(p.x)} ${Math.round(p.z)}`).join('') + 'Z';
 const SHALLOWS = path(coastline(160, -60)), SAND = path(coastline(180, 0)), GRASS = path(coastline(180, 55));
 const ROUTE_PATHS = ROUTES.map(route => route.points.map((p, i) => `${i ? 'L' : 'M'}${Math.round(p.x)} ${Math.round(p.z)}`).join(''));
 const SUMMIT = MOUNTAINS[0];
+// Forest cover as one path of overlapping discs (drawn once, not one element per tree).
+const FOREST = FOREST_CELLS.map(c => `M${c.x - 28} ${c.z}a28 28 0 1 0 56 0a28 28 0 1 0 -56 0`).join('');
 export const MAP_LABELS = [
   { text: 'Mount Alon', x: SUMMIT.x, z: SUMMIT.z + SUMMIT.radius + 70 }, { text: 'Lighthouse Cape', x: LANDMARKS.lighthouse.x + 60, z: LANDMARKS.lighthouse.z + 110 },
-  { text: 'Northern Woods', x: 120, z: -760 }, { text: 'Southern Farmland', x: 30, z: 690 }, { text: 'South Hills', x: -520, z: 760 }, { text: 'Western Plains', x: -900, z: 330 },
+  { text: 'Northern Woods', x: 120, z: -760 }, { text: 'Southern Farmland', x: 30, z: 690 }, { text: 'South Hills', x: -520, z: 760 }, { text: 'Western Plains', x: -950, z: 150 }, { text: 'Mirror Lake', x: LAKE.x, z: LAKE.z + LAKE.rz + 130 },
 ];
 export const MAP_VIEW = { x: -1380, z: -1390, width: 1960, height: 2780 };
 
@@ -17,7 +19,9 @@ export const MAP_VIEW = { x: -1380, z: -1390, width: 1960, height: 2780 };
 export function IslandLayers({ hud, online, p, point, k = 1, labels = false, district = '' }) {
   return <>
     <rect x="-4000" y="-4000" width="8000" height="8000" fill="#10303c" />
-    <path d={SHALLOWS} fill="#1b4b55" /><path d={SAND} fill="#c7b889" /><path d={GRASS} fill="#3c5b45" />
+    <path d={SHALLOWS} fill="#1b4b55" /><path d={SAND} fill="#c7b889" /><path d={GRASS} fill="#3c5b45" /><path d={FOREST} fill="#2f4b37" />
+    {FIELDS.map(f => <rect key={f.id} x={f.x - f.width / 2} y={f.z - f.depth / 2} width={f.width} height={f.depth} fill="#8a8a55" />)}
+    <ellipse cx={LAKE.x} cy={LAKE.z} rx={LAKE.rx} ry={LAKE.rz} fill="#2f7486" stroke="#8d8a63" strokeWidth="6" />
     {MOUNTAINS.map(m => <g key={m.id}>
       <circle cx={m.x} cy={m.z} r={m.radius} fill={m.kind === 'hill' ? '#4d6f4b' : '#56645a'} />
       {m.kind !== 'hill' && <circle cx={m.x - m.radius * 0.12} cy={m.z - m.radius * 0.12} r={m.radius * 0.55} fill="#77817a" />}
@@ -25,9 +29,11 @@ export function IslandLayers({ hud, online, p, point, k = 1, labels = false, dis
     </g>)}
     <rect x={-CITY_EDGE + 15} y={-CITY_EDGE + 15} width={CITY_EDGE * 2 - 30} height={CITY_EDGE * 2 - 30} fill="#233639" />
     {ROUTE_PATHS.map((d, i) => <path key={i} d={d} fill="none" stroke="#8d9a93" strokeWidth={Math.max(9, 12 * k)} strokeLinejoin="round" />)}
-    {hud.blocks.map((b, i) => <rect key={i} x={b.x - b.width / 2} y={b.z - b.depth / 2} width={b.width} height={b.depth} fill="#46595a" />)}
+    {hud.blocks.map((b, i) => <rect key={i} x={b.x - b.width / 2} y={b.z - b.depth / 2} width={b.width} height={b.depth} fill={b.hub ? '#7fc7b0' : '#46595a'} />)}
     {ROADS.map(n => <g key={n} stroke="#8d9a93" strokeWidth="9"><path d={`M${n} -440V440`} /><path d={`M-440 ${n}H440`} /></g>)}
     <circle cx={LANDMARKS.lighthouse.x} cy={LANDMARKS.lighthouse.z} r={16 * k} fill="#ffa860" />
+    {CABINS.map(c => <rect key={c.id} x={c.x - 9 * k} y={c.z - 9 * k} width={18 * k} height={18 * k} rx={3 * k} fill="#b88a5c" />)}
+    <circle cx={LANDMARKS.campsite.x} cy={LANDMARKS.campsite.z} r={11 * k} fill="#ff9a3c" />
     {labels && <g className="map-labels" fontSize="46" textAnchor="middle">
       {MAP_LABELS.map(l => <text key={l.text} x={l.x} y={l.z}>{l.text}</text>)}
       <text x="0" y="-480" className="map-city">{district}</text>

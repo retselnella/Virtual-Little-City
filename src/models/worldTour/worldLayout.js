@@ -3,7 +3,7 @@ import { ROAD_GRID as ROADS } from './worldPhysics.js';
 // Street furniture shared by the renderer (visuals), the physics world (colliders) and pedestrian AI (spots), so all
 // three always agree.
 const SIDEWALK = 13, BLOCK_MIDDLES = [-300, -180, -60, 60, 180, 300];
-// The safehouse and every contract pickup/drop-off stay clear of street spots (tests check this against CONTRACTS).
+// The City Hub forecourt (spawn) and every contract pickup/drop-off stay clear of street spots (tests check this against CONTRACTS).
 export const KEEP_CLEAR = [
   { x: 8, z: 12, radius: 32 }, { x: 120, z: 65, radius: 24 }, { x: -240, z: -185, radius: 24 }, { x: -120, z: -65, radius: 30 },
   { x: 240, z: 65, radius: 24 }, { x: -360, z: 180, radius: 24 },

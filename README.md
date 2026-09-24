@@ -55,7 +55,7 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **J** | Shoot or punch; hold to keep attacking | |
 | **Q** | Switch between pistol and fists | |
 | **R** | Reload the pistol | |
-| **E** | Collect, deliver, or heal at the safehouse | |
+| **E** | Collect, deliver, or heal at the City Hub | |
 | **M** | Island map and flights | Island map and flights |
 | **L** | Contract board | Contract board |
 | **Esc** | Pause menu and controls | Pause menu |
@@ -79,7 +79,7 @@ Opening any menu pauses the game.
 - **Minimap** (bottom left): a round map centred on you, with north up. It zooms out as you drive faster, and a gold arrow on its edge points to an objective that is off the map. **Map ↗** opens the full island map.
   - white arrow: you
   - cyan dot: your car
-  - green dot: the safehouse
+  - green dot: the City Hub forecourt (spawn); the hub building is the mint block beside it
   - gold dot and dashed line: your objective
   - red dots: gang members
   - blue dots: police officers
@@ -95,7 +95,7 @@ Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeir
 
 Press **M** to open the map, then choose **Fly to a city** and pick a destination. The flight is instant. You cannot fly while you have an unfinished contract, while you are wanted, or while you are down. The map also shows how many contracts you have finished in each city, and how many players are online there.
 
-Your safehouse (the green pad beside your cyan car) is where you start, heal and recover.
+Everyone starts at the **City Hub**, a glass-fronted public office on the corner of the two central avenues. Its forecourt (the mint-green pad with your cyan car parked outside) is where you arrive, respawn and heal, and because every player arrives there too, it is the natural place to meet colleagues and friends.
 
 ### The island
 
@@ -103,10 +103,13 @@ Every city stands on the east shore of an island. The street grid and its waterf
 
 - the **Ring Road**, which leaves the city to the north, south and west and loops round to the beaches on either side of the waterfront, lit by street lamps at night
 - **beaches** with umbrellas all around the coast, and the **Lighthouse Cape** at the end of the Cape Road in the west
-- the **Northern Woods**, **Western Plains** and **Southern Farmland**
-- **Mount Alon** and its snow-capped range in the north-west (too steep to climb), and the gentle **South Hills**, which you can walk and drive over
+- thick **Northern Woods** of pine, lowland forests of broadleaf trees (cherry blossom in Tokyo), fallen logs, boulders, bushes, wildflower meadows and long grass
+- **log cabins** hidden in the forests, whose windows light up at night
+- **Mirror Lake** in the Western Plains, with a **campsite** (tents and a campfire) on its south shore and a cabin on its east shore
+- the fenced fields of the **Southern Farmland**
+- **Mount Alon** and its snow-capped range in the north-west, with pine forest up its lower slopes (the peaks are too steep to climb), and the gentle **South Hills**, which you can walk and drive over
 
-The sea stops you at the shoreline. Press **M** for the full island map, with place names and where you are.
+Trees, rocks, logs, cabins and fences are solid. The sea and the lake stop you at the shore. When trees come between you and the camera, they are hidden so you can always see yourself. Press **M** for the full island map, with place names and where you are.
 
 ### Day, night and weather
 
@@ -121,14 +124,14 @@ Each city has three contracts, 21 in total:
 | Contract | Reward | What to do |
 | --- | --- | --- |
 | **Midnight delivery** | $650 | Collect a package at the gold marker, then deliver it across the city. |
-| **Take back the block** | $1,200 | Defeat the four armed gang members, lose the police, then return to the safehouse. |
+| **Take back the block** | $1,200 | Defeat the four armed gang members, lose the police, then return to the City Hub. |
 | **Heat on the highway** | $950 | Pick up a case, which brings two wanted stars. Escape the police, then reach the drop-off. |
 
 - Press **L** to open the contract board and accept one. Only one contract can be active at a time.
 - Follow the **gold marker**. At the marker, **stop** within about 12 metres and press **E**.
 - You must have **no wanted stars** to collect a reward.
 - Each contract pays once per city. You can **abandon** an unfinished contract from the board and restart it later.
-- If you are wasted, busted or recover to the safehouse, the unfinished contract is cancelled. Your earned cash is kept.
+- If you are wasted, busted or return to the City Hub, the unfinished contract is cancelled. Your earned cash is kept.
 
 ## 7. Fighting
 
@@ -137,7 +140,7 @@ Each city has three contracts, 21 in total:
 - **Aiming**: aim with the camera. The game locks onto the best target: armed threats first, and bystanders only when they are in front of you. The ring on the ground shows who you will hit.
 - **Cover**: buildings, cars and lamp posts block bullets, for you and for anyone shooting at you. Standing still makes you easier to hit. Sprinting and distance make enemies miss more.
 - **Children** can never be targeted or hurt.
-- **Health**: at zero health you are **WASTED** and wake up at the safehouse. To heal, walk onto the safehouse pad and press **E** while you are not wanted. This also refills your ammunition.
+- **Health**: at zero health you are **WASTED** and wake up at the City Hub. To heal, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills your ammunition.
 - **Blood** effects can be switched off in the pause menu.
 
 ## 8. Police and your wanted level
@@ -145,19 +148,19 @@ Each city has three contracts, 21 in total:
 Attacking anyone, or hitting people with your car, gives you **wanted stars**. Hurting bystanders or police adds more. Fighting gang members stays at one star.
 
 - **Arrival**: police arrive a few seconds later in patrol cars that drive through the streets. More stars bring more cars, up to three.
-- **One star**: officers try to **arrest** you on foot. If one reaches you while you stand still, you are **BUSTED**: you lose up to $500 and are released at the safehouse. Run, drive away, or fight back to resist.
+- **One star**: officers try to **arrest** you on foot. If one reaches you while you stand still, you are **BUSTED**: you lose up to $500 and are released at the City Hub. Run, drive away, or fight back to resist.
 - **Two or more stars**: officers shoot.
 - **Chases**: a patrol car that sees you chases you. Out of sight, police search where you were last seen. Drive away and officers on foot get back in their car and follow.
 - **Losing them**: stop attacking for **12 seconds** and stay **out of sight for 8 seconds**. Your stars then fade. Buildings and distance help.
 
 ## 9. Driving
 
-Your car is the cyan coupe next to the safehouse. Walk up to it and press **F**. To get out, stop and press **F** again.
+Your car is the cyan coupe next to the City Hub. Walk up to it and press **F**. To get out, stop and press **F** again.
 
 - The car has real momentum. Brake before corners; **Space** is the handbrake, for sliding turns.
 - Crashes damage the car and hurt you. Fast impacts knock lamp posts over. Trees and buildings stop you.
 - If the car ends up on its side or roof, wait a moment and it is set back on its wheels.
-- Pause and choose **Recover to safehouse** if you get stuck anywhere. This also cancels an unfinished contract.
+- Pause and choose **Return to City Hub** if you get stuck anywhere. This also cancels an unfinished contract.
 
 ## 10. Life on the streets
 
@@ -192,7 +195,7 @@ The game saves automatically **in your browser** on this device:
 
 An unfinished contract restarts after reloading the page. Saves do not move between browsers or devices. Clearing this site's data in your browser resets everything, including your character. If your browser blocks storage (for example some private modes), the game still works, but progress lasts only until you close it.
 
-The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Recover to safehouse**, and **Edit character**, plus a list of the controls.
+The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Return to City Hub**, and **Edit character**, plus a list of the controls.
 
 ## 13. Troubleshooting
 
@@ -201,7 +204,7 @@ The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Recover to
 | "The city needs WebGL" | Turn on hardware acceleration in your browser settings, update your graphics drivers, then reload. |
 | The game is slow | Close other heavy tabs, make the window smaller, or zoom the camera in. |
 | Keys stop responding | Click the game once. Menus and switching tabs pause the game and release held keys. |
-| I am stuck | Pause and choose **Recover to safehouse**. |
+| I am stuck | Pause and choose **Return to City Hub**. |
 | It is too dark to see | Night follows Philippine time. Zoom the camera in; street lamps and lit windows help in the city. |
 | I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. |
 | I cannot collect a reward | Stop fully at the marker, and lose all wanted stars first. |

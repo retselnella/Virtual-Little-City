@@ -17,9 +17,12 @@ export const CITIES = [
 // Positions are bounded by the island's coastline (worldIsland.js); LIMIT bounds any coordinate on it.
 export const LIMIT = ISLAND_EXTENT;
 export const ROADS = ROAD_GRID;
+// Everyone arrives at the City Hub: a glass-fronted public office on the corner of the two central avenues. Its forecourt
+// (the spawn point) is where you start, respawn, heal and meet other players.
+export const HUB = Object.freeze({ x: 8, z: 12, name: 'City Hub' });
 export const CONTRACTS = [
   { id: 'courier', title: 'Midnight delivery', type: 'DRIVING', reward: 650, description: 'Collect a package at the docks, then deliver it across the city.', target: { x: 120, z: 65 }, finish: { x: -240, z: -185 } },
-  { id: 'crew', title: 'Take back the block', type: 'COMBAT', reward: 1200, description: 'Eliminate the four armed gang members at the marked block. Lose the heat and return to the safehouse.', target: { x: -120, z: -65 }, finish: { x: 8, z: 12 } },
+  { id: 'crew', title: 'Take back the block', type: 'COMBAT', reward: 1200, description: 'Eliminate the four armed gang members at the marked block. Lose the heat and return to the City Hub.', target: { x: -120, z: -65 }, finish: { x: 8, z: 12 } },
   { id: 'escape', title: 'Heat on the highway', type: 'PURSUIT', reward: 950, description: 'Pick up the marked case, escape a two-star pursuit, then reach the drop-off.', target: { x: 240, z: 65 }, finish: { x: -360, z: 180 } },
 ];
 export function generateBlocks(city) {
@@ -32,6 +35,8 @@ export function generateBlocks(city) {
       blocks.push({ x: x + dx, z: z + dz, width: 29 + random() * 8, depth: 29 + random() * 8, height, color: city.buildings[Math.floor(random() * 3)] });
     }
   }
+  // The block beside the spawn point is the City Hub office (same footprint, so streets and contracts are unchanged).
+  Object.assign(blocks.find(b => b.x === 37 && b.z === 37), { hub: true, height: 19, color: '#e4ebe8' });
   return blocks;
 }
 export function freePosition(x, z, blocks, radius = 1) {
@@ -54,7 +59,7 @@ export function cleanWorldSave(value) {
   return { city: CITIES.some(c => c.id === value?.city) ? value.city : 'miami', cash: Number.isFinite(value?.cash) ? Math.max(0, Math.min(9999999, Math.floor(value.cash))) : 0, completed: [...new Set(Array.isArray(value?.completed) ? value.completed.filter(k => keys.includes(k)) : [])] };
 }
 export function createSession(city, save = {}, appearance = null) {
-  const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, ammo: 48, weapon: 'pistol', heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, actions: [], actionSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '. Your car is parked beside you.', messageTime: 7 };
+  const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, ammo: 48, weapon: 'pistol', heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, actions: [], actionSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '! You are at the City Hub. Your car is parked outside.', messageTime: 7 };
   s.pedestrians = createPedestrians(s);
   return s;
 }
@@ -86,7 +91,7 @@ export function interact(s) {
     }
     return;
   }
-  if (distance(at, { x: 8, z: 12 }) < 13 && !s.driving && s.heat === 0) { s.health = 100; s.ammo = 48; notify(s, 'Safehouse: health and ammunition restored.'); return; }
+  if (distance(at, HUB) < 13 && !s.driving && s.heat === 0) { s.health = 100; s.ammo = 48; notify(s, 'City Hub: health and supplies restored.'); return; }
   notify(s, 'Move to the gold marker and stop to interact.');
 }
 export function toggleVehicle(s) {
@@ -201,7 +206,7 @@ export function setAppearance(s, appearance) {
 }
 export function recover(s) {
   s.player = { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(s.appearance) }; s.car = vehicle('player', 3, 12, Math.PI, 'player'); s.driving = false; s.health = 100; s.ammo = 48; s.reload = 0; s.heat = 0; s.down = 0; s.mission = null; s.enemies = []; s.traffic = createTraffic(); s.policeCars = createPatrols(); s.incident = false; s.arrest = 0; s.downReason = ''; s.lastSeen = null; s.alarm = null;
-  notify(s, 'Back at the safehouse. Any unfinished contract can be restarted.');
+  notify(s, 'Back at the City Hub. Any unfinished contract can be restarted.');
 }
 export function stepWorld(s, input, delta, yaw = Math.PI) {
   const duration = Math.min(Math.max(delta, 0), 0.05), steps = Math.max(1, Math.ceil(duration * 120));
@@ -302,6 +307,6 @@ function stepSimulation(s, input, dt, yaw) {
     car.vx *= 0.9; car.vz *= 0.9;
     if (car === s.car && s.driving && !person.child) { s.heat = Math.max(1, s.heat); s.quiet = 0; s.alarm = { x: person.x, z: person.z, time: s.time, radius: 40 }; }
   }
-  if (s.mission?.id === 'crew' && s.mission.stage === 0 && s.enemies.filter(e => e.kind === 'gang').every(e => e.health <= 0)) { s.mission.stage = 1; notify(s, 'Block cleared. Lose the heat and return to the safehouse.'); }
-  if (!down && s.health <= 0) { s.health = 0; s.down = 4; s.downReason = 'wasted'; notify(s, 'WASTED. Returning to the safehouse...'); }
+  if (s.mission?.id === 'crew' && s.mission.stage === 0 && s.enemies.filter(e => e.kind === 'gang').every(e => e.health <= 0)) { s.mission.stage = 1; notify(s, 'Block cleared. Lose the heat and return to the City Hub.'); }
+  if (!down && s.health <= 0) { s.health = 0; s.down = 4; s.downReason = 'wasted'; notify(s, 'WASTED. Returning to the City Hub...'); }
 }

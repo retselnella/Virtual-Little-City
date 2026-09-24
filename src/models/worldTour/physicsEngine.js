@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { RAGDOLLS } from './ragdollProfiles.js';
 import { sceneryLayout } from './worldLayout.js';
-import { COUNTRY_TREES, LANDMARKS, MOUNTAINS, ROAD_LAMPS, SHORE_INSET, coastline } from './worldIsland.js';
+import { CABINS, COUNTRY_TREES, FIELDS, LANDMARKS, LOGS, MOUNTAINS, ROAD_LAMPS, ROCKS, SHORE_INSET, coastline, lakeShore } from './worldIsland.js';
 
 // Rapier (https://rapier.rs) runs World Tour's rigid bodies, vehicles, character movement, ragdolls and bullet rays.
 // Gameplay code keeps plain session objects (x, z, vx, vz, heading...) as its source of truth: each substep this module
@@ -60,7 +60,22 @@ function createWorld(s) {
     world.createCollider(RAPIER.ColliderDesc.cuboid(3, 40, length / 2 + 2).setTranslation((a.x + b.x) / 2, 40, (a.z + b.z) / 2).setRotation(yaw(Math.atan2(b.x - a.x, b.z - a.z))).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
   });
   for (const m of MOUNTAINS) world.createCollider(RAPIER.ColliderDesc.cone(m.height / 2, m.radius).setTranslation(m.x, m.height / 2, m.z).setFriction(0.9).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
-  for (const tree of COUNTRY_TREES) world.createCollider(RAPIER.ColliderDesc.cylinder(tree.height / 2, tree.radius * tree.scale).setTranslation(tree.x, tree.height / 2, tree.z).setCollisionGroups(groups(GROUP.PROP, ALL)), fixed);
+  const wall = (a, b, half = 3, height = 40, base = 0) => { const length = Math.hypot(b.x - a.x, b.z - a.z);
+    world.createCollider(RAPIER.ColliderDesc.cuboid(half, height / 2, length / 2 + 0.2).setTranslation((a.x + b.x) / 2, base + height / 2, (a.z + b.z) / 2).setRotation(yaw(Math.atan2(b.x - a.x, b.z - a.z))).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed); };
+  // Mirror Lake: its shoreline is a wall, like the coast.
+  const lake = lakeShore(48, 1); lake.forEach((a, i) => wall(a, lake[(i + 1) % lake.length], 1.5, 12));
+  // Nature: trees (on slopes too), big boulders and fallen logs are solid.
+  for (const tree of COUNTRY_TREES) world.createCollider(RAPIER.ColliderDesc.cylinder(tree.height / 2, tree.radius * tree.scale).setTranslation(tree.x, tree.y + tree.height / 2, tree.z).setCollisionGroups(groups(GROUP.PROP, ALL)), fixed);
+  for (const rock of ROCKS) if (rock.solid) world.createCollider(RAPIER.ColliderDesc.ball(Math.min(rock.sx, rock.sz) * 0.8).setTranslation(rock.x, rock.y + rock.sy * 0.25, rock.z).setFriction(0.8).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
+  for (const log of LOGS) world.createCollider(RAPIER.ColliderDesc.cuboid(log.radius, log.radius, log.length / 2).setTranslation(log.x, log.radius, log.z).setRotation(yaw(log.heading)).setCollisionGroups(groups(GROUP.PROP, ALL)), fixed);
+  // Cabins, and the fences around the fields (with a gate gap on the north side).
+  for (const cabin of CABINS) world.createCollider(RAPIER.ColliderDesc.cuboid(cabin.width / 2, cabin.height, cabin.depth / 2).setTranslation(cabin.x, cabin.height, cabin.z).setRotation(yaw(cabin.heading)).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
+  for (const f of FIELDS) {
+    const w = f.width / 2 + 2, d = f.depth / 2 + 2, c = (x, z) => ({ x: f.x + x, z: f.z + z });
+    for (const [a, b] of [[c(-w, d), c(w, d)], [c(-w, -d), c(-w, d)], [c(w, -d), c(w, d)], [c(-w, -d), c(-6, -d)], [c(6, -d), c(w, -d)]]) wall(a, b, 0.15, 1.3);
+  }
+  const { campsite } = LANDMARKS;
+  for (const side of [-1, 1]) world.createCollider(RAPIER.ColliderDesc.cuboid(1.6, 1.1, 1.9).setTranslation(campsite.x + side * 7, 1.1, campsite.z + 3).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
   for (const lamp of ROAD_LAMPS) world.createCollider(RAPIER.ColliderDesc.cylinder(4, 0.2).setTranslation(lamp.x, 4, lamp.z).setCollisionGroups(groups(GROUP.PROP, ALL)), fixed);
   const { lighthouse } = LANDMARKS;
   world.createCollider(RAPIER.ColliderDesc.cylinder(lighthouse.height / 2, lighthouse.radius).setTranslation(lighthouse.x, lighthouse.height / 2, lighthouse.z).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);

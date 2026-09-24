@@ -9,7 +9,7 @@ import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.j
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
 import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.js';
 import { createRagdollRig } from '../shared/ragdollRig.js';
-import { ROAD_LAMPS, terrainHeight } from '../../models/worldTour/worldIsland.js';
+import { ROAD_LAMPS, terrainHeight, treesAround } from '../../models/worldTour/worldIsland.js';
 import { worldConditions } from '../../models/worldTour/worldClock.js';
 import { buildIsland } from './islandScenery.js';
 import { createSky } from './skyWeather.js';
@@ -82,7 +82,9 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       for (const side of [-1, 1]) { box([3, 0.3, 870], '#bac0b9', [road + side * 12, 0.1, 0]); box([870, 0.3, 3], '#bac0b9', [0, 0.1, road + side * 12]); }
       for (let n = -420; n <= 420; n += 16) { box([0.2, 0.03, 6], '#e8d8b0', [road, 0.15, n]); box([6, 0.03, 0.2], '#e8d8b0', [n, 0.16, road]); }
     }
+    const hubGlass = glowMaterial('#6fa9bc', 0.7, '#ffe6b8');
     for (const b of session.current.blocks) {
+      if (b.hub) { cityHub(b); continue; }
       box([b.width + 3, 0.5, b.depth + 3], '#a6aca8', [b.x, 0.2, b.z]);
       box([b.width, b.height, b.depth], b.color, [b.x, b.height / 2, b.z]);
       box([b.width + 1, 0.8, b.depth + 1], '#d6d3c4', [b.x, b.height, b.z]);
@@ -98,6 +100,27 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       }
       box([b.width, 0.6, 0.4], city.color, [b.x, 3.4, b.z + b.depth / 2 + 0.3], 0, neon);
       if (city.id === 'dubai' && b.height > 70) box([1.5, 25, 1.5], '#c3ced1', [b.x, b.height + 12, b.z]);
+    }
+    // The City Hub: a low glass office with white floor bands, an accent crown, an entrance canopy facing the spawn
+    // forecourt, flags and planters. Its glass lights up at night.
+    function cityHub(b) {
+      const west = b.x - b.width / 2, north = b.z - b.depth / 2;
+      box([b.width + 5, 0.5, b.depth + 5], '#d3dad6', [b.x, 0.2, b.z]);
+      box([b.width - 1, b.height, b.depth - 1], '#e4ebe8', [b.x, b.height / 2, b.z]);
+      for (const side of [-1, 1]) {
+        box([b.width - 3, b.height - 3.5, 0.2], '#6fa9bc', [b.x, (b.height + 2.5) / 2, b.z + side * (b.depth / 2 - 0.4)], 0, hubGlass);
+        box([0.2, b.height - 3.5, b.depth - 3], '#6fa9bc', [b.x + side * (b.width / 2 - 0.4), (b.height + 2.5) / 2, b.z], 0, hubGlass);
+      }
+      for (let y = 4.4; y < b.height; y += 4.6) box([b.width + 0.4, 0.5, b.depth + 0.4], '#f6f8f7', [b.x, y, b.z]);
+      for (let x = -b.width / 2 + 5; x < b.width / 2 - 2; x += 6) for (const side of [-1, 1]) box([0.5, b.height - 1, 0.5], '#f6f8f7', [b.x + x, b.height / 2, b.z + side * (b.depth / 2 - 0.2)]);
+      box([b.width + 1.2, 1.4, b.depth + 1.2], city.color, [b.x, b.height + 0.7, b.z], 0, neon);
+      box([b.width * 0.5, 2.4, b.depth * 0.4], '#c9d2ce', [b.x + 3, b.height + 2.6, b.z + 3]);
+      // Entrance: canopy, pillars and lit doors on the west face, looking onto the forecourt.
+      const door = north + 8;
+      box([5, 0.4, 11], '#f6f8f7', [west - 2.3, 4.2, door]); box([0.3, 4.2, 0.3], '#c9d2ce', [west - 4.5, 2.1, door - 5]); box([0.3, 4.2, 0.3], '#c9d2ce', [west - 4.5, 2.1, door + 5]);
+      box([0.25, 3.2, 5], '#6fa9bc', [west - 0.3, 1.8, door], 0, hubGlass); box([5.2, 0.25, 11.2], city.color, [west - 2.3, 4.5, door], 0, neon);
+      for (let i = 0; i < 3; i++) { box([0.18, 9, 0.18], '#d9dedb', [west - 7, 4.5, north + 16 + i * 4]); box([0.08, 1.4, 2.2], ['#f3eee5', city.color, '#8fd3c0'][i], [west - 7, 8.2, north + 17.2 + i * 4]); }
+      for (const z of [north + 22, north + 28]) { box([2.4, 0.8, 2.4], '#b9c2bd', [west - 3, 0.6, z]); box([2, 1.3, 2], '#5f8c4a', [west - 3, 1.5, z]); }
     }
     for (const tree of layout.trees) {
       if (tree.edge) {
@@ -118,7 +141,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     for (let z = -300; z < -100; z += 20) box([1, 0.05, 10], '#f1ebd2', [-413, 0.2, z]);
     box([4, 3, 28], '#e0e5e3', [-413, 3, -190]); box([30, 0.6, 5], '#e0e5e3', [-413, 3, -192]);
     box([11, 0.4, 3], '#e0e5e3', [-413, 4, -202]);
-    box([10, 0.1, 9], '#5ca699', [8, 0.3, 12]);
+    // The City Hub forecourt: where everyone arrives, respawns and heals (press E).
+    box([10, 0.1, 9], '#8fd3c0', [8, 0.3, 12]); box([8, 0.12, 0.4], '#f6f8f7', [8, 0.32, 8.2]); box([8, 0.12, 0.4], '#f6f8f7', [8, 0.32, 15.8]);
     const dummy = new THREE.Object3D();
     for (const { mat, entries } of batches.values()) {
       const mesh = new THREE.InstancedMesh(unitBox, mat, entries.length);
@@ -128,15 +152,15 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     postPoles = new THREE.InstancedMesh(unitBox, material('#596773'), layout.posts.length); postLamps = new THREE.InstancedMesh(unitBox, glowMaterial('#fff0b9', 1.8, '#ffe3a3'), layout.posts.length);
     postPoles.frustumCulled = postLamps.frustumCulled = false; root.add(postPoles, postLamps);
     layout.posts.forEach((post, i) => placePost(i, { x: post.x, y: 4, z: post.z, q: [0, 0, 0, 1] }));
-    clearPools = sky.setLampPools(root, [...layout.posts.map(post => ({ x: post.x - 3, z: post.z })), ...ROAD_LAMPS.map(l => ({ x: l.x + Math.sin(l.heading) * 3, z: l.z + Math.cos(l.heading) * 3 }))]);
-    function label(text, x, z, color) {
+    clearPools = sky.setLampPools(root, [...layout.posts.map(post => ({ x: post.x - 3, z: post.z })), ...ROAD_LAMPS.map(l => ({ x: l.x + Math.sin(l.heading) * 3, z: l.z + Math.cos(l.heading) * 3 })), ...island.lights]);
+    function label(text, x, z, color, y = 7.5, size = 1) {
       const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
       const ctx = canvas.getContext('2d'); ctx.fillStyle = '#142634e6'; if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(8, 20, 496, 88, 44); ctx.fill(); } else ctx.fillRect(8, 20, 496, 88);
       ctx.fillStyle = color; ctx.font = 'bold 44px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(text, 256, 80, 440);
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.add(texture);
-      const mat = new THREE.SpriteMaterial({ map: texture }); materials.set('label-' + text, mat); const sprite = new THREE.Sprite(mat); sprite.position.set(x, 7.5, z); sprite.scale.set(5.2, 1.3, 1); root.add(sprite);
+      const mat = new THREE.SpriteMaterial({ map: texture }); materials.set(`label-${text}-${x}-${z}`, mat); const sprite = new THREE.Sprite(mat); sprite.position.set(x, y, z); sprite.scale.set(5.2 * size, 1.3 * size, 1); root.add(sprite);
     }
-    label('SAFEHOUSE', 8, 12, '#86edcb'); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('LIGHTHOUSE CAPE', -1150, 60, '#f8d47a');
+    const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('LIGHTHOUSE CAPE', -1150, 60, '#f8d47a');
     buildAvatar(session.current.appearance);
     // Pooled blood droplets and ground stains, updated as instances.
     if (!materials.has('blood')) { materials.set('blood', new THREE.MeshStandardMaterial({ color: '#7b0913', roughness: 0.35 })); materials.set('blood-pool', new THREE.MeshStandardMaterial({ color: '#4f050c', roughness: 0.18, metalness: 0.05 })); }
@@ -375,11 +399,19 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       if (hit && enter > 0) fraction = Math.min(fraction, Math.max(0.04, enter - 0.02));
     }
     if (fraction < 1) camera.position.copy(orbit.target).addScaledVector(offset, fraction);
+    // Trees between you and the camera are hidden while they block the view (canopies are vertical cylinders).
+    const view = camera.position.clone().sub(orbit.target), span = Math.hypot(view.x, view.z), blocking = new Set();
+    if (span > 0.5) for (const t of treesAround(orbit.target.x + view.x / 2, orbit.target.z + view.z / 2, span / 2 + 8)) {
+      const radius = (t.kind === 'pine' ? 3.6 : t.kind === 'broad' ? 4.6 : 5.5) * t.scale + 0.8, top = t.y + t.height + 4.5 * t.scale;
+      const u = Math.max(0, Math.min(1, ((t.x - orbit.target.x) * view.x + (t.z - orbit.target.z) * view.z) / (span * span)));
+      if (Math.hypot(orbit.target.x + view.x * u - t.x, orbit.target.z + view.z * u - t.z) < radius && orbit.target.y + view.y * u < top) blocking.add(t);
+    }
+    island?.hideTrees(blocking);
     // ...and above the mountainsides.
     const ground = terrainHeight(camera.position.x, camera.position.z) + 2.5;
     if (camera.position.y < ground) camera.position.y = ground;
     const conditions = environment?.current?.() ?? worldConditions(Date.now());
-    sky.update(conditions, camera, step, glows, wetSurfaces); island?.update(conditions, s.time);
+    sky.update(conditions, camera, step, glows, wetSurfaces); island?.update(conditions, s.time, camera);
     // Impact shake is applied only for this render so it never accumulates into the orbit camera.
     shake *= Math.exp(-9 * step);
     const shaking = shake > 0.01 && step > 0;
