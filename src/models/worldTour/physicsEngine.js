@@ -108,6 +108,20 @@ function buildIslandColliders(world, fixed, island) {
   for (const p of metroPillars()) world.createCollider(RAPIER.ColliderDesc.cylinder(4.5, 0.75).setTranslation(p.x, 4.5, p.z).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
   for (const st of STATIONS) { const across = st.z === 0 ? 'z' : 'x'; for (const side of [-1, 1]) box(st.x + (across === 'x' ? side * 16 : 0), 4.5, st.z + (across === 'z' ? side * 16 : 0), across === 'x' ? 1.5 : 3, 4.5, across === 'x' ? 3 : 1.5); }
 }
+// The kaiju during a world-boss event: a kinematic body (legs and torso) that walks its path. Cars and traffic crash
+// into it; characters are shoved clear by the gameplay rules (worldBoss.js), since the character controller ignores
+// kinematic bodies.
+function syncKaiju(P, boss) {
+  if (!boss) { if (P.kaiju) { P.world.removeRigidBody(P.kaiju); P.kaiju = null; } return; }
+  if (!P.kaiju) {
+    P.kaiju = P.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(boss.x, 0, boss.z).setRotation(yaw(boss.heading)));
+    const part = desc => P.world.createCollider(desc.setCollisionGroups(groups(GROUP.STATIC, ALL)).setFriction(0.8), P.kaiju);
+    for (const side of [-1, 1]) part(RAPIER.ColliderDesc.cylinder(26, 7.5).setTranslation(side * 9, 26, 0));
+    part(RAPIER.ColliderDesc.ball(22).setTranslation(0, 74, -4)); part(RAPIER.ColliderDesc.cylinder(14, 10).setTranslation(0, 40, -30));
+  }
+  P.kaiju.setNextKinematicTranslation({ x: boss.x, y: boss.alive ? 0 : -Math.min(60, boss.dying * 3), z: boss.z });
+  P.kaiju.setNextKinematicRotation(yaw(boss.heading));
+}
 export function physicsFor(s) { return worlds.get(s) || createWorld(s); }
 export function disposePhysics(s) {
   const P = worlds.get(s); if (!P) return;
@@ -358,9 +372,11 @@ export function stepPhysics(s, dt) {
       continue;
     }
     if (person.ragdoll?.frozen) continue;
-    const driving = person === s.player && s.driving;
-    entry.collider.setEnabled(!driving);
+    const driving = person === s.player && s.driving, aboard = person === s.player && (s.boating || s.riding);
+    entry.collider.setEnabled(!driving && !aboard);
     if (driving) { entry.body.setTranslation({ x: s.car.x, y: entry.half + entry.radius, z: s.car.z }, true); entry.last = { x: person.x, z: person.z }; continue; }
+    // On the boat or the metro the body waits where you boarded (without blocking anyone) until you step off.
+    if (aboard) { entry.last = { x: person.x, z: person.z }; continue; }
     moveCharacter(P, entry, dt, person === s.player ? person.velocityY || 0 : person.vy || 0);
   }
   // Keep only a handful of dead bodies simulated; the rest keep their final pose.
@@ -368,6 +384,7 @@ export function stepPhysics(s, dt) {
   for (const ragdoll of dead) if (ragdoll.age > 12 || (ragdoll.age > 2 && Object.values(ragdoll.bodies).every(({ body }) => body.isSleeping()))) freezeRagdoll(P, ragdoll);
   while (P.ragdolls.length > MAX_ACTIVE_RAGDOLLS) { const oldest = P.ragdolls.filter(r => r.entry.owner.health <= 0).sort((a, b) => b.age - a.age)[0]; if (!oldest) break; freezeRagdoll(P, oldest); }
 
+  syncKaiju(P, s.boss);
   world.timestep = dt;
   world.step(P.events);
   P.statics.fresh = false;

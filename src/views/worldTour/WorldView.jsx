@@ -6,6 +6,8 @@ import { IslandLayers, PlayerArrow, mapView } from './islandMap.jsx';
 import { THEMES, AIRPORT, MARINA } from '../../models/worldTour/worldIsland.js';
 import { STATIONS, nearestStation } from '../../models/worldTour/metro.js';
 import { voyage } from '../../models/worldTour/worldBoat.js';
+import { BOSS_NAME } from '../../models/worldTour/bossRules.js';
+import { BossBanner, BossHits, BossPanel, WorldAtlas } from './bossViews.jsx';
 // Connection chip: who else is here, and whether this is the shared online world or the same-browser fallback.
 function onlineLabel({ status, peers }) {
   const others = peers.length, players = `${others} other player${others === 1 ? '' : 's'} here`;
@@ -33,8 +35,9 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { online, playerName, sky, weather, region, island, prompt, canFly, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
-  const [mapTab, setMapTab] = useState('island');
+  const { boss, claimRewards, online, playerName, sky, weather, region, island, prompt, canFly, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const [mapTab, setMapTab] = useState('world'), [picked, setPicked] = useState(null);
+  const now = boss.clock.current(), bossEvent = boss.event;
   const clock = formatClock(sky.clock), [onlineState, onlineText] = onlineLabel(online);
   const course = hud.course, sailing = hud.boating && course;
   // The minimap follows you, zooming out with speed (and further at sea).
@@ -48,7 +51,7 @@ export default function WorldView({ controller, onEditCharacter }) {
   const view = mapView(island), mapK = view.width / 780;
   const places = [
     { label: 'City Hub', x: 8, z: 12 }, { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z }, { label: 'Airport', x: AIRPORT.x + 20, z: AIRPORT.z },
-    { label: `${STATIONS[nearestStation(p.x, p.z)].name} station`, ...STATIONS[nearestStation(p.x, p.z)].exit },
+    { label: `${STATIONS[nearestStation(p.x, p.z)].name} metro station`, ...STATIONS[nearestStation(p.x, p.z)].exit },
     { label: 'Lighthouse', x: island.landmarks.lighthouse.x + 22, z: island.landmarks.lighthouse.z },
     ...(island.landmarks.feature ? [{ label: island.landmarks.feature.name, x: island.landmarks.feature.x, z: island.landmarks.feature.z + island.landmarks.feature.radius + 8 }] : []),
     ...island.suburbs.slice(0, 1).map(sb => ({ label: sb.name, x: sb.x, z: sb.z })),
@@ -72,11 +75,12 @@ export default function WorldView({ controller, onEditCharacter }) {
       <nav aria-label="World navigation">
         <button onClick={() => openMap('island')}>◎ <span>Map</span><kbd>M</kbd></button>
         <button onClick={() => open('contracts')}>◇ <span>Contracts</span><kbd>L</kbd></button>
+        <button onClick={() => open('boss')} className={bossEvent?.phase === 'active' ? 'boss-live' : ''}>✸ <span>{BOSS_NAME}</span><kbd>B</kbd></button>
         <button onClick={() => open('help')} aria-label="Controls and pause menu">Ⅱ</button>
       </nav>
     </header>
     <section className="adventure-location">
-      <span className="adventure-kicker">{city.country} / {island.name}</span>
+      <span className="adventure-kicker">{city.country} / {city.region}</span>
       <h1>{city.name}<span>.</span></h1>
       <div><i />{region}<span>FREE ROAM</span></div>
       <p className={'adventure-online ' + onlineState} role="status" aria-live="polite">{onlineText}</p>
@@ -103,10 +107,12 @@ export default function WorldView({ controller, onEditCharacter }) {
       </>}
     </section>
     {hud.heat > 0 && <div className="adventure-dispatch" aria-label="Police response"><span>POLICE RESPONSE</span><strong>{dispatchTitle}</strong><small>{dispatchHint}</small></div>}
+    <BossBanner boss={boss} city={city} now={now} onOpen={() => open('boss')} onMap={() => openMap('world')} />
+    <BossHits hits={boss.hits} />
     {hud.messageTime > 0 && <div className="adventure-toast" role="status">{hud.message}</div>}
     {prompt && ready && !error && <button className={'adventure-prompt' + (prompt.key ? '' : ' passive')} disabled={!prompt.action} onClick={() => prompt.action && action(prompt.action)}>{prompt.key && <kbd>{prompt.key}</kbd>}<span>{prompt.text}</span></button>}
     {hud.down > 0 && <div className={'adventure-wasted' + (hud.downReason === 'busted' ? ' busted' : '')}><h2>{hud.downReason === 'busted' ? 'BUSTED' : 'WASTED'}</h2><p>{hud.downReason === 'busted' ? 'Released at the City Hub…' : 'Returning to the City Hub…'}</p></div>}
-    {!ready && !error && <div className="adventure-loading"><span className="loading-ring" />Building {island.name}…</div>}
+    {!ready && !error && <div className="adventure-loading"><span className="loading-ring" />Building {city.name}…</div>}
     {error && <div className="adventure-loading"><strong>The city needs WebGL.</strong><p>Enable hardware acceleration and reload to play.</p><button onClick={() => location.reload()}>Reload</button></div>}
     <div className="adventure-bottom">
       <section className="adventure-radar" aria-label="Island minimap">
@@ -124,13 +130,14 @@ export default function WorldView({ controller, onEditCharacter }) {
       <div className="adventure-actions"><button disabled={!ready || error} onClick={() => action('vehicle')}>{hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'} <kbd>F</kbd></button><button disabled={!ready || error || hud.driving || hud.boating || hud.riding} {...touchControl('attack')}>Attack <kbd>J</kbd></button><button disabled={!ready || error} onClick={() => action('interact')}>Interact <kbd>E</kbd></button><button onClick={() => action('weapon')}>{hud.weapon === 'pistol' ? 'Use fists' : 'Use pistol'} <kbd>Q</kbd></button><button onClick={() => action('reload')}>Reload <kbd>R</kbd></button></div>
     </div>
     <div className="adventure-touch" aria-label="Touch movement controls">{[['forward', '↑'], ['left', '←'], ['backward', '↓'], ['right', '→'], ['run', 'Run'], ['brake', hud.driving ? 'Brake' : 'Jump']].map(([key, title]) => <button key={key} className={'control-' + key} aria-label={key} {...touchControl(key)}>{title}</button>)}</div>
-    {panel === 'world' && <ExperienceDialog title={mapTab === 'island' ? `${island.name}.` : 'Seven islands. Your next voyage.'} className="adventure-dialog world-dialog" onClose={() => open(null)}>
+    {panel === 'boss' && <ExperienceDialog title={`${BOSS_NAME}: the world boss.`} className="adventure-dialog boss-dialog" onClose={() => open(null)}><BossPanel boss={boss} city={city} now={now} onClaim={claimRewards} /></ExperienceDialog>}
+    {panel === 'world' && <ExperienceDialog title={mapTab === 'island' ? `${city.name}.` : 'The world.'} className="adventure-dialog world-dialog" onClose={() => open(null)}>
       <div className="map-tabs" role="tablist" aria-label="Map views">
-        <button role="tab" aria-selected={mapTab === 'island'} onClick={() => setMapTab('island')}>Island map</button>
-        <button role="tab" aria-selected={mapTab === 'travel'} onClick={() => setMapTab('travel')}>Travel</button>
+        <button role="tab" aria-selected={mapTab !== 'island'} onClick={() => setMapTab('world')}>World map</button>
+        <button role="tab" aria-selected={mapTab === 'island'} onClick={() => setMapTab('island')}>{city.name} map</button>
       </div>
       {mapTab === 'island' ? <div className="island-map" role="tabpanel">
-        <svg viewBox={`${view.x} ${view.z} ${view.width} ${view.height}`} role="img" aria-label={`Map of ${island.name}. You are in ${region}.`}>
+        <svg viewBox={`${view.x} ${view.z} ${view.width} ${view.height}`} role="img" aria-label={`Map of ${city.name}. You are in ${region}.`}>
           <IslandLayers island={island} hud={hud} online={online} p={p} point={point} k={mapK} labels district={city.district} />
           <PlayerArrow p={p} k={mapK} />
         </svg>
@@ -144,14 +151,16 @@ export default function WorldView({ controller, onEditCharacter }) {
           </ul>
         </aside>
       </div> : <div role="tabpanel" className="travel">
-        <p>Sail your own speedboat across the sea (set a course, then take the boat from the marina), or catch a flight from the airport terminal.</p>
+        <WorldAtlas city={city} event={bossEvent} online={online} selected={picked} onSelect={id => { setPicked(id); document.getElementById(`trip-${id}`)?.scrollIntoView({ block: 'nearest' }); }} />
+        <p>You are in <b>{city.name}</b>, {city.country}. Sail your own speedboat across the sea (set a course, then take the boat from the marina), or catch a flight from the airport terminal.</p>
         {!canTravel && ready && !error && <p className="travel-notice">Finish or abandon your contract and lose the police before you travel.</p>}
         {course && <p className="travel-course">Course set for <b>{course.name}</b> · {(course.remaining / 1000).toFixed(1)} km by sea <button onClick={stopSailing}>Cancel</button></p>}
         <div className="destination-grid">{CITIES.map(c => {
           const here = city.id === c.id, trip = voyage(city, c), theme = THEMES[c.id];
-          return <article key={c.id} className={here ? 'selected' : ''} style={{ '--destination-color': c.color }} aria-label={`${c.country} ${c.name}`}>
-            <small>{c.country}</small><strong>{c.name}<span>{here ? '● You are here' : ''}</span></strong>
-            <em>{theme.island}</em><p>{theme.summary}</p>
+          const bossHere = bossEvent && (bossEvent.phase === 'active' || bossEvent.phase === 'countdown') && bossEvent.city === c.id;
+          return <article key={c.id} id={`trip-${c.id}`} className={(here ? 'selected' : '') + (picked === c.id ? ' picked' : '')} style={{ '--destination-color': c.color }} aria-label={`${c.country} ${c.name}`}>
+            <small>{c.country}</small><strong>{c.name}<span>{here ? '● You are here' : ''}</span></strong>{bossHere && <span className="boss-tag">{BOSS_NAME} {bossEvent.phase === 'active' ? 'attacking now' : 'at 12:00'}</span>}
+            <em>{c.district}</em><p>{theme.summary}</p>
             <span className="progress">{hud.completed.filter(key => key.startsWith(c.id + ':')).length}/3 contracts{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</span>
             {!here && <div className="trip">
               <button disabled={!canTravel || course?.to === c.id} onClick={() => sail(c.id)}>{course?.to === c.id ? 'Course set' : `Sail · ${(trip.total / 1000).toFixed(1)} km`}</button>

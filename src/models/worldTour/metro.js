@@ -13,10 +13,10 @@ export function loopPoint(s) {
 }
 // Stations sit where the loop crosses the central avenues (x = 0 and z = 0); `exit` is on the pavement below.
 export const STATIONS = Object.freeze([
-  { id: 'uptown', name: 'Uptown', s: 180, x: 0, z: -180, exit: { x: 13, z: -168 } },
-  { id: 'harbourside', name: 'Harbourside', s: 540, x: 180, z: 0, exit: { x: 168, z: 13 } },
-  { id: 'southgate', name: 'Southgate', s: 900, x: 0, z: 180, exit: { x: -13, z: 168 } },
-  { id: 'westfield', name: 'Westfield', s: 1260, x: -180, z: 0, exit: { x: -168, z: -13 } },
+  { id: 'north', name: 'North', s: 180, x: 0, z: -180, exit: { x: 13, z: -168 } },
+  { id: 'east', name: 'East', s: 540, x: 180, z: 0, exit: { x: 168, z: 13 } },
+  { id: 'south', name: 'South', s: 900, x: 0, z: 180, exit: { x: -13, z: 168 } },
+  { id: 'west', name: 'West', s: 1260, x: -180, z: 0, exit: { x: -168, z: -13 } },
 ].map(Object.freeze));
 const LEG = METRO.travel + METRO.dwell, CYCLE = LEG * STATIONS.length;
 // Where the train is at world time `t` (seconds): its lead car, the station it is stopped at (or null) and the next one.

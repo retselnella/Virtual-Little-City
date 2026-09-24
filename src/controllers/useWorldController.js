@@ -7,6 +7,7 @@ import { readWorldSave, serializeWorldSave, writeWorldSave } from '../services/w
 import { readBloodPreference, writeBloodPreference } from '../services/preferences.js';
 import { useWorldInput } from '../hooks/useWorldInput.js';
 import { useMultiplayer } from '../hooks/useMultiplayer.js';
+import { useWorldBoss } from '../hooks/useWorldBoss.js';
 import { policeStatus, snapshot } from '../models/worldTour/presentation.js';
 import { displayName } from '../models/worldTour/characterProfile.js';
 import { parseEnvironmentOverride, weatherLabel, worldConditions } from '../models/worldTour/worldClock.js';
@@ -29,6 +30,9 @@ export function useWorldController(character = null, suspended = false) {
   const override = useRef(null); if (!override.current) override.current = parseEnvironmentOverride(location.search, Date.now());
   const environment = useRef(() => worldConditions(Date.now() + override.current.offset, override.current.weather));
   const [sky, setSky] = useState(() => environment.current()), lastWeather = useRef(sky.kind);
+  // The world boss runs on the server's clock (the preview offset only applies in local mode).
+  const previewOffset = useRef(override.current.offset), nameRef = useRef(displayName(character)); nameRef.current = displayName(character);
+  const boss = useWorldBoss(session, nameRef, previewOffset);
   useEffect(() => {
     const timer = setInterval(() => {
       const next = environment.current(); setSky(next);
@@ -49,7 +53,7 @@ export function useWorldController(character = null, suspended = false) {
   useEffect(() => {
     document.title = 'Little City: World Tour';
     let dispose;
-    try { dispose = mountAdventure(host.current, session, input, paused, s => { if (s.arrival) { travel(s.arrival, 'boat'); return; } setHud(snapshot(s)); save(s); setReady(true); }, () => setError(true), online.roster, environment); }
+    try { dispose = mountAdventure(host.current, session, input, paused, s => { if (s.arrival) { travel(s.arrival, 'boat'); return; } setHud(snapshot(s)); save(s); setReady(true); }, () => setError(true), online.roster, environment, boss.clock); }
     catch (e) { console.error('World scene could not start', e); setError(true); }
     // The Rapier world lives in WebAssembly memory, so it is freed explicitly (it is rebuilt if the scene remounts).
     return () => { dispose?.(); disposePhysics(session.current); };
@@ -85,5 +89,6 @@ export function useWorldController(character = null, suspended = false) {
   function stopSailing() { cancelCourse(session.current); setHud(snapshot(session.current)); }
   function guide(point) { setWaypoint(session.current, point); setHud(snapshot(session.current)); open(null); }
   const island = islandFor(city.id), playerName = displayName(character), region = island.regionAt(p.x, p.z, city.district), weather = weatherLabel(sky);
-  return { online, playerName, sky, weather, region, island, prompt: promptFor(hud), canFly: nearAirport(hud), sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
+  async function claimRewards() { const cash = await boss.claim(); if (cash) { notify(session.current, `Weekly boss rewards claimed: +$${cash.toLocaleString()}.`); save(session.current); setHud(snapshot(session.current)); } }
+  return { boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), canFly: nearAirport(hud), sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
 }

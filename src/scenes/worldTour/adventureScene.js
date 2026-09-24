@@ -11,6 +11,7 @@ import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.j
 import { createRagdollRig } from '../shared/ragdollRig.js';
 import { MARINA, THEMES, islandFor } from '../../models/worldTour/worldIsland.js';
 import { buildMetro } from './metroScene.js';
+import { createKaiju } from './kaijuScene.js';
 import { worldConditions } from '../../models/worldTour/worldClock.js';
 import { buildIsland } from './islandScenery.js';
 import { createSky } from './skyWeather.js';
@@ -20,7 +21,8 @@ const OFFICER_SKIN = ['#e8bd98', '#c18b63', '#8d5a3b', '#5f3b28'];
 
 // `remote` (optional) is the multiplayer roster ref from useMultiplayer: other players are drawn as ghosts.
 // `environment` (optional) is a ref to a function returning worldConditions() (Philippine time and the world's weather).
-export function mountAdventure(host, session, input, paused, onUpdate, onError, remote = null, environment = null) {
+// `clock` (optional) is a ref to the world clock in ms (kept in step with the server for the world boss).
+export function mountAdventure(host, session, input, paused, onUpdate, onError, remote = null, environment = null, clock = null) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.2;
@@ -30,6 +32,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const hemisphere = new THREE.HemisphereLight('#fff2df', '#54647f', 2.4); scene.add(hemisphere);
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
   const sky = createSky(scene, { hemisphere, sun });
+  let kaiju = null, citySlots = new Map(), ruinsShown = '', hiddenOwners = new Map(), rubble = null, craterMesh = null;
   let root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
   let muzzle, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
@@ -56,7 +59,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   function disposeCity() {
     for (const id of [...remotes.keys()]) removeRemote(id);
     if (root) { root.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); scene.remove(root); }
-    island?.dispose(); island = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null;
+    island?.dispose(); island = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null; kaiju?.dispose(); kaiju = null;
+    citySlots = new Map(); hiddenOwners = new Map(); ruinsShown = '';
     hullGeometry = deckGeometry = null; // disposed with the city's geometries below; rebuilt for the next city
     geometries.forEach(g => { if (g !== unitBox) { g.dispose(); geometries.delete(g); } });
     textures.forEach(t => t.dispose()); textures.clear();
@@ -70,10 +74,12 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     scene.fog = new THREE.Fog(city.sky, 220, 2000);
     const batches = new Map();
     // Boxes are batched per material into instanced meshes; `mat` overrides the plain colour material (e.g. a glow).
+    // `owner` tags the boxes of one building or tree, so the world boss can knock it down (and it can be rebuilt).
+    let owner = null;
     function box(size, color, position, rotation = 0, mat = null) {
       const key = mat ? mat.uuid : color;
       if (!batches.has(key)) batches.set(key, { mat: mat || material(color), entries: [] });
-      batches.get(key).entries.push({ size, position, rotation });
+      batches.get(key).entries.push({ size, position, rotation, owner });
     }
     box([910, 2, 910], city.ground, [0, -1.1, 0]); box([30, 0.3, 910], '#e5c79e', [455, -0.1, 0]);
     islandData = islandFor(city.id);
@@ -87,7 +93,10 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       for (let n = -420; n <= 420; n += 16) { box([0.2, 0.03, 6], '#e8d8b0', [road, 0.15, n]); box([6, 0.03, 0.2], '#e8d8b0', [n, 0.16, road]); }
     }
     const hubGlass = glowMaterial('#6fa9bc', 0.7, '#ffe6b8');
-    for (const b of session.current.blocks) {
+    let blockIndex = -1;
+    const cityBlocks = session.current.baseBlocks || session.current.blocks;
+    for (const b of cityBlocks) {
+      owner = `block:${++blockIndex}`;
       if (b.hub) { cityHub(b); continue; }
       box([b.width + 3, 0.5, b.depth + 3], '#a6aca8', [b.x, 0.2, b.z]);
       box([b.width, b.height, b.depth], b.color, [b.x, b.height / 2, b.z]);
@@ -126,7 +135,10 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       for (let i = 0; i < 3; i++) { box([0.18, 9, 0.18], '#d9dedb', [west - 7, 4.5, north + 16 + i * 4]); box([0.08, 1.4, 2.2], ['#f3eee5', city.color, '#8fd3c0'][i], [west - 7, 8.2, north + 17.2 + i * 4]); }
       for (const z of [north + 22, north + 28]) { box([2.4, 0.8, 2.4], '#b9c2bd', [west - 3, 0.6, z]); box([2, 1.3, 2], '#5f8c4a', [west - 3, 1.5, z]); }
     }
+    owner = null;
+    let treeIndex = -1;
     for (const tree of layout.trees) {
+      owner = `tree:${++treeIndex}`;
       if (tree.edge) {
         box([0.7, 10, 0.7], '#827362', [tree.x, 5, tree.z]);
         if (city.trees === 'palm') for (let a = 0; a < 5; a++) box([12, 0.6, 2.4], '#537e63', [tree.x, 10, tree.z], a * Math.PI / 5);
@@ -146,12 +158,22 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     box([4, 3, 28], '#e0e5e3', [-413, 3, -190]); box([30, 0.6, 5], '#e0e5e3', [-413, 3, -192]);
     box([11, 0.4, 3], '#e0e5e3', [-413, 4, -202]);
     // The City Hub forecourt: where everyone arrives, respawns and heals (press E).
+    owner = null;
     box([10, 0.1, 9], '#8fd3c0', [8, 0.3, 12]); box([8, 0.12, 0.4], '#f6f8f7', [8, 0.32, 8.2]); box([8, 0.12, 0.4], '#f6f8f7', [8, 0.32, 15.8]);
     const dummy = new THREE.Object3D();
     for (const { mat, entries } of batches.values()) {
       const mesh = new THREE.InstancedMesh(unitBox, mat, entries.length);
-      entries.forEach((e, i) => { dummy.position.set(...e.position); dummy.scale.set(...e.size); dummy.rotation.set(0, e.rotation, 0); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix); }); mesh.computeBoundingSphere(); root.add(mesh);
+      entries.forEach((e, i) => {
+        dummy.position.set(...e.position); dummy.scale.set(...e.size); dummy.rotation.set(0, e.rotation, 0); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix);
+        if (e.owner) { if (!citySlots.has(e.owner)) citySlots.set(e.owner, []); citySlots.get(e.owner).push({ mesh, index: i }); }
+      });
+      mesh.computeBoundingSphere(); root.add(mesh);
     }
+    // Rubble piles and craters for the world boss's destruction (hidden until something is destroyed).
+    rubble = new THREE.InstancedMesh(unitBox, material('#8a8780'), cityBlocks.length * 5); rubble.frustumCulled = false; rubble.count = 0; root.add(rubble);
+    const craterGeometry = new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2); geometries.add(craterGeometry);
+    craterMesh = new THREE.InstancedMesh(craterGeometry, new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 1, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }), 800); craterMesh.frustumCulled = false; craterMesh.count = 0; root.add(craterMesh);
+    kaiju = createKaiju(root);
     // Lamp posts are physics props that a fast car can knock over, so they are instanced separately.
     postPoles = new THREE.InstancedMesh(unitBox, material('#596773'), layout.posts.length); postLamps = new THREE.InstancedMesh(unitBox, glowMaterial('#fff0b9', 1.8, '#ffe3a3'), layout.posts.length);
     postPoles.frustumCulled = postLamps.frustumCulled = false; root.add(postPoles, postLamps);
@@ -318,6 +340,36 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     });
     const hood = model.car.children[1]; hood.scale.y = 0.2 * (1 - body.damage * 0.003);
   }
+  // Show the world boss's destruction: hide wrecked buildings, trees and lamp posts, pile rubble and dig craters; when the
+  // event ends (s.ruins is cleared) everything comes back.
+  function showRuins(s) {
+    const r = s.ruins, key = r ? `${r.ruined.size}:${r.trees.size}:${r.posts.size}:${r.craters.length}` : '';
+    if (key === ruinsShown) return;
+    ruinsShown = key;
+    const next = new Set(r ? [...[...r.ruined].map(i => `block:${i}`), ...[...r.trees].map(i => `tree:${i}`)] : []), dirty = new Set(), gone = hidden.elements;
+    for (const [id, slots] of hiddenOwners) if (!next.has(id)) { for (const slot of slots) { slot.mesh.instanceMatrix.array.set(slot.saved, slot.index * 16); dirty.add(slot.mesh); } hiddenOwners.delete(id); }
+    for (const id of next) if (!hiddenOwners.has(id)) {
+      const slots = (citySlots.get(id) || []).map(slot => ({ ...slot, saved: slot.mesh.instanceMatrix.array.slice(slot.index * 16, slot.index * 16 + 16) }));
+      for (const slot of slots) { slot.mesh.instanceMatrix.array.set(gone, slot.index * 16); dirty.add(slot.mesh); }
+      hiddenOwners.set(id, slots);
+    }
+    dirty.forEach(mesh => { mesh.instanceMatrix.needsUpdate = true; });
+    const blocks = s.baseBlocks || s.blocks; let n = 0;
+    for (const i of r ? r.ruined : []) {
+      const b = blocks[i];
+      for (let k = 0; k < 5; k++) {
+        const a = Math.sin(i * 12.9 + k * 7.1) * 0.5 + 0.5, c = Math.sin(i * 3.7 + k * 5.3) * 0.5 + 0.5;
+        bloodDummy.position.set(b.x + (a - 0.5) * b.width * 0.7, 1 + k * 0.6, b.z + (c - 0.5) * b.depth * 0.7); bloodDummy.scale.set(b.width * (0.3 + a * 0.3), 2 + c * 3, b.depth * (0.3 + c * 0.3)); bloodDummy.rotation.set(a * 0.4, a * 3, c * 0.3); bloodDummy.updateMatrix();
+        rubble.setMatrixAt(n++, bloodDummy.matrix);
+      }
+    }
+    rubble.count = n; rubble.instanceMatrix.needsUpdate = true;
+    const craters = r ? r.craters.slice(-800) : [];
+    craters.forEach((c, i) => { bloodDummy.position.set(c.x, 0.22, c.z); bloodDummy.scale.set(c.r, 1, c.r); bloodDummy.rotation.set(0, 0, 0); bloodDummy.updateMatrix(); craterMesh.setMatrixAt(i, bloodDummy.matrix); });
+    craterMesh.count = craters.length; craterMesh.instanceMatrix.needsUpdate = true;
+    layout.posts.forEach((post, i) => { if (r?.posts.has(post.id)) { postPoles.setMatrixAt(i, hidden); postLamps.setMatrixAt(i, hidden); } else placePost(i, s.props?.[i] || { x: post.x, y: 4, z: post.z, q: [0, 0, 0, 1] }); });
+    postPoles.instanceMatrix.needsUpdate = postLamps.instanceMatrix.needsUpdate = true;
+  }
   function placePost(i, prop) {
     tmpPosition.set(prop.x, prop.y, prop.z); tmpQuaternion.set(...prop.q);
     bodyMatrix.compose(tmpPosition, tmpQuaternion, tmpScale.set(1, 1, 1));
@@ -391,7 +443,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const dt = lastTime ? Math.min(0.05, (time - lastTime) / 1000) : 0; lastTime = time;
     const yaw = Math.atan2(orbit.target.x - camera.position.x, orbit.target.z - camera.position.z);
     // The metro timetable runs on the shared world clock, so every player sees the same train.
-    s.worldTime = Date.now() / 1000;
+    s.worldTime = (clock?.current?.() ?? Date.now()) / 1000;
     if (!paused.current && !document.hidden) stepWorld(s, input.current, dt, yaw);
     const p = actor(s), point = guidePoint(s), step = paused.current || document.hidden ? 0 : dt;
     avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = 0.2 * (s.player.look?.scale || 1) + s.player.height; avatar.avatar.getObjectByName('pistol').visible = s.weapon === 'pistol';
@@ -408,7 +460,9 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     // The destination island rises over the horizon as a voyage nears its end.
     const course = s.boating && s.course?.openSea ? s.course : null; horizon.visible = !!course;
     if (course) { const far = course.remaining + 1400; horizon.position.set(s.boat.x + Math.sin(course.bearing) * far, -2, s.boat.z + Math.cos(course.bearing) * far); horizon.children[0].material = material(THEMES[course.to]?.ground.grass || '#6f9a5c'); }
-    s.props?.forEach((prop, i) => { if (prop.fallen) placePost(i, prop); });
+    s.props?.forEach((prop, i) => { if (prop.fallen && !s.ruins?.posts.has(prop.id)) placePost(i, prop); });
+    showRuins(s);
+    const kaijuFx = kaiju.update(s, step, camera, s.baseBlocks || s.blocks); if (kaijuFx.shake) shake = Math.min(0.9, shake + kaijuFx.shake * step * 4);
     marker.visible = !!point; if (point) { marker.position.set(point.x, 6 + Math.sin(s.time * 2), point.z); marker.rotation.y = s.time; }
     for (const e of s.enemies) {
       if (!enemies.has(e.id)) {
@@ -424,7 +478,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     targetRing.visible = !!lock;
     if (lock) { targetRing.position.set(lock.x, 0.35, lock.z); targetRing.rotation.z = s.time * 2; targetRing.material.color.set(lock.kind === 'civilian' ? '#f3ece1' : '#ff727f'); }
     shotLines.forEach(line => { root.remove(line); line.geometry.dispose(); line.material.dispose(); });
-    shotLines = [...s.shots, ...remoteShots].map(shot => { const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(shot.x, 2.1, shot.z), new THREE.Vector3(shot.tx, 2, shot.tz)]); const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: shot.police ? '#ff7881' : '#fff4b0' })); root.add(line); return line; });
+    shotLines = [...s.shots, ...remoteShots].map(shot => { const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(shot.x, 2.1, shot.z), new THREE.Vector3(shot.tx, 2, shot.tz)]); const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: shot.police ? '#ff7881' : shot.kaiju ? '#ffb86b' : '#fff4b0' })); root.add(line); return line; });
     traffic.forEach((model, i) => updateCar(model, s.traffic[i]));
     patrols.forEach((model, i) => {
       const car = s.policeCars[i]; updateCar(model, car);

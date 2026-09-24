@@ -230,3 +230,53 @@
 .travel-course button{margin-left:auto;border:1px solid #9fd6ff60;background:none;color:#cfe9ff;border-radius:6px;padding:5px 10px;font-size:11px}
 @media(max-width:760px){.adventure-prompt{left:auto;right:14px;transform:none;bottom:152px;max-width:calc(100% - 170px);font-size:11px;padding:7px 12px 7px 7px;text-align:left}.adventure-prompt kbd{font-size:10px;min-width:22px;padding:4px 6px}.travel .destination-grid{grid-template-columns:1fr}}
 @media(max-height:570px){.adventure-prompt{bottom:70px}}
+
+/* World boss: event banner, floating damage, the boss panel and the world map markers. */
+.boss-banner{position:absolute;z-index:3;top:82px;left:50%;transform:translate(-50%);width:min(520px,calc(100% - 700px));min-width:340px;padding:10px 14px;border-radius:14px;background:#1b0f12e8;border:1px solid #ff6b5a55;box-shadow:0 8px 30px #0006}
+.boss-banner header{display:flex;align-items:baseline;gap:10px;font-size:12px}
+.boss-banner header b{font-size:15px;letter-spacing:3px;color:#ff8f7f}
+.boss-banner header em{margin-left:auto;font-style:normal;font-weight:700;color:#ffd6a0;font-variant-numeric:tabular-nums}
+.boss-hp{position:relative;height:16px;margin:8px 0;border-radius:4px;background:#ffffff14;overflow:hidden}
+.boss-hp i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#c9272b,#ff6b3d);transition:width .6s linear}
+.boss-hp span{position:relative;display:block;text-align:center;font-size:10px;line-height:16px;font-weight:700;font-variant-numeric:tabular-nums;text-shadow:0 1px 3px #000}
+.boss-banner footer{display:flex;align-items:center;gap:8px;font-size:11px;color:#f1d6cf}
+.boss-banner footer span{flex:1}
+.boss-banner footer button{border:1px solid #ff8f7f66;background:none;color:#ffd0c7;border-radius:999px;padding:4px 10px;font-size:10px}
+.boss-banner footer kbd{padding:1px 4px;font-size:9px}
+.boss-banner.countdown{border-color:#ffd6a055;background:#1b1610e8}
+.boss-hits{position:absolute;z-index:4;left:50%;top:42%;pointer-events:none}
+.boss-hits span{position:absolute;left:0;white-space:nowrap;font-weight:900;font-size:18px;color:#ffd06b;text-shadow:0 2px 6px #000;animation:boss-hit 1.4s ease-out forwards}
+@keyframes boss-hit{from{opacity:1;transform:translate(-50%,0) scale(1.2)}to{opacity:0;transform:translate(-50%,-60px) scale(.9)}}
+.adventure-header nav button.boss-live{color:#ff9a8c}
+.adventure-dialog.boss-dialog{width:760px}
+.boss-status{font-size:12px!important}
+.boss-me{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.boss-me div{padding:10px 12px;border-radius:10px;background:#ffffff08;border:1px solid #ffffff18}
+.boss-me small{display:block;font-size:8px;letter-spacing:1.6px;color:#9fb6ba}
+.boss-me b{font-size:18px;font-variant-numeric:tabular-nums}
+.boss-dialog h3{font-size:14px;margin:18px 0 8px;color:#fff1e3}
+.boss-table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.boss-table th{text-align:left;font-size:9px;letter-spacing:1.4px;color:#9fb6ba;font-weight:400;padding:6px 8px;border-bottom:1px solid #ffffff20}
+.boss-table td{padding:7px 8px;border-bottom:1px solid #ffffff10}
+.boss-table td:nth-child(3),.boss-table th:nth-child(3),.boss-table td:nth-child(4),.boss-table th:nth-child(4){text-align:right}
+.boss-table tr.mine td{color:#ffd06b;font-weight:700}
+.boss-weekly{max-height:240px;overflow:auto;border:1px solid #ffffff12;border-radius:8px}
+.boss-week{font-size:11px!important}
+.boss-rewards{list-style:none;padding:0;margin:12px 0;display:grid;gap:4px;font-size:11px;color:#c7d3d4}
+.boss-claim{border:0;background:#f8d47a;color:#1c2b33;font-weight:700;padding:10px 16px;border-radius:8px}
+.world-atlas svg{max-height:340px}
+.atlas-city{cursor:pointer}
+.atlas-city:focus-visible{outline:none}
+.atlas-city:focus-visible circle{stroke:#f8d47a;stroke-width:2}
+.atlas-here{fill:#ffffff;letter-spacing:1px}
+.atlas-pulse{animation:atlas-pulse 1.6s ease-out infinite;transform-origin:center}
+@keyframes atlas-pulse{from{opacity:.9;transform:scale(.6)}to{opacity:0;transform:scale(2.2)}}
+.atlas-route{fill:none;stroke:#ff8f7f;stroke-width:2;stroke-dasharray:6 6;animation:atlas-route 1s linear infinite}
+@keyframes atlas-route{to{stroke-dashoffset:-12}}
+.atlas-boss circle{filter:drop-shadow(0 0 6px #ff5a4e)}
+.travel article.picked{border-color:#f8d47a;box-shadow:0 0 0 1px #f8d47a55}
+.boss-tag{font-size:10px;font-weight:700;color:#ff9a8c}
+@media(max-width:760px){.boss-banner{top:auto;bottom:314px;left:14px;right:14px;transform:none;width:auto;min-width:0;padding:8px 10px}.boss-banner footer{display:none}.boss-banner header b{font-size:12px}.boss-me{grid-template-columns:1fr 1fr}.adventure-header nav button.boss-live span,.adventure-header nav button span{display:none}}
+@media(prefers-reduced-motion:reduce){.atlas-pulse,.atlas-route,.boss-hits span{animation:none}}
+.boss-banner~.adventure-toast{top:196px}
+@media(max-width:760px){.boss-banner~.adventure-toast{top:96px}}

@@ -9,84 +9,84 @@ const TAU = Math.PI * 2, DEG = Math.PI / 180;
 // ---- Themes: what makes each island itself. Coast control points are [compass degrees, radius].
 export const THEMES = {
   miami: {
-    island: 'Biscayne Key', summary: 'Barrier key · dunes · mangrove lagoons · citrus groves', seed: 11,
+    summary: 'Barrier key · dunes · mangrove lagoons · citrus groves', seed: 11,
     coast: [[0, 900], [30, 900], [50, 900], [70, 1000], [90, 1330], [105, 1260], [125, 920], [150, 830], [180, 860], [210, 830], [235, 920], [255, 1250], [270, 1360], [290, 1060], [310, 900], [330, 900]], wobble: 10,
     ground: { grass: '#8fb06a', sand: '#efe1b4', floor: '#4f6b3c', rock: ['#b9b09a', '#a79f8a', '#c9c0a8'] },
-    forest: { name: 'Mangrove Hammock', amount: -0.05, kinds: { palm: 0.45, mangrove: 0.55 } },
-    plains: 'Sawgrass Flats', fields: { name: 'Citrus Groves', kind: 'orchard', count: 5 }, lakes: [{ name: 'Blue Lagoon', at: [88, 0.45], rx: 110, rz: 55, turn: 0.4 }, { name: 'Heron Lagoon', at: [262, 0.35], rx: 70, rz: 45 }, { name: 'Egret Pond', at: [274, 0.85], rx: 60, rz: 40 }], cape: [170, 190],
+    forest: { name: 'Mangroves', amount: -0.05, kinds: { palm: 0.45, mangrove: 0.55 } },
+    plains: 'Flats', fields: { name: 'Citrus groves', kind: 'orchard', count: 5 }, lakes: [{ name: 'Lagoon', at: [88, 0.45], rx: 110, rz: 55, turn: 0.4 }, { name: 'Lagoon', at: [262, 0.35], rx: 70, rz: 45 }, { name: 'Pond', at: [274, 0.85], rx: 60, rz: 40 }], cape: [170, 190],
     landforms: [{ kind: 'hill', name: 'Dunes', repeat: 18, band: [60, 300], size: [40, 70], height: [5, 9], where: [0.8, 1], stretch: 2.2, colors: 'sand' }],
-    houses: { roof: 'flat', walls: ['#f5d6c6', '#cfe6e1', '#f7e7b0', '#e8c8dc'], roofColor: '#f4efe6' }, landmark: 'lifeguards', suburb: 'Coral Gables',
+    houses: { roof: 'flat', walls: ['#f5d6c6', '#cfe6e1', '#f7e7b0', '#e8c8dc'], roofColor: '#f4efe6' }, landmark: 'lifeguards', suburb: 'Suburb',
   },
   tokyo: {
-    island: 'Kasumi Island', summary: 'Snow-capped volcano · cedar & cherry forest · rice paddies · shrine', seed: 23,
+    summary: 'Snow-capped volcano · cedar & cherry forest · rice paddies · shrine', seed: 23,
     coast: [[0, 900], [30, 900], [55, 900], [80, 1000], [110, 1060], [140, 1000], [165, 1110], [195, 1300], [220, 1400], [245, 1350], [270, 1150], [295, 980], [320, 900], [340, 900]], wobble: 12,
     ground: { grass: '#7ea463', sand: '#d9cfae', floor: '#3f5e3c', rock: ['#77736c', '#65625d', '#8a857c'] },
-    forest: { name: 'Cedar Forest', amount: 0.08, kinds: { pine: 0.6, cherry: 0.25, broad: 0.15 } },
-    plains: 'Satoyama Fields', cape: [160, 185], fields: { name: 'Rice Paddies', kind: 'paddy', count: 7 }, lakes: [{ name: 'Lake Shizuka', at: [115, 0.55], rx: 90, rz: 58, turn: -0.3 }],
+    forest: { name: 'Cedar forest', amount: 0.08, kinds: { pine: 0.6, cherry: 0.25, broad: 0.15 } },
+    plains: 'Countryside', cape: [160, 185], fields: { name: 'Rice paddies', kind: 'paddy', count: 7 }, lakes: [{ name: 'Lake', at: [115, 0.55], rx: 90, rz: 58, turn: -0.3 }],
     landforms: [
-      { kind: 'volcano', name: 'Mount Kasumi', at: [224, 0.5], size: 240, height: 300, snow: 0.7, colors: 'volcano' },
-      { kind: 'cone', name: 'Kasumi Foothills', repeat: 7, band: [195, 280], size: [60, 95], height: [35, 60], colors: 'forest' },
+      { kind: 'volcano', name: 'Volcano', at: [224, 0.5], size: 240, height: 300, snow: 0.7, colors: 'volcano' },
+      { kind: 'cone', name: 'Foothills', repeat: 7, band: [195, 280], size: [60, 95], height: [35, 60], colors: 'forest' },
     ],
-    houses: { roof: 'gable', walls: ['#e9e4d8', '#d8d2c4', '#c9b8a0'], roofColor: '#3d4652' }, landmark: 'torii', suburb: 'Sakura Heights',
+    houses: { roof: 'gable', walls: ['#e9e4d8', '#d8d2c4', '#c9b8a0'], roofColor: '#3d4652' }, landmark: 'torii', suburb: 'Suburb',
   },
   manila: {
-    island: 'Isla Liwanag', summary: 'Perfect-cone volcano · rice terraces · rainforest · bay', seed: 31,
+    summary: 'Perfect-cone volcano · rice terraces · rainforest · bay', seed: 31,
     coast: [[0, 900], [30, 900], [55, 920], [80, 1100], [100, 1150], [118, 1000], [132, 830], [145, 840], [160, 1050], [185, 1250], [215, 1300], [245, 1250], [270, 1200], [295, 1000], [320, 900], [340, 900]], wobble: 16,
     ground: { grass: '#6fa257', sand: '#dccfa6', floor: '#3a5a33', rock: ['#5e5752', '#4f4945', '#716a63'] },
     forest: { name: 'Rainforest', amount: 0.1, kinds: { broad: 0.7, palm: 0.3 } },
-    plains: 'Cogon Grasslands', cape: [160, 182], fields: { name: 'Rice Paddies', kind: 'paddy', count: 6 }, lakes: [{ name: 'Lake Tahimik', at: [168, 0.3], rx: 80, rz: 55 }],
+    plains: 'Grassland', cape: [160, 182], fields: { name: 'Rice paddies', kind: 'paddy', count: 6 }, lakes: [{ name: 'Lake', at: [168, 0.3], rx: 80, rz: 55 }],
     landforms: [
-      { kind: 'volcano', name: 'Mount Liwanag', at: [207, 0.5], size: 200, height: 250, colors: 'basalt', smoke: true },
-      { kind: 'terrace', name: 'Rice Terraces', repeat: 4, band: [250, 300], size: [110, 140], height: [30, 42], colors: 'terrace' },
+      { kind: 'volcano', name: 'Volcano', at: [207, 0.5], size: 200, height: 250, colors: 'basalt', smoke: true },
+      { kind: 'terrace', name: 'Rice terraces', repeat: 4, band: [250, 300], size: [110, 140], height: [30, 42], colors: 'terrace' },
     ],
-    houses: { roof: 'gable', walls: ['#f1e6c8', '#cfe0d4', '#f3d1b5'], roofColor: '#b5533c' }, landmark: 'huts', suburb: 'San Isidro',
+    houses: { roof: 'gable', walls: ['#f1e6c8', '#cfe0d4', '#f3d1b5'], roofColor: '#b5533c' }, landmark: 'huts', suburb: 'Suburb',
   },
   london: {
-    island: 'Isle of Wren', summary: 'Rolling chalk downs · oak woods · hedged farms · estuary', seed: 41,
+    summary: 'Rolling chalk downs · oak woods · hedged farms · estuary', seed: 41,
     coast: [[0, 900], [30, 900], [55, 950], [85, 1100], [120, 1150], [155, 1100], [190, 1150], [225, 1200], [248, 1100], [261, 830], [270, 800], [279, 840], [292, 1050], [315, 920], [335, 900]], wobble: 9,
     ground: { grass: '#7ea55f', sand: '#d6ccb0', floor: '#45633b', rock: ['#d9d6cc', '#c4c1b6', '#e6e3da'] },
     forest: { name: 'Oakwood', amount: 0.02, kinds: { broad: 0.85, pine: 0.15 } },
-    plains: 'Green Belt', cape: [185, 200], fields: { name: 'Patchwork Farms', kind: 'hedged', count: 8 }, lakes: [{ name: 'Wren Mere', at: [120, 0.4], rx: 70, rz: 45 }],
-    landforms: [{ kind: 'hill', name: 'The Downs', repeat: 10, band: [105, 295], size: [120, 190], height: [22, 36], colors: 'downs' }],
-    houses: { roof: 'gable', walls: ['#a0553f', '#b0664c', '#8e4b38'], roofColor: '#4a4a52' }, landmark: 'stones', suburb: 'Hampton Green',
+    plains: 'Countryside', cape: [185, 200], fields: { name: 'Farms', kind: 'hedged', count: 8 }, lakes: [{ name: 'Lake', at: [120, 0.4], rx: 70, rz: 45 }],
+    landforms: [{ kind: 'hill', name: 'Downs', repeat: 10, band: [105, 295], size: [120, 190], height: [22, 36], colors: 'downs' }],
+    houses: { roof: 'gable', walls: ['#a0553f', '#b0664c', '#8e4b38'], roofColor: '#4a4a52' }, landmark: 'stones', suburb: 'Suburb',
   },
   dubai: {
-    island: 'Jazirat Sarab', summary: 'Desert dunes · red mesas · oasis · date-palm groves · fort', seed: 53,
+    summary: 'Desert dunes · red mesas · oasis · date-palm groves · fort', seed: 53,
     coast: [[0, 900], [30, 900], [55, 900], [80, 950], [110, 1000], [140, 1150], [165, 1320], [185, 1380], [205, 1300], [235, 1100], [265, 1000], [295, 950], [320, 900], [340, 900]], wobble: 8,
     ground: { grass: '#d9c08e', sand: '#ecd9aa', floor: '#c9ad78', rock: ['#b86e4b', '#a45f40', '#c98260'] }, desert: true,
     forest: { name: 'Desert', amount: -0.6, kinds: { palm: 1 } },
-    plains: 'Open Desert', cape: [175, 195], fields: { name: 'Date Palm Groves', kind: 'palmgrove', count: 3 }, lakes: [{ name: 'Oasis', at: [150, 0.3], rx: 55, rz: 40, oasis: true }],
+    plains: 'Desert', cape: [175, 195], fields: { name: 'Date palm groves', kind: 'palmgrove', count: 3 }, lakes: [{ name: 'Oasis', at: [150, 0.3], rx: 55, rz: 40, oasis: true }],
     landforms: [
-      { kind: 'hill', name: 'Great Dunes', repeat: 26, band: [95, 300], size: [90, 150], height: [10, 21], stretch: 2.6, turn: 0.5, colors: 'dune' },
-      { kind: 'frustum', name: 'Red Mesas', repeat: 3, band: [175, 200], size: [70, 95], height: [55, 75], top: 0.62, colors: 'mesa' },
+      { kind: 'hill', name: 'Dunes', repeat: 26, band: [95, 300], size: [90, 150], height: [10, 21], stretch: 2.6, turn: 0.5, colors: 'dune' },
+      { kind: 'frustum', name: 'Mesas', repeat: 3, band: [175, 200], size: [70, 95], height: [55, 75], top: 0.62, colors: 'mesa' },
     ],
-    houses: { roof: 'flat', walls: ['#efe3cc', '#e6d5b8', '#f3ebdc'], roofColor: '#e2d3b6' }, landmark: 'fort', suburb: 'Al Waha Villas',
+    houses: { roof: 'flat', walls: ['#efe3cc', '#e6d5b8', '#f3ebdc'], roofColor: '#e2d3b6' }, landmark: 'fort', suburb: 'Villas',
   },
   rio: {
-    island: 'Ilha Verde', summary: 'Granite domes · Atlantic rainforest · beaches · hillside favela', seed: 61,
+    summary: 'Granite domes · Atlantic rainforest · beaches · hillside favela', seed: 61,
     coast: [[0, 900], [30, 900], [55, 900], [75, 1150], [95, 960], [115, 1200], [140, 1000], [165, 1250], [190, 1050], [215, 1300], [240, 1050], [265, 1200], [290, 960], [315, 900], [340, 900]], wobble: 26,
     ground: { grass: '#6c9e52', sand: '#eadcae', floor: '#355530', rock: ['#8d8a86', '#7a7773', '#a09c96'] },
-    forest: { name: 'Atlantic Rainforest', amount: 0.14, kinds: { broad: 0.8, palm: 0.2 } },
-    plains: 'Restinga', cape: [160, 172], fields: { name: 'Banana Groves', kind: 'orchard', count: 4 }, lakes: [{ name: 'Lagoa Azul', at: [130, 0.35], rx: 90, rz: 50, turn: 0.3 }],
+    forest: { name: 'Rainforest', amount: 0.14, kinds: { broad: 0.8, palm: 0.2 } },
+    plains: 'Coastal scrub', cape: [160, 172], fields: { name: 'Banana groves', kind: 'orchard', count: 4 }, lakes: [{ name: 'Lagoon', at: [130, 0.35], rx: 90, rz: 50, turn: 0.3 }],
     landforms: [
-      { kind: 'dome', name: 'Granite Peaks', repeat: 5, band: [150, 290], size: [70, 105], height: [150, 210], where: [0.75, 1], colors: 'granite' },
-      { kind: 'cone', name: 'Morro Hills', repeat: 6, band: [60, 150], size: [80, 120], height: [40, 70], colors: 'forest' },
+      { kind: 'dome', name: 'Granite peaks', repeat: 5, band: [150, 290], size: [70, 105], height: [150, 210], where: [0.75, 1], colors: 'granite' },
+      { kind: 'cone', name: 'Hills', repeat: 6, band: [60, 150], size: [80, 120], height: [40, 70], colors: 'forest' },
     ],
-    houses: { roof: 'gable', walls: ['#f2c14e', '#8ac6d0', '#e76f51', '#9fd39b', '#f4a3b4'], roofColor: '#b5533c' }, landmark: 'favela', suburb: 'Vila Nova',
+    houses: { roof: 'gable', walls: ['#f2c14e', '#8ac6d0', '#e76f51', '#9fd39b', '#f4a3b4'], roofColor: '#b5533c' }, landmark: 'favela', suburb: 'Suburb',
   },
   cape: {
-    island: 'Cape Mesa Island', summary: 'Flat-topped mesa · peaks · fynbos · vineyards · manor', seed: 67,
+    summary: 'Flat-topped mesa · peaks · fynbos · vineyards · manor', seed: 67,
     coast: [[0, 900], [30, 900], [55, 950], [80, 1050], [105, 1200], [125, 1480], [140, 1340], [160, 1050], [190, 1150], [205, 1350], [220, 1350], [250, 1150], [275, 1000], [300, 950], [325, 900]], wobble: 14,
     ground: { grass: '#8d9f68', sand: '#e6dcc0', floor: '#5a6b44', rock: ['#8f8577', '#7b7266', '#a2988a'] },
-    forest: { name: 'Fynbos Slopes', amount: -0.15, kinds: { pine: 0.5, broad: 0.5 }, shrubs: 2.2 },
-    plains: 'Fynbos Flats', cape: [115, 135], fields: { name: 'Vineyards', kind: 'vineyard', count: 7 }, lakes: [{ name: 'Mesa Reservoir', at: [240, 0.3], rx: 75, rz: 50 }],
+    forest: { name: 'Fynbos', amount: -0.15, kinds: { pine: 0.5, broad: 0.5 }, shrubs: 2.2 },
+    plains: 'Scrubland', cape: [115, 135], fields: { name: 'Vineyards', kind: 'vineyard', count: 7 }, lakes: [{ name: 'Reservoir', at: [240, 0.3], rx: 75, rz: 50 }],
     landforms: [
-      { kind: 'frustum', name: 'Table Mesa', at: [208, 0.5], size: 205, height: 185, top: 0.72, stretch: 1.4, colors: 'mesa' },
-      { kind: 'cone', name: "Lion's Peak", at: [168, 0.4], size: 110, height: 170, colors: 'rock' },
-      { kind: 'cone', name: "Devil's Peak", at: [242, 0.55], size: 90, height: 140, colors: 'rock' },
-      { kind: 'hill', name: 'Fynbos Hills', repeat: 5, band: [250, 300], size: [90, 130], height: [18, 30], colors: 'downs' },
+      { kind: 'frustum', name: 'Mesa', at: [208, 0.5], size: 205, height: 185, top: 0.72, stretch: 1.4, colors: 'mesa' },
+      { kind: 'cone', name: 'Peak', at: [168, 0.4], size: 110, height: 170, colors: 'rock' },
+      { kind: 'cone', name: 'Peak', at: [242, 0.55], size: 90, height: 140, colors: 'rock' },
+      { kind: 'hill', name: 'Hills', repeat: 5, band: [250, 300], size: [90, 130], height: [18, 30], colors: 'downs' },
     ],
-    houses: { roof: 'gable', walls: ['#f7f4ec', '#efe9dc'], roofColor: '#3f4a3a' }, landmark: 'manor', suburb: 'Constantia',
+    houses: { roof: 'gable', walls: ['#f7f4ec', '#efe9dc'], roofColor: '#3f4a3a' }, landmark: 'manor', suburb: 'Suburb',
   },
 };
 
@@ -171,7 +171,7 @@ function buildIsland(cityId) {
   for (let k = 1; k <= 4; k++) { const t = k / 5; capePoints.push({ x: ringStart.x + (lighthouse.x + 30 - ringStart.x) * t, z: ringStart.z + (lighthouse.z - ringStart.z) * t + Math.sin(t * Math.PI) * 60 }); }
   capePoints.push({ x: lighthouse.x + 30, z: lighthouse.z });
   const routes = [
-    { id: 'ring', name: 'Ring Road', points: ringRoad() },
+    { id: 'ring', name: 'Ring road', points: ringRoad() },
     { id: 'north', name: 'North Link', points: [{ x: 0, z: -438 }, { x: 0, z: -RING_RADIUS }] },
     { id: 'south', name: 'South Link', points: [{ x: 0, z: 438 }, { x: 0, z: RING_RADIUS }] },
     { id: 'west', name: 'West Link', points: [{ x: -438, z: 0 }, { x: -RING_RADIUS, z: 0 }] },
@@ -277,7 +277,7 @@ function buildIsland(cityId) {
       break;
     }
   }
-  buildSuburb(theme.suburb); buildSuburb(`${theme.suburb} East`);
+  buildSuburb(theme.suburb); buildSuburb(theme.suburb);
 
   // Street lamps along every outer road.
   const lamps = [];
@@ -317,27 +317,27 @@ function buildIsland(cityId) {
   const lakeNear = lakes[0] ? { x: lakes[0].x, z: lakes[0].z, spread: Math.max(lakes[0].rx, lakes[0].rz) + 60 } : null;
   const addLandmark = (name, p, radius) => { if (p) landmarks.feature = { name, x: p.x, z: p.z, radius }; return p; };
   if (theme.landmark === 'stones') {
-    const p = addLandmark('Stone Circle', spotFor(20), 24);
+    const p = addLandmark('Stone circle', spotFor(20), 24);
     if (p) for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; solid(p.x + Math.cos(a) * 12, 0, p.z + Math.sin(a) * 12, 1.8, 4.4, 1.1, -a, '#b9b6ab'); if (k % 2 === 0) deco(p.x + Math.cos(a + 0.26) * 12, 4.4, p.z + Math.sin(a + 0.26) * 12, 1.2, 0.9, 6.4, -a - 0.26 + Math.PI / 2, '#aaa79c'); }
   } else if (theme.landmark === 'torii') {
-    const p = addLandmark('Torii Shrine', spotFor(16, lakeNear), 22);
+    const p = addLandmark('Shrine', spotFor(16, lakeNear), 22);
     if (p) { for (const s of [-3, 3]) solid(p.x + s, 0, p.z, 0.8, 7, 0.8, 0, '#c8372d'); deco(p.x, 7, p.z, 10, 0.8, 1, 0, '#2a2a2a'); deco(p.x, 5.6, p.z, 8, 0.5, 0.6, 0, '#c8372d');
       solid(p.x, 0, p.z - 14, 9, 4, 7, 0, '#c8372d', { house: true }); for (let k = 0; k < 3; k++) deco(p.x, 4 + k * 0.8, p.z - 14, 12 - k * 2.6, 0.8, 10 - k * 2.4, 0, '#2d3036'); }
   } else if (theme.landmark === 'fort') {
-    const p = addLandmark('Desert Fort', spotFor(28), 30);
+    const p = addLandmark('Fort', spotFor(28), 30);
     if (p) { for (const [dx, dz, w, d] of [[0, -20, 40, 2], [-20, 0, 2, 40], [20, 0, 2, 40], [-12, 20, 16, 2], [12, 20, 16, 2]]) solid(p.x + dx, 0, p.z + dz, w, 6, d, 0, '#d2b17f');
       for (const [dx, dz] of [[-20, -20], [20, -20], [-20, 20], [20, 20]]) solid(p.x + dx, 0, p.z + dz, 5, 9, 5, 0, '#c9a673'); }
   } else if (theme.landmark === 'huts') {
-    const p = addLandmark('Nipa Hut Village', spotFor(26), 30);
+    const p = addLandmark('Hut village', spotFor(26), 30);
     if (p) for (let k = 0; k < 6; k++) { const a = k / 6 * TAU; const hx = p.x + Math.cos(a) * 16, hz = p.z + Math.sin(a) * 16;
       for (const [sx, sz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) solid(hx + sx, 0, hz + sz, 0.4, 1.6, 0.4, 0, '#6d5540'); deco(hx, 1.6, hz, 6, 3, 5, -a, '#c9a66b');
       for (let r = 0; r < 3; r++) deco(hx, 4.6 + r * 0.7, hz, 7.2 - r * 2, 0.7, 6.4 - r * 1.8, -a, '#8a7a4a'); }
   } else if (theme.landmark === 'manor') {
-    const p = addLandmark('Cape Manor', spotFor(20), 24);
+    const p = addLandmark('Manor', spotFor(20), 24);
     if (p) { solid(p.x, 0, p.z, 26, 6, 10, 0, '#f7f4ec', { house: true }); for (let k = 0; k < 4; k++) deco(p.x, 6 + k * 0.8, p.z, 27, 0.8, 11.5 - k * 3, 0, '#3f4a3a');
       for (const dx of [-8, 0, 8]) deco(p.x + dx, 6, p.z + 5.2, 4, 4 - Math.abs(dx) * 0.1, 0.5, 0, '#f7f4ec'); }
   } else if (theme.landmark === 'lifeguards') {
-    addLandmark('Lifeguard Beach', coastline(60, 45).find(pt => { const d = Math.atan2(pt.z, pt.x) / DEG; return d > 90 && d < 130; }), 60);
+    addLandmark('Lifeguard towers', coastline(60, 45).find(pt => { const d = Math.atan2(pt.z, pt.x) / DEG; return d > 90 && d < 130; }), 60);
     const colors = ['#ef8fa6', '#8fd3c0', '#f4d35e', '#9bb7ff'];
     coastline(90, 42).forEach((pt, i) => { const d = Math.atan2(pt.z, pt.x) / DEG; if (i % 4 || Math.abs(d) < 60) return;
       for (const [sx, sz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) solid(pt.x + sx, 0, pt.z + sz, 0.3, 2.4, 0.3, 0, '#e6e1d6');
@@ -346,7 +346,7 @@ function buildIsland(cityId) {
   if (theme.landmark === 'favela') {
     const hill = forms.filter(f => f.kind === 'cone').sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z))[0];
     if (hill) {
-      landmarks.feature = { name: 'Hillside Favela', x: hill.x, z: hill.z, radius: Math.max(hill.rx, hill.rz) };
+      landmarks.feature = { name: 'Hillside houses', x: hill.x, z: hill.z, radius: Math.max(hill.rx, hill.rz) };
       for (let k = 0; k < 70; k++) {
         const a = random() * TAU, t = 0.3 + random() * 0.6, x = hill.x + Math.cos(a) * hill.rx * t, z = hill.z + Math.sin(a) * hill.rz * t;
         const heights = [[-2.5, -2.5], [2.5, -2.5], [-2.5, 2.5], [2.5, 2.5]].map(([dx, dz]) => terrainHeight(x + dx, z + dz)), low = Math.min(...heights), high = Math.max(...heights);
@@ -447,30 +447,30 @@ function buildIsland(cityId) {
   // Where you are, for the HUD and map.
   function regionAt(x, z, district = 'Downtown') {
     if (inCity(x, z)) return x > 430 ? (Math.abs(z - MARINA.z) < 60 ? 'Marina' : 'Waterfront') : district;
-    if (Math.hypot(x, z) > coastRadius(Math.atan2(z, x)) + 30) return 'Open Sea';
-    if (Math.hypot(x - lighthouse.x, z - lighthouse.z) < 120) return 'Lighthouse Cape';
+    if (Math.hypot(x, z) > coastRadius(Math.atan2(z, x)) + 30) return 'Open sea';
+    if (Math.hypot(x - lighthouse.x, z - lighthouse.z) < 120) return 'Lighthouse';
     const lake = lakes.find(l => insideLake(l, x, z, 60));
-    if (lake) return landmarks.campsite && Math.hypot(x - landmarks.campsite.x, z - landmarks.campsite.z) < 40 ? `${lake.name} Campsite` : lake.name;
+    if (lake) return landmarks.campsite && Math.hypot(x - landmarks.campsite.x, z - landmarks.campsite.z) < 40 ? 'Campsite' : lake.name;
     if (landmarks.feature && Math.hypot(x - landmarks.feature.x, z - landmarks.feature.z) < landmarks.feature.radius + 30) return landmarks.feature.name;
     const suburb = suburbs.find(s => Math.hypot(s.x - x, s.z - z) < s.radius + 20); if (suburb) return suburb.name;
     const form = formAt(x, z); if (form) return form.name;
     if (shoreDistance(x, z) < 60) return 'Beach';
     if (inField(x, z, 20)) return theme.fields.name;
-    if (roadWithin(x, z, ROAD_WIDTH)) return 'Ring Road';
+    if (roadWithin(x, z, ROAD_WIDTH)) return 'Ring road';
     return forestDensity(x, z) > 0.55 && !theme.desert ? theme.forest.name : theme.plains;
   }
   // The largest landform names the island's high point; the map labels its places.
   const labels = [];
   const named = new Set();
   for (const f of [...forms].sort((a, b) => b.height * b.rx - a.height * a.rx)) { if (named.has(f.name)) continue; named.add(f.name); labels.push({ text: f.name, x: f.x, z: f.z + Math.max(f.rx, f.rz) * 0.7 + 50 }); }
-  for (const l of lakes) labels.push({ text: l.name, x: l.x, z: l.z + l.rz + 50 });
+  for (const l of lakes) if (!labels.some(x => x.text === l.name)) labels.push({ text: l.name, x: l.x, z: l.z + l.rz + 50 });
   for (const s of suburbs.slice(0, 1)) labels.push({ text: s.name, x: s.x, z: s.z + s.radius + 30 });
   if (landmarks.feature && !labels.some(l => l.text === landmarks.feature.name)) labels.push({ text: landmarks.feature.name, x: landmarks.feature.x, z: landmarks.feature.z - 60 });
-  labels.push({ text: 'Lighthouse Cape', x: lighthouse.x + 60, z: lighthouse.z + 110 });
+  labels.push({ text: 'Lighthouse', x: lighthouse.x + 60, z: lighthouse.z + 110 });
   let seaLine = 0; for (let d = 0; d < 360; d += 3) seaLine = Math.max(seaLine, coastRadius(d * DEG));
 
   return Object.freeze({
-    id: cityId, theme, name: theme.island, summary: theme.summary, seaLine: seaLine + 150,
+    id: cityId, theme, summary: theme.summary, seaLine: seaLine + 150,
     coastRadius, onIsland, coastline, shoreDistance, inLake, lakes, routes, roadDistance, roadWithin, forms, terrainHeight, formAt,
     lamps: roadLamps, fields, structures, suburbs, landmarks, trees, treesAround, rocks, logs, bushes, flowers, grass, forestCells, forestDensity, regionAt, labels,
   });

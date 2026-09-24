@@ -27,7 +27,7 @@ export function buildMetro(root, { box, glowMaterial, label }) {
     }
     box(along === 'x' ? [38, 0.4, 11] : [11, 0.4, 38], '#e4e8e6', [st.x, deck + 4.6, st.z]);
     box(along === 'x' ? [38, 0.3, 0.3] : [0.3, 0.3, 38], '#9fd6ff', [st.x, deck + 4.3, st.z], 0, trackGlow);
-    label(`M  ${st.name.toUpperCase()}`, st.x + (along === 'z' ? 7 : 0), st.z + (along === 'x' ? 7 : 0), '#9fd6ff', deck + 7, 1.2);
+    label(`M  ${st.name.toUpperCase()} STATION`, st.x + (along === 'z' ? 7 : 0), st.z + (along === 'x' ? 7 : 0), '#9fd6ff', deck + 7, 1.2);
   }
   // The train: four cars with lit windows, each placed between its front and rear points on the loop so it rounds
   // corners smoothly.

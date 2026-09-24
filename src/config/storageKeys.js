@@ -3,4 +3,5 @@
 // untouched in players' browsers; nothing reads them any more.
 export const STORAGE_KEYS = Object.freeze({
   world: 'little-city-world-v1', effects: 'little-city-world-effects-v1', character: 'little-city-character-v1',
+  guest: 'little-city-guest-v1', boss: 'little-city-boss-v1',
 });

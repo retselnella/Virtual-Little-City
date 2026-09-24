@@ -15,7 +15,6 @@ const run = (s, seconds, input = {}, yaw = Math.PI, each) => { for (let i = 0; i
 const ISLANDS = CITIES.map(c => islandFor(c.id));
 
 test('every city has its own island: different coasts, landforms, forests and landmarks', () => {
-  assert.equal(new Set(ISLANDS.map(i => i.name)).size, CITIES.length);
   // Coastlines differ everywhere except the shared city waterfront.
   for (let a = 0; a < ISLANDS.length; a++) for (let b = a + 1; b < ISLANDS.length; b++) {
     const one = ISLANDS[a].coastline(90), two = ISLANDS[b].coastline(90);
@@ -49,7 +48,7 @@ test('each island is consistent: the city fits, everything stands on land and of
     for (const s of island.structures) if (s.house) assert.ok(island.onIsland(s.x, s.z, 3) && island.roadDistance(s.x, s.z) > 8, `${island.id} house off the road`);
     assert.ok(island.suburbs.length >= 1 && island.structures.filter(s => s.house).length >= 20, `${island.id} has a suburb`);
     assert.ok(island.lakes.length >= 1 && island.fields.length >= 3 && island.lamps.length > 30);
-    const lh = island.landmarks.lighthouse; assert.ok(island.onIsland(lh.x, lh.z, 5) && island.regionAt(lh.x, lh.z) === 'Lighthouse Cape');
+    const lh = island.landmarks.lighthouse; assert.ok(island.onIsland(lh.x, lh.z, 5) && island.regionAt(lh.x, lh.z) === 'Lighthouse');
   }
 });
 

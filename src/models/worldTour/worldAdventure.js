@@ -6,6 +6,8 @@ import { playerLook } from './characterProfile.js';
 import { AIRPORT, MARINA, SEA_LIMIT, islandFor } from './worldIsland.js';
 import { ARRIVAL, createBoat, landingSpot, stepBoat, stepVoyage, voyage } from './worldBoat.js';
 import { STATIONS, arrivalIn, trainAt } from './metro.js';
+import { destructionAt, kaijuHazards, kaijuInReach, kaijuPose, standingBlocks } from './worldBoss.js';
+import { sceneryLayout } from './worldLayout.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -66,9 +68,11 @@ export function createSession(city, save = {}, appearance = null, arrival = null
   const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, ammo: 48, weapon: 'pistol', heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, actions: [], actionSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '! You are at the City Hub. Your car is parked outside.', messageTime: 7 };
   s.pedestrians = createPedestrians(s);
   Object.assign(s, { boat: createBoat(), boating: false, metro: null, riding: false, train: trainAt(0), course: null, waypoint: null, arrival: null });
+  // World boss: the server's event (set by the controller), the kaiju here, hits waiting to be reported, and the ruins.
+  Object.assign(s, { bossEvent: null, boss: null, bossHits: { shot: 0, punch: 0 }, bossDeaths: 0, bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
-    s.message = `Welcome to ${city.name}! ${islandFor(city.id).name} lies ahead. Steer for the marina pier and press F to go ashore.`;
+    s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
   } else if (arrival === 'flight') s.message = `Welcome to ${city.name}! Your flight has landed; the airport shuttle dropped you at the City Hub.`;
   return s;
 }
@@ -100,6 +104,7 @@ const stationNear = s => STATIONS.findIndex(st => distance(s.player, st) < 20);
 export function promptFor(s) {
   if (s.down) return null;
   if (s.riding) return s.train.station !== null ? { key: 'E', action: 'interact', text: `Get off at ${STATIONS[s.train.station].name}` } : { key: null, text: `Metro · next stop ${STATIONS[s.train.next].name}` };
+  if (s.stun > 0) return { key: null, text: 'Stunned by the roar!' };
   if (s.metro) return { key: 'E', action: 'interact', text: `Waiting for the metro · ${Math.ceil(arrivalIn(s.worldTime ?? s.time, s.metro.station))} s · E to leave` };
   const at = actor(s), point = objectivePoint(s);
   if (point && distance(at, point) < 12) return { key: 'E', action: 'interact', text: s.mission.stage === 0 ? 'Collect' : 'Deliver' };
@@ -107,7 +112,7 @@ export function promptFor(s) {
   if (nearAirport(s)) return { key: 'M', action: 'map', text: 'Fly to another island' };
   if (s.driving) return null;
   if (distance(s.player, s.boat) < 15) return { key: 'F', action: 'vehicle', text: 'Take the boat' };
-  if (stationNear(s) >= 0) return { key: 'E', action: 'interact', text: `Take the metro at ${STATIONS[stationNear(s)].name}` };
+  if (stationNear(s) >= 0) return { key: 'E', action: 'interact', text: `Take the metro · ${STATIONS[stationNear(s)].name} station` };
   if (distance(s.player, s.car) < 9) return { key: 'F', action: 'vehicle', text: 'Get in your car' };
   if (distance(s.player, HUB) < 13 && (s.health < 100 || s.ammo < 48)) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
   return null;
@@ -210,6 +215,42 @@ function injure(s, target, amount, dx, dz, kind) {
   addImpact(s, target, dx, dz, kind, kind === 'punch' ? 0.8 + s.combo * 0.3 : 1);
   if (target.health === 0 && target.deadAt === undefined) { target.deadAt = s.time; addImpact(s, target, dx, dz, 'pool'); }
 }
+function kaijuTarget(s, gun) {
+  if (!s.boss?.alive || !onFoot(s)) return null;
+  return kaijuInReach(s.player, gun ? s.aimYaw ?? s.player.heading : s.player.heading, gun, s.boss.t);
+}
+// The world boss in this city: pose from the server's event, destruction so far, and what it does to you.
+function updateKaiju(s, dt) {
+  const ev = s.bossEvent, now = (s.worldTime ?? s.time) * 1000;
+  if (!ev || ev.city !== s.city || now < ev.startsAt || now >= ev.endsAt) {
+    // Outside the event hour the city is whole again.
+    if (s.ruins) { s.blocks = s.baseBlocks; s.ruins = null; }
+    s.boss = null; return;
+  }
+  if (s.bossMemory.event !== ev.id) { s.bossMemory = new Set(); s.bossMemory.event = ev.id; }
+  const alive = !ev.defeatedAt && ev.hp > 0, t = (Math.min(now, alive ? now : ev.defeatedAt) - ev.startsAt) / 1000;
+  s.boss = { ...kaijuPose(t), t, alive, dying: alive ? 0 : (now - ev.defeatedAt) / 1000 };
+  const tick = Math.floor(t / 2);
+  if (!s.ruins || s.ruins.tick !== tick) {
+    const ruins = destructionAt(ev.seed, t, s.baseBlocks, sceneryLayout());
+    if (!s.ruins || ruins.ruined.size !== s.ruins.ruined.size) s.blocks = standingBlocks(s.baseBlocks, ruins.ruined);
+    s.ruins = { ...ruins, tick };
+  }
+  if (!alive || s.down || s.riding) return;
+  const at = actor(s);
+  for (const hit of kaijuHazards(ev.seed, t, at, s.bossMemory, dt)) {
+    const dx = at.x - hit.from.x, dz = at.z - hit.from.z, d = Math.hypot(dx, dz) || 1;
+    if (hit.damage) s.health -= hit.damage * (s.driving ? 0.6 : s.boating ? 0.8 : 1);
+    if (onFoot(s)) {
+      if (hit.body) { s.player.x += dx / d * hit.body; s.player.z += dz / d * hit.body; }
+      pushCharacter(s.player, dx, dz, hit.push || 0, hit.lift || 0);
+      // A slam knocks you off your feet; the roar only stuns you (you stay standing but cannot act for a moment).
+      if (hit.knockdown) s.player.knockdown = Math.max(s.player.knockdown || 0, hit.knockdown);
+      if (hit.stun) s.stun = Math.max(s.stun || 0, hit.stun);
+    } else if (s.driving) { s.car.vx += dx / d * (hit.push || 0); s.car.vz += dz / d * (hit.push || 0); s.car.damage = Math.min(100, s.car.damage + (hit.damage || 0) * 0.5); }
+    if (hit.damage >= 10) addImpact(s, { x: at.x, z: at.z, child: true }, dx, dz, 'car', 0.6);
+  }
+}
 export function startReload(s) {
   if (s.ammo >= 48 || s.reload > 0 || s.down) return false;
   s.reload = 1.5; notify(s, 'Reloading...'); return true;
@@ -224,6 +265,17 @@ export function attack(s) {
   s.aimTime = gun ? 0.7 : 1.2;
   const from = s.player;
   let target = targetFor(s), blocked = null;
+  // The kaiju: when it is in reach and nothing hostile is closer, the hit is recorded for the server (which decides the
+  // damage) and does not draw the police.
+  const kaijuRange = !target || target.kind === 'civilian' ? kaijuTarget(s, gun) : null;
+  if (kaijuRange !== null) {
+    const pose = s.boss, aim = Math.atan2(pose.x - from.x, pose.z - from.z), end = { x: from.x + Math.sin(aim) * (kaijuRange - 18), z: from.z + Math.cos(aim) * (kaijuRange - 18) };
+    from.heading = aim; s.bossHits[gun ? 'shot' : 'punch']++;
+    if (gun) s.shots.push({ x: from.x, z: from.z, tx: end.x, tz: end.z, ttl: 0.12, police: false, kaiju: true });
+    s.actions.push({ id: ++s.actionSeq, time: s.time, kind: gun ? 'shot' : 'punch', combo: s.combo, x: end.x, z: end.z, blood: false });
+    s.kaijuImpact = { x: end.x, z: end.z, time: s.time, kind: gun ? 'shot' : 'punch' };
+    return;
+  }
   if (gun) {
     // The bullet is a physics ray: a car, lamp post or body in the line of fire takes the hit instead of the target.
     const aim = target || { x: from.x + Math.sin(s.aimYaw ?? from.heading) * PISTOL_RANGE, z: from.z + Math.cos(s.aimYaw ?? from.heading) * PISTOL_RANGE };
@@ -300,12 +352,14 @@ function stepSimulation(s, input, dt, yaw) {
   if (!down && s.reload > 0) { s.reload -= dt; if (s.reload <= 0) { s.ammo = 48; notify(s, 'Reloaded.'); } }
   // The metro runs to its timetable; waiting passengers board when the train stops at their station.
   s.train = trainAt(s.worldTime ?? s.time);
+  updateKaiju(s, dt);
   if (s.metro && !s.riding) {
     const st = STATIONS[s.metro.station];
     if (distance(s.player, st) > 26 || s.heat > 0 || down) { s.metro = null; notify(s, 'You left the platform.'); }
     else if (s.train.station === s.metro.station) { s.riding = true; notify(s, `All aboard at ${st.name}! Press E when the train stops to get off.`); }
   }
-  const p = actor(s), control = !down && !(s.player.knockdown > 0) ? input : {};
+  if (s.stun > 0) s.stun = Math.max(0, s.stun - dt);
+  const p = actor(s), control = !down && !(s.player.knockdown > 0) && !(s.stun > 0) ? input : {};
   const forward = Number(!!control.forward) - Number(!!control.backward), right = Number(!!control.right) - Number(!!control.left);
   if (s.boating) {
     const island = islandFor(s.city);
@@ -396,5 +450,5 @@ function stepSimulation(s, input, dt, yaw) {
     if (car === s.car && s.driving && !person.child) { s.heat = Math.max(1, s.heat); s.quiet = 0; s.alarm = { x: person.x, z: person.z, time: s.time, radius: 40 }; }
   }
   if (s.mission?.id === 'crew' && s.mission.stage === 0 && s.enemies.filter(e => e.kind === 'gang').every(e => e.health <= 0)) { s.mission.stage = 1; notify(s, 'Block cleared. Lose the heat and return to the City Hub.'); }
-  if (!down && s.health <= 0) { s.health = 0; s.down = 4; s.downReason = 'wasted'; notify(s, 'WASTED. Returning to the City Hub...'); }
+  if (!down && s.health <= 0) { if (s.boss?.alive) s.bossDeaths++; s.health = 0; s.down = 4; s.downReason = 'wasted'; notify(s, 'WASTED. Returning to the City Hub...'); }
 }

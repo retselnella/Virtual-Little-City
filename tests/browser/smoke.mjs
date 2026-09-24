@@ -50,9 +50,13 @@ try {
   await pause(); await button('Blood effects: On').click();
   assert.equal(await button('Blood effects: Off').count(), 1); await close();
   // M opens the island map; travel is on the second tab. Flights leave only from the airport; sailing sets a course.
+  // M opens the world map: the whole world, existing city names, and where you are.
   await page.keyboard.press('KeyM');
-  assert.match(await page.locator('.island-map > svg').getAttribute('aria-label'), /Map of Biscayne Key/);
-  await page.getByRole('tab', { name: 'Travel' }).click();
+  assert.match(await page.locator('.world-atlas svg').getAttribute('aria-label'), /World map\. You are in Miami/);
+  for (const name of ['Miami', 'Tokyo', 'Manila', 'London', 'Dubai', 'Rio de Janeiro', 'Cape Town']) assert.equal(await page.locator('.world-atlas text', { hasText: name }).count(), 1, name);
+  await page.getByRole('tab', { name: 'Miami map' }).click();
+  assert.match(await page.locator('.island-map > svg').getAttribute('aria-label'), /Map of Miami/);
+  await page.getByRole('tab', { name: 'World map' }).click();
   const tokyoCard = page.getByRole('article', { name: 'Japan Tokyo' });
   assert.equal(await tokyoCard.getByRole('button', { name: 'Fly' }).isDisabled(), true, 'flights only from the airport');
   await tokyoCard.getByRole('button', { name: /^Sail/ }).click();
@@ -63,8 +67,12 @@ try {
   await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !document.querySelector('.adventure-loading'));
   assert.match(await page.locator('.adventure-location h1').innerText(), /Tokyo/);
   await page.keyboard.press('KeyL'); await page.getByRole('button', { name: 'Accept contract' }).first().click();
-  await page.keyboard.press('KeyM'); await page.getByRole('tab', { name: 'Travel' }).click(); assert.equal(await page.getByRole('article', { name: 'Philippines Manila' }).getByRole('button', { name: /^Sail/ }).isDisabled(), true); await close();
+  await page.keyboard.press('KeyM'); assert.equal(await page.getByRole('article', { name: 'Philippines Manila' }).getByRole('button', { name: /^Sail/ }).isDisabled(), true); await close();
   await page.keyboard.press('KeyL'); await button('Abandon current contract').click();
+  // The world boss panel: event status, live ranking and the weekly board.
+  await page.keyboard.press('KeyB');
+  await page.getByRole('heading', { name: 'Live ranking' }).waitFor(); await page.getByRole('heading', { name: 'This week' }).waitFor();
+  assert.match(await page.locator('.boss-status').innerText(), /12:00 Philippine time/); await close();
   await pause(); assert.equal(await button('Blood effects: Off').count(), 1);
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
@@ -93,15 +101,17 @@ try {
   const ghost = page.locator('.adventure-radar circle.remote-player');
   await ghost.waitFor();
   const start = Number(await ghost.getAttribute('cy'));
-  await friend.bringToFront(); await friend.keyboard.down('KeyW'); await friend.waitForTimeout(1500); await friend.keyboard.up('KeyW');
-  await page.bringToFront();
-  await page.waitForFunction(y => Math.abs(Number(document.querySelector('.adventure-radar circle.remote-player')?.getAttribute('cy')) - y) > 4, start);
+  // Two software-rendered WebGL tabs run at a few frames per second here, so the friend keeps walking until the first tab
+  // sees the ghost move (polled on a timer: background tabs do not get animation frames).
+  await friend.bringToFront(); await friend.keyboard.down('KeyW');
+  await page.waitForFunction(y => Math.abs(Number(document.querySelector('.adventure-radar circle.remote-player')?.getAttribute('cy')) - y) > 4, start, { polling: 250, timeout: 90000 });
+  await friend.keyboard.up('KeyW'); await page.bringToFront();
   await page.waitForTimeout(600);
   await page.screenshot({ path: 'test-results/multiplayer-ghost.png' });
   await friend.close();
   await page.locator('.adventure-online', { hasText: 'Local · 0 other tabs' }).waitFor({ timeout: 10000 });
   assert.deepEqual(errors, []); assert.deepEqual(violations, []); assert.deepEqual(external, [], 'no third-party requests');
-  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, island map, sailing course, airport-only flights, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
+  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, island map, world map with location, world boss panel, sailing course, airport-only flights, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.httpServer.close(resolve));

@@ -1,5 +1,6 @@
 import { ONLINE, ONLINE_CONFIGURED } from '../config/online.js';
 import { LOBBY_CHANNEL, cityChannel } from '../models/worldTour/multiplayer.js';
+import { AUTH_OPTIONS, guestClient, signInGuest } from './guestSession.js';
 
 // Network transport for shared-world presence. Two interchangeable transports expose the same interface:
 //   { mode, selfId, join(city), send(state), setProfile(profile), profileOf(id), close() }
@@ -11,20 +12,18 @@ import { LOBBY_CHANNEL, cityChannel } from '../models/worldTour/multiplayer.js';
 
 export async function connectMultiplayer(handlers, { config = ONLINE, configured = ONLINE_CONFIGURED, createClient } = {}) {
   if (!configured) return localTransport(handlers);
-  const create = createClient || (await import('@supabase/supabase-js')).createClient;
-  return supabaseTransport(handlers, config, create);
+  return supabaseTransport(handlers, config, createClient);
 }
 
 async function supabaseTransport(handlers, config, createClient) {
-  const client = createClient(config.url, config.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'little-city-auth' } });
   handlers.onStatus?.({ mode: 'online', state: 'connecting' });
-  // Anonymous sign-in gives each browser a stable, server-issued identity without accounts or passwords.
-  let session = (await client.auth.getSession()).data?.session;
-  if (!session) {
-    const { data, error } = await client.auth.signInAnonymously();
-    if (error) { handlers.onStatus?.({ mode: 'online', state: 'error', reason: 'sign-in' }); throw error; }
-    session = data.session;
-  }
+  // Anonymous sign-in gives each browser a stable, server-issued identity without accounts or passwords; the session is
+  // saved in this browser and shared with the world boss (guestSession.js). Tests inject their own client.
+  let client, session;
+  try {
+    if (createClient) { client = createClient(config.url, config.key, AUTH_OPTIONS); session = await signInGuest(client); }
+    else ({ client, session } = await guestClient(config));
+  } catch (error) { handlers.onStatus?.({ mode: 'online', state: 'error', reason: 'sign-in' }); throw error; }
   // Tabs of one browser share the anonymous session, so each tab gets its own presence key or they would hide each other.
   const selfId = session.user.id + '-' + tabNonce();
   await client.realtime.setAuth();

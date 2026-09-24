@@ -1,6 +1,6 @@
 # Little City: World Tour
 
-An open-world action game that runs in your web browser. Fly between seven island cities, drive out past the city limits to beaches, farmland, a lighthouse and the mountains, fight, escape the police, finish contracts, and meet other players in the same city. Day and night follow the time in the Philippines, and the whole world shares one weather.
+An open-world action game that runs in your web browser. Sail or fly between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, fight, escape the police, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
 
 **Contents**
 
@@ -9,23 +9,26 @@ An open-world action game that runs in your web browser. Fly between seven islan
 3. [Controls](#3-controls)
 4. [Reading the screen](#4-reading-the-screen)
 5. [Cities and travel](#5-cities-and-travel)
-   - [The island](#the-island)
+   - [The islands](#the-islands)
+   - [The metro](#the-metro)
+   - [Boats and sailing](#boats-and-sailing)
    - [Day, night and weather](#day-night-and-weather)
 6. [Contracts](#6-contracts)
 7. [Fighting](#7-fighting)
-8. [Police and your wanted level](#8-police-and-your-wanted-level)
-9. [Driving](#9-driving)
-10. [Life on the streets](#10-life-on-the-streets)
-11. [Playing together](#11-playing-together)
-12. [Saves and settings](#12-saves-and-settings)
-13. [Troubleshooting](#13-troubleshooting)
-14. [For site owners: running, online play and deployment](#14-for-site-owners-running-online-play-and-deployment)
+8. [Kaiju: the world boss](#8-kaiju-the-world-boss)
+9. [Police and your wanted level](#9-police-and-your-wanted-level)
+10. [Driving](#10-driving)
+11. [Life on the streets](#11-life-on-the-streets)
+12. [Playing together](#12-playing-together)
+13. [Saves and settings](#13-saves-and-settings)
+14. [Troubleshooting](#14-troubleshooting)
+15. [For site owners: running, online play and deployment](#15-for-site-owners-running-online-play-and-deployment)
 
 ---
 
 ## 1. Getting started
 
-Open the game's web address in a recent desktop or mobile browser (Chrome, Edge, Firefox or Safari). The game needs **WebGL** (hardware graphics). There is nothing to install and no account to create.
+Open the game's web address in a recent desktop or mobile browser (Chrome, Edge, Firefox or Safari). The game needs **WebGL** (hardware graphics). There is nothing to install and no account to create: you play as a guest, and this browser remembers you (see [Saves and settings](#13-saves-and-settings)).
 
 The first time you play, you design your character. After that, the game opens straight into your city.
 
@@ -46,20 +49,23 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 
 ### Keyboard
 
-| Key | On foot | In a car |
-| --- | --- | --- |
-| **W A S D** or arrows | Walk | Accelerate, brake/reverse, steer |
-| **Shift** | Sprint | |
-| **Space** | Jump | Handbrake (slides the rear for drifting) |
-| **F** | Get into your car (stand next to it) | Get out (stop first) |
-| **J** | Shoot or punch; hold to keep attacking | |
-| **Q** | Switch between pistol and fists | |
-| **R** | Reload the pistol | |
-| **E** | Collect, deliver, or heal at the City Hub | |
-| **M** | Island map and flights | Island map and flights |
-| **L** | Contract board | Contract board |
-| **Esc** | Pause menu and controls | Pause menu |
-| **Mouse drag / scroll** | Turn and zoom the camera | Turn and zoom the camera |
+| Key | On foot | In a car | In the boat |
+| --- | --- | --- | --- |
+| **W A S D** or arrows | Walk | Accelerate, brake/reverse, steer | Throttle, reverse, rudder |
+| **Shift** | Sprint | | Full speed |
+| **Space** | Jump | Handbrake (slides the rear for drifting) | |
+| **F** | Get into your car or the boat (stand next to it) | Get out (stop first) | Go ashore (slow down next to a beach or the marina) |
+| **J** | Shoot or punch; hold to keep attacking | | |
+| **Q** | Switch between pistol and fists | | |
+| **R** | Reload the pistol | | |
+| **E** | Collect, deliver, heal at the City Hub, or take the metro at a station | | |
+| **M** | World map, island map and travel | World map, island map and travel | World map, island map and travel |
+| **L** | Contract board | Contract board | Contract board |
+| **B** | Kaiju event and rankings | Kaiju event and rankings | Kaiju event and rankings |
+| **Esc** | Pause menu and controls | Pause menu | Pause menu |
+| **Mouse drag / scroll** | Turn and zoom the camera | Turn and zoom the camera | Turn and zoom the camera |
+
+A button above the controls bar always shows what you can do right where you are (for example **F Take the boat** or **E Take the metro · North station**); you can also click or tap it.
 
 Movement follows the camera: **W** always walks the way the camera faces.
 
@@ -72,9 +78,10 @@ Opening any menu pauses the game.
 ## 4. Reading the screen
 
 - **Top centre**: the **sky chip**: the time in the Philippines (PH time) and the current weather.
-- **Top left**: the city, the part of the island you are in (for example *Ocean Drive*, *Ring Road*, *Beach* or *Mount Alon*), and your connection to other players (see [Playing together](#11-playing-together)).
+- **Top left**: the country and region, the city, the part of the island you are in (a district such as *Neon Crossing*, or *Ring road*, *Beach*, *Lighthouse*, *Open sea* and so on), and your connection to other players (see [Playing together](#12-playing-together)).
 - **Top right**: your name, **wanted stars**, cash, **health** (it glows red when low), and your weapon with ammunition, or your speed while driving.
-- **Left panel**: your current objective and the distance to the gold marker. **Find a contract** or **Contract details** opens the contract board.
+- **Left panel**: your current objective and the distance to the gold marker. **Find a contract** or **Contract details** opens the contract board. On a sea voyage it shows your course, and on the metro the next stop. The **GPS** buttons on the island map set the gold marker to a place such as the marina or the airport.
+- **Kaiju banner** (under the sky chip, from an hour before the event): the countdown, then the Kaiju's health, the time left, and your damage and rank. See [Kaiju: the world boss](#8-kaiju-the-world-boss).
 - **Police panel** (while wanted): what the police are doing, such as dispatching, en route, searching your last known location, on scene, or trying to arrest you.
 - **Minimap** (bottom left): a round map centred on you, with north up. It zooms out as you drive faster, and a gold arrow on its edge points to an objective that is off the map. **Map ↗** opens the full island map.
   - white arrow: you
@@ -85,31 +92,54 @@ Opening any menu pauses the game.
   - blue dots: police officers
   - squares: police cars, flashing when responding
   - pale yellow dots: other players
-  - orange dot: the lighthouse; grey and white circles: mountains (white tops are snow)
+  - light blue dot: your boat; brown strip: the marina pier
+  - blue dashed square and blue dots: the elevated metro loop and its four stations
+  - orange dot: the lighthouse; coloured shapes: hills, mountains, dunes and volcanoes (white tops are snow); dark green: forest; teal: lakes and rice paddies; brown squares: houses
 - **Ring on the ground**: who your next attack will hit. Red means a threat, white means a bystander.
 - **Messages** appear briefly at the top of the screen.
 
 ## 5. Cities and travel
 
-Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeiro and Cape Town**. Each is a large district with its own skyline, colours, traffic, pedestrians, a waterfront promenade and an airport.
+Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeiro and Cape Town**. Each is a large district with its own skyline, colours, traffic, pedestrians and waterfront, on its own island.
 
-Press **M** to open the map, then choose **Fly to a city** and pick a destination. The flight is instant. You cannot fly while you have an unfinished contract, while you are wanted, or while you are down. The map also shows how many contracts you have finished in each city, and how many players are online there.
+Press **M** for the **World map**: the whole world at once, with every city by its usual name, a pulsing **YOU ARE HERE** marker on your city, how many players are online in each, and, around event time, where the Kaiju is. Below the map, each city has a card with two ways to get there:
+
+- **Sail**: sets a course for that city. Take your boat from the marina, head out to open sea, and follow the course; the left panel shows the heading and the distance left. The voyage only counts while you are in open sea and roughly on course. When you arrive, you come in by boat offshore of the new island, heading for its marina.
+- **Fly**: instant, but only from the **airport** (walk or drive to it; the **Airport** GPS chip shows the way, and a prompt appears when you are there).
+
+You cannot travel while you have an unfinished contract, while you are wanted, or while you are down. The map's second tab, named after your city (for example **Miami map**), is the full map of the island you are on, with GPS buttons for the marina, airport, metro and City Hub.
 
 Everyone starts at the **City Hub**, a glass-fronted public office on the corner of the two central avenues. Its forecourt (the mint-green pad with your cyan car parked outside) is where you arrive, respawn and heal, and because every player arrives there too, it is the natural place to meet colleagues and friends.
 
-### The island
+### The islands
 
-Every city stands on the east shore of an island. The street grid and its waterfront are in the middle; around them you can explore on foot or by car:
+Every city stands on the east shore of its own island, and no two islands are alike. Each has its own coastline and landscape:
 
-- the **Ring Road**, which leaves the city to the north, south and west and loops round to the beaches on either side of the waterfront, lit by street lamps at night
-- **beaches** with umbrellas all around the coast, and the **Lighthouse Cape** at the end of the Cape Road in the west
-- thick **Northern Woods** of pine, lowland forests of broadleaf trees (cherry blossom in Tokyo), fallen logs, boulders, bushes, wildflower meadows and long grass
-- **log cabins** hidden in the forests, whose windows light up at night
-- **Mirror Lake** in the Western Plains, with a **campsite** (tents and a campfire) on its south shore and a cabin on its east shore
-- the fenced fields of the **Southern Farmland**
-- **Mount Alon** and its snow-capped range in the north-west, with pine forest up its lower slopes (the peaks are too steep to climb), and the gentle **South Hills**, which you can walk and drive over
+| City | Island |
+| --- | --- |
+| Miami | Barrier key, dunes, mangrove lagoons, citrus groves |
+| Tokyo | Snow-capped volcano, cedar and cherry forest, rice paddies, shrine |
+| Manila | Perfect-cone volcano, rice terraces, rainforest, bay |
+| London | Rolling chalk downs, oak woods, hedged farms, estuary |
+| Dubai | Desert dunes, red mesas, oasis, date-palm groves, fort |
+| Rio de Janeiro | Granite domes, Atlantic rainforest, beaches, hillside favela |
+| Cape Town | Flat-topped mesa, peaks, fynbos, vineyards, manor |
 
-Trees, rocks, logs, cabins and fences are solid. The sea and the lake stop you at the shore. When trees come between you and the camera, they are hidden so you can always see yourself. Press **M** for the full island map, with place names and where you are.
+On every island you will also find:
+
+- the **Ring road**, which leaves the city and loops round the island, lit by street lamps at night, with side streets through a **suburb** of houses
+- **beaches** round the coast, a **lighthouse** on its cape, a **campsite**, forests with rocks, logs, bushes, flowers and long grass, fields, lakes and hills
+- the **marina** on the east waterfront, where your boat is moored, and the **airport** on the west side of the city
+
+Hills and gentle slopes can be walked and driven over; volcano cones, cliffs and mesa walls are too steep. Trees, rocks, logs, houses and fences are solid, and the sea and lakes stop you at the shore. When trees come between you and the camera, they are hidden so you can always see yourself. Press **M** and open the island tab for the full map with place names.
+
+### The metro
+
+An elevated metro loop runs above the city streets, with four stations: **North, East, South and West**. Walk to a station (a prompt appears) and press **E** to wait on the platform; the prompt counts down to the next train, which boards automatically. On board, press **E** when the train stops at a station to get off there. The trains run to a timetable, so every player sees the same train at the same place.
+
+### Boats and sailing
+
+Your speedboat is moored at the end of the **marina** pier on the east waterfront. Stand next to it and press **F**. **W/S** is throttle and reverse, **A/D** the rudder (it only bites when you are moving), and **Shift** gives full speed. Sail round your island, or set a course from the World map and sail to another one. To land, slow down next to a beach or the marina and press **F** again; your boat stays where you left it.
 
 ### Day, night and weather
 
@@ -143,7 +173,32 @@ Each city has three contracts, 21 in total:
 - **Health**: at zero health you are **WASTED** and wake up at the City Hub. To heal, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills your ammunition.
 - **Blood** effects can be switched off in the pause menu.
 
-## 8. Police and your wanted level
+## 8. Kaiju: the world boss
+
+Every day at **12:00 Philippine time**, a giant Kaiju, taller than the city's towers, rises from the sea off one of the seven cities and attacks it for **one hour**. The cities take turns, one per day. It has **1,000,000,000 HP** shared by every player in the world.
+
+- **Before**: an hour ahead, a banner announces where it will appear, with a countdown. Sail or fly there in time. The World map marks the city.
+- **The fight**: it wades ashore and stomps through the streets. Shoot or punch it (**J**) from up to about 220 metres. It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
+- **Destruction**: buildings, trees and lamp posts it hits collapse into rubble and craters. The damage stays for the whole hour and the city is restored when the event ends.
+- **The end**: when its HP reaches zero it is **defeated**. If time runs out first, it **retreats**. Either way, the next day's event is prepared.
+
+Press **B** (or the **Kaiju** button) for the event panel:
+
+- the event status, the Kaiju's HP, and your damage, rank, hits and deaths
+- the **live ranking**: rank, player, total damage and share of the damage dealt
+- the **weekly leaderboard**, which adds up everyone's damage from Monday 00:00 to Sunday 23:59 Philippine time and then resets
+
+Weekly rewards (claim them from the panel once the week is over; each reward can be claimed once):
+
+| Final weekly rank | Reward |
+| --- | --- |
+| #1 | $100,000 and the "Kaiju Slayer" title |
+| #2–10 | $50,000 and the "Kaiju Hunter" title |
+| #11–100 | $10,000 and the "Defender" title |
+
+**Fair play**: the server decides everything that matters. Your game only reports *how many* shots and punches landed. The server checks each batch against the weapons' fire rates, the time since your last report, and your distance from where the Kaiju is at that moment (it computes the Kaiju's path itself), then applies the damage per hit. The server also owns the schedule, HP, defeat, deaths, rankings and rewards, and the destruction follows from the event's server-issued seed, so it is the same for everyone.
+
+## 9. Police and your wanted level
 
 Attacking anyone, or hitting people with your car, gives you **wanted stars**. Hurting bystanders or police adds more. Fighting gang members stays at one star.
 
@@ -153,7 +208,7 @@ Attacking anyone, or hitting people with your car, gives you **wanted stars**. H
 - **Chases**: a patrol car that sees you chases you. Out of sight, police search where you were last seen. Drive away and officers on foot get back in their car and follow.
 - **Losing them**: stop attacking for **12 seconds** and stay **out of sight for 8 seconds**. Your stars then fade. Buildings and distance help.
 
-## 9. Driving
+## 10. Driving
 
 Your car is the cyan coupe next to the City Hub. Walk up to it and press **F**. To get out, stop and press **F** again.
 
@@ -162,11 +217,11 @@ Your car is the cyan coupe next to the City Hub. Walk up to it and press **F**. 
 - If the car ends up on its side or roof, wait a moment and it is set back on its wheels.
 - Pause and choose **Return to City Hub** if you get stuck anywhere. This also cancels an unfinished contract.
 
-## 10. Life on the streets
+## 11. Life on the streets
 
 About 95 people live in each city. You will see families with children holding hands, office workers taking phone calls, joggers, and friends chatting. There are food stalls with vendors and queues, bus stops where people sit and wait, and benches. People walk to these places, stay a while and move on. Traffic drives in lanes and gives way to pedestrians. Violence nearby sends everyone running; vendors come back once it is calm.
 
-## 11. Playing together
+## 12. Playing together
 
 Everyone playing in the same city can see each other: your character, name tag, and your car when you drive. You also see each other fight: raising a pistol or fists, punching, muzzle flashes, bullet tracers, and blood where a hit landed. Other players also appear as pale yellow dots on the minimap, and the world map shows how many people are in each city.
 
@@ -181,23 +236,24 @@ The status under the city name shows your connection:
 
 Things to know:
 
-- Other players are visible but pass through you, and you cannot fight each other. Traffic, pedestrians, police, contracts and money are your own, so the person another player hits exists only in their game: you see the attack and the blood, not the victim.
-- You only see players in **your current city**. Fly to the same city to meet.
+- Other players are visible, including when they drive, sail or ride the metro, but pass through you, and you cannot fight each other. Traffic, pedestrians, police, contracts and money are your own, so the person another player hits exists only in their game: you see the attack and the blood, not the victim.
+- You only see players in **your current city**. Sail or fly to the same city to meet. The Kaiju is shared by everyone in the world.
 - To test on one computer, open the game in two tabs or two browsers. Each tab is a separate player.
 
-## 12. Saves and settings
+## 13. Saves and settings
 
 The game saves automatically **in your browser** on this device:
 
 - your character
 - cash, completed contracts and your current city
 - the blood effects setting
+- your **guest identity**: online, the game signs you in anonymously the first time and keeps that session in this browser, so every later visit is the same guest, with the same Kaiju damage, weekly rank and rewards. Without an online server, a guest id is saved instead.
 
-An unfinished contract restarts after reloading the page. Saves do not move between browsers or devices. Clearing this site's data in your browser resets everything, including your character. If your browser blocks storage (for example some private modes), the game still works, but progress lasts only until you close it.
+An unfinished contract restarts after reloading the page. Saves do not move between browsers or devices. Clearing this site's data in your browser resets everything, including your character and your guest identity (a new guest starts from zero on the leaderboards). If your browser blocks storage (for example some private modes), the game still works, but progress lasts only until you close it.
 
 The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Return to City Hub**, and **Edit character**, plus a list of the controls.
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 | Problem | Try this |
 | --- | --- |
@@ -206,13 +262,14 @@ The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Return to 
 | Keys stop responding | Click the game once. Menus and switching tabs pause the game and release held keys. |
 | I am stuck | Pause and choose **Return to City Hub**. |
 | It is too dark to see | Night follows Philippine time. Zoom the camera in; street lamps and lit windows help in the city. |
-| I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. |
+| I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. To fly, go to the airport; to sail, take the boat from the marina and head for open sea on the course shown. |
+| My Kaiju damage does not count | Get within about 220 metres of it and be in its city. The panel (**B**) shows your hits as the server counts them. |
 | I cannot collect a reward | Stop fully at the marker, and lose all wanted stars first. |
 | I do not see my friend | Check you are both in the same city and both show **Online**. On one computer, use two different browsers. |
 
 ---
 
-## 14. For site owners: running, online play and deployment
+## 15. For site owners: running, online play and deployment
 
 This part is for whoever hosts the game.
 
@@ -244,7 +301,8 @@ Without this, only tabs of the same browser share the world. Online play uses a 
      SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
      ```
    - **On Vercel**: Project → Settings → **Environment Variables**. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production (and Preview if you use it). The names `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` also work. Marking them Sensitive is fine. Then **redeploy**: the values are built into the site, so a new deployment is needed.
-7. **Check it**: the build log shows `Multiplayer: online via SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY`, and the game shows **Online · 0 other players here**.
+7. **The Kaiju event**: in the SQL Editor, also run the whole of [`supabase/world-boss.sql`](supabase/world-boss.sql). It creates the event, damage, weekly board and reward tables (hidden from players; they can only use the game's checked functions) and the reward tiers, which you can change in the `boss_reward_tiers` table. Weeks are closed automatically the first time anyone opens the board after Monday 00:00 PH time; if you have the `pg_cron` extension, the file shows an optional schedule for it. Without this step, online play works but the Kaiju panel says the event server cannot be reached.
+8. **Check it**: the build log shows `Multiplayer: online via SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY`, and the game shows **Online · 0 other players here**.
 
 If it does not connect: **Offline** usually means anonymous sign-ins are off or the key is wrong. A status stuck on **Connecting…** usually means step 4 was not run. **Local** means the values were not found by the build.
 
@@ -261,10 +319,12 @@ The repository includes `vercel.json`, so Vercel needs no extra settings. It ins
 
 For testing, add `?clock=HH:MM` (Philippine time, 24-hour) and/or `?weather=clear|cloudy|rain|storm` to the address, for example `/?clock=21:30&weather=rain`. The clock then runs on from that time. This only changes what that browser shows; everyone else keeps the shared live sky.
 
+Without Supabase, the Kaiju event runs in the same browser (all tabs share it), and the preview clock moves it too: `/?clock=11:58` shows the countdown and `/?clock=12:05` the fight. With Supabase configured, the event always follows the server's clock.
+
 ### Checks before publishing
 
 ```bash
-npm test              # game rules, physics, multiplayer, saves and security
+npm test              # game rules, physics, islands, multiplayer, the Kaiju server rules (on a real Postgres), saves and security
 npm run test:browser  # builds the site and plays it in Chrome, including two players
 npm run audit:security
 ```
@@ -273,4 +333,4 @@ npm run audit:security
 
 ### Credits
 
-Physics by [Rapier](https://rapier.rs), rendering by [Three.js](https://threejs.org), multiplayer by [Supabase Realtime](https://supabase.com/docs/guides/realtime). All characters, cars and scenery are generated in code.
+Physics by [Rapier](https://rapier.rs), rendering by [Three.js](https://threejs.org), multiplayer by [Supabase Realtime](https://supabase.com/docs/guides/realtime). All characters, cars, boats, trains, scenery and the Kaiju itself are generated in code, and its sounds are synthesised in the browser, so there are no third-party models or audio with licences to track. The Kaiju server tests use [PGlite](https://pglite.dev).
