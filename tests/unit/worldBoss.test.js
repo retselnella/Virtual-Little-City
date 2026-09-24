@@ -206,3 +206,11 @@ test('destruction stays for the whole event and the city is restored when it end
   assert.equal(s.boss, null); assert.equal(s.ruins, null); assert.equal(s.blocks, s.baseBlocks, 'the city is whole again');
   assert.ok(s.blocks.every(b => !b.ruined));
 });
+
+test('the Kaiju panel explains server errors the owner can fix', async () => {
+  const { describeBossError } = await import('../../src/services/bossService.js');
+  assert.match(describeBossError({ code: 'PGRST202', message: 'Could not find the function public.boss_state(p_test) in the schema cache' }), /run the whole supabase\/world-boss.sql/);
+  assert.match(describeBossError({ code: '42501', message: 'permission denied for function boss_state' }), /refused/);
+  assert.match(describeBossError(new Error('Anonymous sign-ins are disabled')), /Anonymous sign-ins are off/);
+  assert.match(describeBossError({ message: 'boom' }), /Server error: boom/);
+});

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { connectBoss } from '../services/bossService.js';
+import { connectBoss, describeBossError } from '../services/bossService.js';
 import { BOSS_NAME } from '../models/worldTour/bossRules.js';
 import { notify } from '../models/worldTour/worldAdventure.js';
 import { CITIES } from '../models/worldTour/worldAdventure.js';
@@ -10,7 +10,7 @@ import { CITIES } from '../models/worldTour/worldAdventure.js';
 // asks the server for its test event, which it only gives while the owner has test mode on.
 export function useWorldBoss(session, playerName, clockOffset, test = false) {
   const server = useRef(null), skew = useRef(0), lastPhase = useRef(null), reported = useRef({ deaths: 0 });
-  const [status, setStatus] = useState('connecting'), [event, setEvent] = useState(null), [weekly, setWeekly] = useState(null), [hits, setHits] = useState([]);
+  const [status, setStatus] = useState('connecting'), [event, setEvent] = useState(null), [weekly, setWeekly] = useState(null), [hits, setHits] = useState([]), [problem, setProblem] = useState(null);
   const clock = useRef(() => Date.now() + skew.current);
   useEffect(() => {
     let alive = true, busy = false;
@@ -20,7 +20,7 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
       server.current = api; setStatus(api.mode);
       if (api.mode === 'local') clock.current = local;
       refresh();
-    }).catch(error => { console.warn('World boss unavailable', error); if (alive) setStatus('error'); });
+    }).catch(error => { console.warn('World boss unavailable', error); if (alive) { setStatus('error'); setProblem(describeBossError(error)); } });
     async function refresh() {
       const api = server.current; if (!api || busy) return;
       busy = true;
@@ -29,9 +29,9 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
         if (!alive || !state) return;
         if (api.mode === 'online') skew.current = state.serverNow - Date.now();
         const next = normalize(state);
-        session.current.bossEvent = next; setEvent(next); setStatus(api.mode); announce(next);
+        session.current.bossEvent = next; setEvent(next); setStatus(api.mode); setProblem(null); announce(next);
         await flush(next);
-      } catch (error) { console.warn('World boss state', error); if (alive && !session.current.bossEvent) setStatus('error'); }
+      } catch (error) { console.warn('World boss state', error); if (alive && !session.current.bossEvent) { setStatus('error'); setProblem(describeBossError(error)); } }
       finally { busy = false; }
     }
     // Report hits and deaths since the last report; the server answers with the damage it granted.
@@ -58,7 +58,7 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
   }, []);
   async function loadWeekly() { const api = server.current; if (!api) return; try { setWeekly(normalizeWeekly(await api.weekly())); } catch (error) { console.warn('Weekly board', error); } }
   async function claim() { const api = server.current; if (!api) return 0; const cash = Number(await api.claim()) || 0; if (cash) session.current.cash += cash; await loadWeekly(); return cash; }
-  return { status, event, weekly, hits, clock, loadWeekly, claim, playerId: server.current?.playerId };
+  return { status, problem, event, weekly, hits, clock, loadWeekly, claim, playerId: server.current?.playerId };
 }
 const num = v => Number(v) || 0;
 function normalize(s) {

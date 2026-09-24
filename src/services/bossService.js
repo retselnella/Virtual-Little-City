@@ -23,6 +23,14 @@ export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () =
     claim: () => rpc('boss_claim_rewards'),
   };
 }
+// A short, fixable explanation of why the event server failed, for the Kaiju panel.
+export function describeBossError(error) {
+  const text = String(error?.message || error || ''), code = error?.code ? ` (${error.code})` : '';
+  if (error?.code === 'PGRST202' || /could not find the function/i.test(text)) return `The Kaiju functions on the server are missing or out of date${code}. In Supabase → SQL Editor, run the whole supabase/world-boss.sql with nothing highlighted.`;
+  if (error?.code === '42501' || /permission denied/i.test(text)) return `The server refused the request${code}. Run the whole supabase/world-boss.sql again in the Supabase SQL Editor.`;
+  if (/anonymous sign-ins are disabled/i.test(text)) return 'Anonymous sign-ins are off in Supabase (Authentication → Sign In / Providers).';
+  return `Server error${code}: ${text.slice(0, 200) || 'no response'}.`;
+}
 function localBoss(clock, storage) {
   const playerId = localGuestId(storage);
   const load = () => { const value = readJson(STORAGE_KEYS.boss, storage).value; return value && typeof value === 'object' && value.events ? value : createBossStore(); };
