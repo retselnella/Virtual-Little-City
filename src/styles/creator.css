@@ -1,0 +1,22 @@
+/* Character creator: shown on first launch and from the pause menu. Builds on .adventure-dialog in adventure.css. */
+.creator-dialog{width:min(1040px,calc(100vw - 24px))}
+.creator{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:28px;margin-top:18px}
+.creator-stage{position:relative;min-height:440px;border-radius:14px;background:radial-gradient(circle at 50% 70%,#2f4a57,#132430 72%);border:1px solid #ffffff18;overflow:hidden}
+.creator-preview{position:absolute;inset:0}.creator-preview canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:none}
+.creator-stage small,.creator-fallback{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:10px;letter-spacing:1px;color:#b8c9cb;margin:0;padding:0 16px}
+.creator-options{display:grid;gap:14px;align-content:start}
+.creator-name{display:grid;gap:7px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#afcfcb}
+.creator-name input{width:100%;padding:12px 13px;border-radius:8px;border:1px solid #ffffff30;background:#10212b;color:#f3eee5;font-size:14px;letter-spacing:0;text-transform:none}
+.creator-name input:focus-visible{outline:2px solid #9ee8d1;outline-offset:2px}
+.creator-group{border:0;margin:0;padding:0;min-width:0}.creator-group legend{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#afcfcb;margin-bottom:8px;padding:0}
+.creator-swatches,.creator-chips{display:flex;flex-wrap:wrap;gap:8px}
+.creator-dialog .creator-swatches button{width:34px;height:34px;border-radius:50%;border:2px solid #ffffff38;background:var(--swatch);padding:0}
+.creator-dialog .creator-swatches button[aria-pressed="true"]{border-color:#f8d47a;box-shadow:0 0 0 3px #f8d47a55}
+.creator-dialog .creator-chips button{border:1px solid #ffffff30;background:#ffffff08;color:#dbe6e3;border-radius:999px;padding:8px 14px;font-size:12px}
+.creator-dialog .creator-chips button[aria-pressed="true"]{background:#bfdcd0;border-color:#bfdcd0;color:#1c393d}
+.creator-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.creator-dialog .creator-actions button{border:1px solid #ffffff30;background:transparent;color:#c5d7d6;font-size:12px;padding:11px 16px;border-radius:6px}
+.creator-dialog .creator-actions .creator-primary{margin-left:auto;background:#bfdcd0;border-color:#bcd5c5;color:#1c393d;font-weight:700}
+.creator-dialog .creator-swatches button:focus-visible,.creator-dialog .creator-chips button:focus-visible,.creator-dialog .creator-actions button:focus-visible{outline:2px solid #9ee8d1;outline-offset:3px}
+.adventure-player{display:block;font-size:10px;letter-spacing:1.5px;color:#e7e4df;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:760px){.creator{grid-template-columns:1fr;gap:16px}.creator-stage{min-height:260px;height:38svh}.creator-dialog .creator-swatches button{width:30px;height:30px}.creator-dialog .creator-actions .creator-primary{margin-left:0;flex-basis:100%}.adventure-player{font-size:8px}}

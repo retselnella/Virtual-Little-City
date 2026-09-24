@@ -1,0 +1,27 @@
+{
+  "name": "little-city",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/unit/*.test.js",
+    "test:architecture": "node --test tests/unit/architecture.test.js",
+    "test:browser": "npm run build && node tests/browser/smoke.mjs",
+    "audit:security": "npm audit --audit-level=moderate"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.20.0",
+    "@supabase/supabase-js": "^2.117.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "playwright": "^1.63.0",
+    "vite": "^7.1.0"
+  }
+}

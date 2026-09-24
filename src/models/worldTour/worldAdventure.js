@@ -1,0 +1,299 @@
+import { ROAD_GRID, vehicle, createTraffic, createPatrols, driveVehicle, steerVehicle, stepCharacterBody, pushCharacter, angleDelta, random } from './worldPhysics.js';
+import { stepPhysics, castShot } from './physicsEngine.js';
+import { updatePolice } from './worldPolice.js';
+import { createPedestrians, stepPedestrians } from './worldPedestrians.js';
+import { playerLook } from './characterProfile.js';
+
+export const CITIES = [
+  { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
+  { id: 'tokyo', name: 'Tokyo', country: 'Japan', district: 'Neon Crossing', region: 'Asia', color: '#a8a0ff', sky: '#30344f', ground: '#666f7a', buildings: ['#53677d', '#767286', '#416777'], trees: 'cherry', map: [87, 34], seed: 13, tagline: 'Find your way through the electric night.' },
+  { id: 'manila', name: 'Manila', country: 'Philippines', district: 'Bay District', region: 'Asia', color: '#f7bd65', sky: '#daa890', ground: '#91a58b', buildings: ['#c9c5b3', '#b6c7c7', '#dfa789'], trees: 'palm', map: [82, 48], seed: 23, tagline: 'Bayfront highways and golden-hour hustle.' },
+  { id: 'london', name: 'London', country: 'United Kingdom', district: 'River Quarter', region: 'Europe', color: '#a5d6d5', sky: '#9eb5bd', ground: '#839a89', buildings: ['#a78c83', '#b7a396', '#7e949b'], trees: 'oak', map: [48, 23], seed: 37, tagline: 'Old streets. New trouble.' },
+  { id: 'dubai', name: 'Dubai', country: 'United Arab Emirates', district: 'Mirage Marina', region: 'Asia', color: '#ebcf8c', sky: '#d8b99a', ground: '#cbb58a', buildings: ['#8bafb6', '#c4c5b6', '#77979f'], trees: 'palm', map: [64, 41], seed: 43, tagline: 'Glass towers above the desert.' },
+  { id: 'rio', name: 'Rio de Janeiro', country: 'Brazil', district: 'Sunset Coast', region: 'South America', color: '#b2dc83', sky: '#ddad9a', ground: '#819c68', buildings: ['#deb49e', '#d9cc91', '#a0c9b7'], trees: 'palm', map: [35, 73], seed: 59, tagline: 'Coastal roads with something around every corner.' },
+  { id: 'cape', name: 'Cape Town', country: 'South Africa', district: 'Atlantic Point', region: 'Africa', color: '#8ed9c8', sky: '#abc7ce', ground: '#a4ab83', buildings: ['#c6bfb0', '#9ebcbb', '#dac9b7'], trees: 'oak', map: [53, 79], seed: 67, tagline: 'Take the long road to the ocean.' },
+];
+export const LIMIT = 440;
+export const ROADS = ROAD_GRID;
+export const CONTRACTS = [
+  { id: 'courier', title: 'Midnight delivery', type: 'DRIVING', reward: 650, description: 'Collect a package at the docks, then deliver it across the city.', target: { x: 120, z: 65 }, finish: { x: -240, z: -185 } },
+  { id: 'crew', title: 'Take back the block', type: 'COMBAT', reward: 1200, description: 'Eliminate the four armed gang members at the marked block. Lose the heat and return to the safehouse.', target: { x: -120, z: -65 }, finish: { x: 8, z: 12 } },
+  { id: 'escape', title: 'Heat on the highway', type: 'PURSUIT', reward: 950, description: 'Pick up the marked case, escape a two-star pursuit, then reach the drop-off.', target: { x: 240, z: 65 }, finish: { x: -360, z: 180 } },
+];
+export function generateBlocks(city) {
+  let seed = city.seed;
+  const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const blocks = [];
+  for (let x = -300; x <= 300; x += 120) for (let z = -300; z <= 300; z += 120) {
+    for (const dx of [-23, 23]) for (const dz of [-23, 23]) {
+      const height = 10 + random() * (city.id === 'dubai' ? 110 : city.id === 'tokyo' ? 75 : 44);
+      blocks.push({ x: x + dx, z: z + dz, width: 29 + random() * 8, depth: 29 + random() * 8, height, color: city.buildings[Math.floor(random() * 3)] });
+    }
+  }
+  return blocks;
+}
+export function freePosition(x, z, blocks, radius = 1) {
+  return Math.abs(x) < LIMIT - radius && Math.abs(z) < LIMIT - radius && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
+}
+export function clearSight(a, b, blocks) {
+  return !blocks.some(block => {
+    let enter = 0, exit = 1;
+    for (const [axis, size] of [['x', 'width'], ['z', 'depth']]) {
+      const delta = b[axis] - a[axis], min = block[axis] - block[size] / 2, max = block[axis] + block[size] / 2;
+      if (Math.abs(delta) < 0.00001) { if (a[axis] < min || a[axis] > max) return false; }
+      else { const near = (min - a[axis]) / delta, far = (max - a[axis]) / delta; enter = Math.max(enter, Math.min(near, far)); exit = Math.min(exit, Math.max(near, far)); }
+      if (enter > exit) return false;
+    }
+    return exit > 0 && enter < 1;
+  });
+}
+export function cleanWorldSave(value) {
+  const keys = CITIES.flatMap(c => CONTRACTS.map(m => `${c.id}:${m.id}`));
+  return { city: CITIES.some(c => c.id === value?.city) ? value.city : 'miami', cash: Number.isFinite(value?.cash) ? Math.max(0, Math.min(9999999, Math.floor(value.cash))) : 0, completed: [...new Set(Array.isArray(value?.completed) ? value.completed.filter(k => keys.includes(k)) : [])] };
+}
+export function createSession(city, save = {}, appearance = null) {
+  const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, ammo: 48, weapon: 'pistol', heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '. Your car is parked beside you.', messageTime: 7 };
+  s.pedestrians = createPedestrians(s);
+  return s;
+}
+const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+export const actor = s => s.driving ? s.car : s.player;
+export function objectivePoint(s) { return s.mission ? CONTRACTS.find(m => m.id === s.mission.id)[s.mission.stage === 0 ? 'target' : 'finish'] : null; }
+export function notify(s, message) { s.message = message; s.messageTime = 5; }
+export function startContract(s, id) {
+  const mission = CONTRACTS.find(m => m.id === id);
+  if (!mission || s.mission || s.down || s.completed.includes(`${s.city}:${id}`)) return false;
+  s.mission = { id, stage: 0 };
+  if (id === 'crew') s.enemies = s.enemies.filter(e => e.kind !== 'gang').concat(Array.from({ length: 4 }, (_, i) => ({ id: 'gang' + i, kind: 'gang', x: -120 + (i % 2) * 7 - 3, z: -65 + Math.floor(i / 2) * 8, health: 100, cooldown: 1 + i * 0.5 })));
+  notify(s, 'Contract started: ' + mission.title); return true;
+}
+export function interact(s) {
+  if (s.down) return;
+  const at = actor(s), point = objectivePoint(s);
+  if (point && distance(at, point) < 12 && Math.abs(at.speed) < 3) {
+    if (s.mission.stage === 0) {
+      if (s.mission.id === 'crew') { notify(s, 'Eliminate the marked gang members first.'); return; }
+      s.mission.stage = 1;
+      if (s.mission.id === 'escape') { s.heat = 2; s.quiet = 0; }
+      notify(s, 'Package collected. Follow the gold marker to the drop-off.');
+    } else {
+      if (s.heat > 0) { notify(s, 'Lose the police before completing the contract.'); return; }
+      const mission = CONTRACTS.find(m => m.id === s.mission.id);
+      s.cash += mission.reward; s.completed.push(`${s.city}:${mission.id}`); s.mission = null;
+      notify(s, `Contract complete. +$${mission.reward.toLocaleString()}`);
+    }
+    return;
+  }
+  if (distance(at, { x: 8, z: 12 }) < 13 && !s.driving && s.heat === 0) { s.health = 100; s.ammo = 48; notify(s, 'Safehouse: health and ammunition restored.'); return; }
+  notify(s, 'Move to the gold marker and stop to interact.');
+}
+export function toggleVehicle(s) {
+  if (s.down) return;
+  if (s.driving) {
+    if (Math.abs(s.car.speed) > 3) { notify(s, 'Brake before getting out.'); return; }
+    const exits = [[4, 0], [-4, 0], [0, 5], [0, -5]];
+    const exit = exits.find(([x, z]) => freePosition(s.car.x + x, s.car.z + z, s.blocks) && [...s.traffic, ...s.policeCars].every(c => Math.hypot(s.car.x + x - c.x, s.car.z + z - c.z) > c.radius + 1));
+    if (!exit) return;
+    s.player = { ...s.player, x: s.car.x + exit[0], z: s.car.z + exit[1], heading: s.car.heading, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0 }; s.driving = false;
+  } else if (distance(s.player, s.car) < 9 && Math.abs(s.car.speed) < 3) { s.driving = true; }
+  else notify(s, 'Get closer to your cyan car to enter.');
+}
+export const PISTOL_RANGE = 65, FIST_RANGE = 5;
+// Soft lock-on: hostiles anywhere in range (nearest and closest to your aim first); bystanders only when in front of you.
+// Children are never targets.
+export function targetFor(s) {
+  if (s.driving || s.down) return null;
+  const gun = s.weapon === 'pistol', range = gun ? PISTOL_RANGE : FIST_RANGE, aim = gun ? s.aimYaw ?? s.player.heading : s.player.heading;
+  const scored = [];
+  for (const e of [...s.enemies, ...s.pedestrians]) {
+    if (e.health <= 0 || e.child) continue;
+    const d = distance(s.player, e); if (d >= range) continue;
+    const off = Math.abs(angleDelta(Math.atan2(e.x - s.player.x, e.z - s.player.z), aim)), hostile = e.kind !== 'civilian';
+    if (!hostile && off > 0.9 && d > 2.5) continue;
+    scored.push({ e, score: (hostile ? 0 : 1000) + d * (1 + off * 0.8) });
+  }
+  scored.sort((a, b) => a.score - b.score);
+  return scored.find(({ e }) => clearSight(s.player, e, s.blocks))?.e || null;
+}
+// Impact events are consumed by the renderer for blood spray, pools and camera shake.
+export function addImpact(s, target, dx, dz, kind, power = 1) {
+  const d = Math.hypot(dx, dz) || 1;
+  s.impacts.push({ id: ++s.impactSeq, time: s.time, x: target.x, z: target.z, y: kind === 'pool' ? 0.3 : kind === 'punch' ? 2.6 : 2.2, dx: dx / d, dz: dz / d, kind, power, blood: !target.child });
+}
+function injure(s, target, amount, dx, dz, kind) {
+  if (target.child) return;
+  target.health = Math.max(0, target.health - amount);
+  // Victims fall away from the blow: forward when hit from behind, backward when hit from the front.
+  target.fallDir = dx * Math.sin(target.heading || 0) + dz * Math.cos(target.heading || 0) >= 0 ? 1 : -1;
+  addImpact(s, target, dx, dz, kind, kind === 'punch' ? 0.8 + s.combo * 0.3 : 1);
+  if (target.health === 0 && target.deadAt === undefined) { target.deadAt = s.time; addImpact(s, target, dx, dz, 'pool'); }
+}
+export function startReload(s) {
+  if (s.ammo >= 48 || s.reload > 0 || s.down) return false;
+  s.reload = 1.5; notify(s, 'Reloading...'); return true;
+}
+export function attack(s) {
+  const gun = s.weapon === 'pistol';
+  if (s.driving || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
+  if (gun && s.ammo <= 0) { startReload(s); return; }
+  s.cooldown = gun ? 0.3 : 0.45; if (gun) s.ammo--;
+  // Punches chain into a jab, cross and heavier hook when thrown in quick succession.
+  if (!gun) { s.combo = s.time - (s.lastPunch ?? -9) < 0.9 ? (s.combo + 1) % 3 : 0; s.lastPunch = s.time; s.punchTime = 0.28; }
+  s.aimTime = gun ? 0.7 : 1.2;
+  const from = s.player;
+  let target = targetFor(s), blocked = null;
+  if (gun) {
+    // The bullet is a physics ray: a car, lamp post or body in the line of fire takes the hit instead of the target.
+    const aim = target || { x: from.x + Math.sin(s.aimYaw ?? from.heading) * PISTOL_RANGE, z: from.z + Math.cos(s.aimYaw ?? from.heading) * PISTOL_RANGE };
+    from.heading = target ? Math.atan2(target.x - from.x, target.z - from.z) : s.aimYaw ?? from.heading;
+    blocked = castShot(s, from, { x: aim.x, z: aim.z, y: target ? (target.height || 0) + 2 : undefined }, { target });
+    if (blocked) target = null;
+  }
+  if (target) {
+    const dx = target.x - from.x, dz = target.z - from.z, d = Math.hypot(dx, dz);
+    from.heading = Math.atan2(dx, dz);
+    if (gun) {
+      injure(s, target, d <= 30 ? 40 : 40 - (d - 30) / 35 * 16, dx, dz, 'shot');
+      pushCharacter(target, dx, dz, 2.8);
+    } else {
+      const hook = s.combo === 2;
+      injure(s, target, hook ? 45 : 34, dx, dz, 'punch');
+      // Jabs only rock the target so the combo stays in reach; the hook sends them flying. The player steps into each punch.
+      pushCharacter(target, dx, dz, hook ? 12 : 2.5 + s.combo, hook ? 3.4 : 0);
+      if (d > 2.2) pushCharacter(from, dx, dz, 2.5);
+      if (hook || (target.health > 0 && target.health < 35)) target.knockdown = 1.4;
+    }
+  }
+  if (gun) {
+    const heading = from.heading, end = target || blocked || { x: from.x + Math.sin(heading) * PISTOL_RANGE, z: from.z + Math.cos(heading) * PISTOL_RANGE };
+    s.shots.push({ x: from.x, z: from.z, tx: end.x, tz: end.z, ttl: 0.12, police: false });
+    if (blocked) bulletHit(s, blocked, end.x - from.x, end.z - from.z);
+  }
+  if (gun || target) {
+    // Harming bystanders or officers escalates the wanted level; gang fights stay at one star.
+    const raise = target?.kind === 'civilian' ? (target.health ? 0.2 : 0.5) : target?.kind === 'police' ? (target.health ? 0.5 : 0.9) : 0;
+    s.heat = Math.min(3, Math.max(s.heat, 1) + raise); s.quiet = 0;
+    s.alarm = { x: from.x, z: from.z, time: s.time, radius: gun ? 70 : 25 };
+    if (!s.lastSeen || s.unseen > 4) s.lastSeen = { x: from.x, z: from.z };
+  }
+}
+// Side effects of a bullet stopped by something other than its target.
+function bulletHit(s, hit, dx, dz) {
+  if (hit.kind === 'vehicle') hit.owner.damage = Math.min(100, (hit.owner.damage || 0) + 1.5);
+  if (hit.kind === 'ragdoll' && !hit.owner.child) addImpact(s, { x: hit.x, z: hit.z }, dx, dz, 'shot', 0.7);
+}
+function bust(s) {
+  const fine = Math.min(s.cash, 500);
+  s.cash -= fine; s.down = 4; s.downReason = 'busted'; s.arrest = 0;
+  notify(s, fine ? `BUSTED. You paid a $${fine} fine.` : 'BUSTED. Released with a warning.');
+}
+// A new look from the character creator. The player object is replaced (same place and motion) so the physics layer
+// rebuilds the capsule at the new body size.
+export function setAppearance(s, appearance) {
+  if (s.appearance === appearance) return;
+  s.appearance = appearance; s.player = { ...s.player, look: playerLook(appearance) };
+}
+export function recover(s) {
+  s.player = { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(s.appearance) }; s.car = vehicle('player', 3, 12, Math.PI, 'player'); s.driving = false; s.health = 100; s.ammo = 48; s.reload = 0; s.heat = 0; s.down = 0; s.mission = null; s.enemies = []; s.traffic = createTraffic(); s.policeCars = createPatrols(); s.incident = false; s.arrest = 0; s.downReason = ''; s.lastSeen = null; s.alarm = null;
+  notify(s, 'Back at the safehouse. Any unfinished contract can be restarted.');
+}
+export function stepWorld(s, input, delta, yaw = Math.PI) {
+  const duration = Math.min(Math.max(delta, 0), 0.05), steps = Math.max(1, Math.ceil(duration * 120));
+  for (let i = 0; i < steps; i++) stepSimulation(s, input, duration / steps, yaw);
+}
+function stepSimulation(s, input, dt, yaw) {
+  s.time += dt;
+  s.cooldown = Math.max(0, s.cooldown - dt); s.messageTime = Math.max(0, s.messageTime - dt);
+  s.aimTime = Math.max(0, s.aimTime - dt); s.punchTime = Math.max(0, s.punchTime - dt);
+  if (!s.driving) s.aimYaw = yaw;
+  s.shots = s.shots.map(shot => ({ ...shot, ttl: shot.ttl - dt })).filter(shot => shot.ttl > 0);
+  if (s.impacts.length && s.time - s.impacts[0].time > 1) s.impacts = s.impacts.filter(i => s.time - i.time <= 1);
+  // While wasted or busted the city keeps moving (and a wasted player's ragdoll keeps falling), but the player has no control.
+  const down = s.down > 0;
+  if (down) { s.down -= dt; if (s.down <= 0) { recover(s); return; } }
+  if (!down && s.reload > 0) { s.reload -= dt; if (s.reload <= 0) { s.ammo = 48; notify(s, 'Reloaded.'); } }
+  const p = actor(s), control = !down && !(s.player.knockdown > 0) ? input : {};
+  const forward = Number(!!control.forward) - Number(!!control.backward), right = Number(!!control.right) - Number(!!control.left);
+  if (!s.driving) {
+    const length = Math.hypot(forward, right) || 1, speed = control.run ? 15 : 8;
+    const dx = (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
+    const dz = (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
+    stepCharacterBody(p, dx, dz, dt);
+    if (dx || dz) p.heading = Math.atan2(dx, dz);
+    if (control.jump && !s.jumpHeld && !p.height && (p.velocityY || 0) <= 0) p.velocityY = 8;
+    // Rapier integrates the jump and clears the vertical velocity on landing (roofs and car tops included).
+    s.jumpHeld = !!control.jump; p.velocityY = (p.velocityY || 0) - 22 * dt;
+  }
+  if (control.attack) attack(s);
+  if (s.heat > 0) s.quiet += dt;
+  if (!down) updatePolice(s, p, dt, clearSight);
+  const cars = [s.car, ...s.traffic, ...s.policeCars];
+  const walkers = s.pedestrians.filter(person => person.health > 0 && !person.ragdoll);
+  if (!s.driving) walkers.push(s.player);
+  for (const car of cars) {
+    car.hitCooldown = Math.max(0, car.hitCooldown - dt); car.impact *= Math.exp(-7 * dt);
+    if (car === s.car) driveVehicle(car, s.driving && !down ? input : { park: true }, dt);
+    else steerVehicle(car, cars, walkers, dt, car.state === 'responding' ? (car.chasing ? Math.min(42, 30 + s.heat * 4) : 26 + s.heat * 2) : 13);
+  }
+  let arresting = false;
+  for (const e of s.enemies) {
+    e.hitCooldown = Math.max(0, (e.hitCooldown || 0) - dt);
+    if (down || e.health <= 0 || e.knockdown > 0 || e.ragdoll) { stepCharacterBody(e, 0, 0, dt); e.fireTime = Math.max(0, (e.fireTime || 0) - dt); continue; }
+    const police = e.kind === 'police', returning = police && (!s.heat || e.returning), destination = returning ? s.policeCars.find(c => c.id === e.unit) || e : p;
+    // At one star, officers try to arrest a suspect on foot instead of opening fire.
+    const arrest = police && !returning && s.heat <= 1 && !s.driving;
+    const d = distance(e, destination), heading = Math.atan2(destination.x - e.x, destination.z - e.z); e.heading = heading;
+    const hold = returning ? 3 : arrest ? 1.7 : 12;
+    const speed = d < (police ? 180 : 80) && d > hold ? police ? (returning || arrest || d > 18 ? 9 : 5) : d > 25 ? 6 : 3.5 : 0;
+    stepCharacterBody(e, Math.sin(heading) * speed, Math.cos(heading) * speed, dt);
+    e.cooldown -= dt;
+    if (arrest && d < 2.6 && (s.player.speed || 0) < 4 && !s.player.height && !s.player.ragdoll) arresting = true;
+    if (!returning && !arrest && d < 38 && e.cooldown <= 0 && clearSight(e, p, s.blocks)) {
+      e.cooldown = police ? 1.2 + random(s) * 0.6 : 1.4 + random(s) * 0.8; e.fireTime = 0.2;
+      // Cars and lamp posts in the line of fire are cover; otherwise accuracy falls with distance and the player's speed.
+      const cover = castShot(s, e, { x: p.x, z: p.z, y: s.driving ? 1.2 : (p.height || 0) + 2 }, { target: s.driving ? s.car : null });
+      const moving = s.driving ? Math.min(1, Math.abs(s.car.speed) / 30) : Math.min(1, (s.player.speed || 0) / 15);
+      const hit = !cover && (d < 8 || random(s) < Math.max(0.2, Math.min(0.95, 0.95 - d * 0.012 - moving * 0.45)));
+      let tx = p.x, tz = p.z;
+      if (cover) { tx = cover.x; tz = cover.z; bulletHit(s, cover, p.x - e.x, p.z - e.z); }
+      else if (hit) {
+        s.health -= s.driving ? 2 : 5;
+        if (!s.driving) { pushCharacter(s.player, p.x - e.x, p.z - e.z, 0.6); addImpact(s, p, p.x - e.x, p.z - e.z, 'shot', 0.6); }
+      } else {
+        const miss = (random(s) < 0.5 ? -1 : 1) * (1.5 + random(s) * 2);
+        tx = p.x + Math.cos(heading) * miss + Math.sin(heading) * 6; tz = p.z - Math.sin(heading) * miss + Math.cos(heading) * 6;
+      }
+      s.shots.push({ x: e.x, z: e.z, tx, tz, ttl: 0.13, police: true });
+    }
+    e.fireTime = Math.max(0, (e.fireTime || 0) - dt);
+  }
+  if (!down) {
+    if (arresting) {
+      if (!s.arrest) notify(s, "Police: Don't move! You're under arrest. Run or fight back to resist.");
+      s.arrest += dt; if (s.arrest >= 1.6) { bust(s); return; }
+    } else s.arrest = Math.max(0, s.arrest - dt * 2);
+  }
+  stepPedestrians(s, p, dt);
+  for (const person of [s.player, ...s.pedestrians]) person.hitCooldown = Math.max(0, (person.hitCooldown || 0) - dt);
+  const physics = stepPhysics(s, dt);
+  // Crash damage from Rapier contact forces (impact is the change in speed the crash imposed on the car).
+  for (const { car, other, impact } of physics.impacts) {
+    if (impact <= 5 || car.hitCooldown > 0) continue;
+    car.damage = Math.min(100, car.damage + impact * (other ? 0.35 : 0.5)); car.impact = Math.min(1, impact / 25); car.hitCooldown = 0.5;
+    if (car === s.car && s.driving) s.health -= impact * (other ? 0.2 : 0.25);
+  }
+  // People struck by cars: contact normals come from the physics contact manifolds.
+  for (const { person, car, nx, nz, sx, sz, closing } of physics.hits) {
+    if (person.health <= 0 || person.height > 1.4 || closing <= 3 || person.hitCooldown > 0) continue;
+    // Children are only nudged aside (never thrown or hurt); everyone else takes the full impact.
+    if (person.child) pushCharacter(person, sx, sz, Math.min(6, closing * 0.3));
+    else pushCharacter(person, nx, nz, Math.min(18, closing * 0.8), closing > 8 ? Math.min(6, closing * 0.25) : 0);
+    person.hitCooldown = 1;
+    if (person === s.player) { s.health -= closing * 2; if (closing > 12) person.knockdown = 1.5; }
+    else { injure(s, person, closing * 4, nx, nz, 'car'); if (closing > 6) person.knockdown = 1.6; }
+    car.vx *= 0.9; car.vz *= 0.9;
+    if (car === s.car && s.driving && !person.child) { s.heat = Math.max(1, s.heat); s.quiet = 0; s.alarm = { x: person.x, z: person.z, time: s.time, radius: 40 }; }
+  }
+  if (s.mission?.id === 'crew' && s.mission.stage === 0 && s.enemies.filter(e => e.kind === 'gang').every(e => e.health <= 0)) { s.mission.stage = 1; notify(s, 'Block cleared. Lose the heat and return to the safehouse.'); }
+  if (!down && s.health <= 0) { s.health = 0; s.down = 4; s.downReason = 'wasted'; notify(s, 'WASTED. Returning to the safehouse...'); }
+}

@@ -1,0 +1,109 @@
+import { CITIES, LIMIT } from './worldAdventure.js';
+import { cleanCharacter, cleanName, DEFAULT_CHARACTER, playerLook } from './characterProfile.js';
+
+// Shared-world presence: every player broadcasts where they are and how they look; everyone renders the others as
+// "ghosts" (visible, not collidable). Traffic, pedestrians, police and contracts remain simulated per player.
+// Everything that arrives over the network is untrusted and goes through the cleaners below.
+export const SEND_INTERVAL = 100, HEARTBEAT_INTERVAL = 1000, STALE_AFTER = 6000, RENDER_DELAY = 120, MAX_REMOTE = 24;
+const MAX_MESSAGES_PER_SECOND = 25, BUFFER = 24;
+export const LOBBY_CHANNEL = 'little-city:lobby';
+export const cityChannel = city => `little-city:city:${city}`;
+export const validId = id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id);
+
+const finite = (value, limit) => Number.isFinite(value) ? Math.max(-limit, Math.min(limit, value)) : null;
+const round = (value, digits = 2) => Math.round(value * 10 ** digits) / 10 ** digits;
+
+// What this player sends ~10 times a second (compact keys keep Realtime messages small).
+export function encodeState(s, now) {
+  const driving = !!s.driving, body = driving ? s.car : s.player, q = s.car.q || [0, Math.sin(s.car.heading / 2), 0, Math.cos(s.car.heading / 2)];
+  return {
+    v: 1, t: Math.round(now), x: round(body.x), z: round(body.z), y: round(driving ? s.car.y || 0 : s.player.height || 0), h: round(body.heading || 0, 3),
+    s: round(Math.min(80, Math.abs(driving ? s.car.speed || 0 : s.player.speed || 0)), 1), d: driving ? 1 : 0,
+    ...(driving ? { q: q.map(n => round(n, 3)) } : {}), k: s.down > 0 ? 1 : 0,
+  };
+}
+export function cleanState(raw) {
+  if (!raw || typeof raw !== 'object' || raw.v !== 1) return null;
+  const x = finite(raw.x, LIMIT), z = finite(raw.z, LIMIT), y = finite(raw.y, 60), h = finite(raw.h, 1e4), speed = finite(raw.s, 80);
+  if ([x, z, y, h, speed].includes(null)) return null;
+  const state = { x, z, y: Math.max(0, y), h: Math.atan2(Math.sin(h), Math.cos(h)), s: Math.abs(speed), d: raw.d === 1, k: raw.k === 1 };
+  if (state.d) {
+    const q = Array.isArray(raw.q) && raw.q.length === 4 ? raw.q.map(n => finite(n, 1)) : null, norm = q && !q.includes(null) ? Math.hypot(...q) : 0;
+    state.q = norm > 0.5 ? q.map(n => n / norm) : [0, Math.sin(state.h / 2), 0, Math.cos(state.h / 2)];
+  }
+  return state;
+}
+// Name, look and city: sent on join and whenever they change.
+export function encodeProfile(character, city) { return { v: 1, name: cleanName(character?.name), look: cleanCharacter(character) || { ...DEFAULT_CHARACTER }, city }; }
+export function cleanProfile(raw) {
+  if (!raw || typeof raw !== 'object' || raw.v !== 1) return null;
+  const look = cleanCharacter(raw.look) || { ...DEFAULT_CHARACTER };
+  return { name: cleanName(raw.name) || 'Traveller', look: { ...look, name: undefined }, scale: playerLook(look).scale, city: CITIES.some(c => c.id === raw.city) ? raw.city : null };
+}
+
+// ---- The roster of other players in this city, with a short snapshot buffer each for smooth interpolation.
+export function createRoster() { return { players: new Map(), version: 0 }; }
+function entry(roster, id) {
+  let player = roster.players.get(id);
+  if (!player) { player = { id, snapshots: [], profile: null, seen: 0, window: 0, count: 0 }; roster.players.set(id, player); roster.version++; }
+  return player;
+}
+export function receiveState(roster, id, raw, now) {
+  if (!validId(id)) return false;
+  const state = cleanState(raw); if (!state) return false;
+  const player = entry(roster, id);
+  // Flooding clients are ignored for the rest of the second rather than trusted.
+  if (now - player.window > 1000) { player.window = now; player.count = 0; }
+  if (++player.count > MAX_MESSAGES_PER_SECOND) return false;
+  player.snapshots.push({ at: now, ...state }); player.seen = now;
+  if (player.snapshots.length > BUFFER) player.snapshots.shift();
+  return true;
+}
+export function receiveProfile(roster, id, raw, now) {
+  if (!validId(id)) return false;
+  const profile = cleanProfile(raw); if (!profile) return false;
+  const player = entry(roster, id); player.profile = profile; player.seen = Math.max(player.seen, now); roster.version++;
+  return true;
+}
+export function removePlayer(roster, id) { if (roster.players.delete(id)) roster.version++; }
+export function clearRoster(roster) { roster.players.clear(); roster.version++; }
+export function pruneRoster(roster, now) { for (const [id, player] of roster.players) if (now - player.seen > STALE_AFTER) removePlayer(roster, id); }
+
+const lerpAngle = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
+function slerp(a, b, t) {
+  let dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3], sign = dot < 0 ? -1 : 1; dot *= sign;
+  const q = a.map((n, i) => n + (b[i] * sign - n) * t), norm = Math.hypot(...q) || 1;
+  return q.map(n => n / norm);
+}
+// A player's pose at `time` (RENDER_DELAY behind the newest snapshot keeps two snapshots to blend between).
+// Long gaps snap instead of sliding; beyond the newest snapshot the pose holds (no guessing ahead).
+export function samplePlayer(player, time) {
+  const list = player.snapshots; if (!list.length) return null;
+  const at = time - RENDER_DELAY;
+  if (at <= list[0].at) return { ...list[0] };
+  for (let i = list.length - 1; i > 0; i--) {
+    const a = list[i - 1], b = list[i];
+    if (at < a.at || at > b.at) continue;
+    if (b.at - a.at > 1000 || a.d !== b.d) return { ...b };
+    const t = (at - a.at) / (b.at - a.at);
+    const pose = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t, h: lerpAngle(a.h, b.h, t), s: a.s + (b.s - a.s) * t, d: b.d, k: b.k };
+    if (b.d) pose.q = slerp(a.q, b.q, t);
+    return pose;
+  }
+  return { ...list[list.length - 1] };
+}
+// The other players worth drawing: those with a known look and a pose, nearest first, capped.
+export function visiblePlayers(roster, near, time) {
+  const out = [];
+  for (const player of roster.players.values()) {
+    if (!player.profile) continue;
+    const pose = samplePlayer(player, time); if (pose) out.push({ id: player.id, profile: player.profile, pose, distance: Math.hypot(pose.x - near.x, pose.z - near.z) });
+  }
+  return out.sort((a, b) => a.distance - b.distance).slice(0, MAX_REMOTE);
+}
+// Lobby presence (who is online and where) summarised per city.
+export function cityCounts(lobby, selfId) {
+  const counts = {};
+  for (const [id, raw] of Object.entries(lobby || {})) { if (id === selfId) continue; const profile = cleanProfile(raw); if (profile?.city) counts[profile.city] = (counts[profile.city] || 0) + 1; }
+  return counts;
+}

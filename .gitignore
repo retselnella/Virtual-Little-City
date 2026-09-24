@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+test-results/
+.npm-cache/
+.vercel
+.env
+.env.*
+!.env.example
+docs/
+AGENTS.md

@@ -1,0 +1,8 @@
+/* Global reset, focus and the shared ExperienceDialog shell. World Tour restyles dialogs in adventure.css. */
+:root{font-family:Arial,sans-serif;color:#f3eee5;background:#172831;font-synthesis:none;font-weight:400}
+*{box-sizing:border-box}body{margin:0}
+button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}button,input{font:inherit}
+button:focus-visible,a:focus-visible,canvas:focus-visible{outline:2px solid #9ee8d1;outline-offset:5px}
+.experience-dialog{border:1px solid #e4e7d8;background:#f8faf2;color:#3d5146;border-radius:20px;padding:36px;width:min(540px,calc(100vw - 32px));max-height:calc(100svh - 40px);overflow-y:auto;box-shadow:0 24px 100px #0c211e44;box-sizing:border-box}.experience-dialog::backdrop{background:#152d2d80;backdrop-filter:blur(7px)}.experience-eyebrow{font-size:8px;letter-spacing:1.7px;color:#7d8d72;display:block;padding-right:20px}.experience-dialog h2{font-family:Georgia,serif;font-weight:400;font-size:36px;letter-spacing:-1px;margin:16px 0}.experience-dialog p{font-size:13px;line-height:1.8;color:#71806b}.experience-close{position:absolute;right:17px;top:15px;border:0;background:#e7ecdf;border-radius:50%;width:32px;height:32px;color:#63735a;font-size:23px;cursor:pointer}.experience-dialog button{cursor:pointer;font-family:inherit}.experience-dialog button:focus-visible{outline:2px solid #a67342;outline-offset:4px}.experience-dialog button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:760px){.experience-dialog{padding:26px 22px;max-height:calc(100svh - 24px);border-radius:15px}.experience-dialog h2{font-size:29px}.experience-eyebrow{font-size:6px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
