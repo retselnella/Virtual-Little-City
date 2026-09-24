@@ -1,11 +1,12 @@
 import { CITIES, LIMIT } from './worldAdventure.js';
 import { cleanCharacter, cleanName, DEFAULT_CHARACTER, playerLook } from './characterProfile.js';
 
-// Shared-world presence: every player broadcasts where they are and how they look; everyone renders the others as
-// "ghosts" (visible, not collidable). Traffic, pedestrians, police and contracts remain simulated per player.
+// Shared-world presence: every player broadcasts where they are, how they look and the attacks they make; everyone
+// renders the others as "ghosts" (visible, not collidable) that aim, punch and fire. Traffic, pedestrians, police and
+// contracts remain simulated per player, so an attack is replayed as a pose, tracer and blood, not as damage.
 // Everything that arrives over the network is untrusted and goes through the cleaners below.
 export const SEND_INTERVAL = 100, HEARTBEAT_INTERVAL = 1000, STALE_AFTER = 6000, RENDER_DELAY = 120, MAX_REMOTE = 24;
-const MAX_MESSAGES_PER_SECOND = 25, BUFFER = 24;
+const MAX_MESSAGES_PER_SECOND = 25, BUFFER = 24, MAX_ACTIONS = 4, ACTION_QUEUE = 16, ACTION_EXPIRY = 1000;
 export const LOBBY_CHANNEL = 'little-city:lobby';
 export const cityChannel = city => `little-city:city:${city}`;
 export const validId = id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id);
@@ -13,25 +14,35 @@ export const validId = id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.t
 const finite = (value, limit) => Number.isFinite(value) ? Math.max(-limit, Math.min(limit, value)) : null;
 const round = (value, digits = 2) => Math.round(value * 10 ** digits) / 10 ** digits;
 
-// What this player sends ~10 times a second (compact keys keep Realtime messages small).
-export function encodeState(s, now) {
+// What this player sends ~10 times a second (compact keys keep Realtime messages small). `actions` are the attacks made
+// since the last message, numbered by the sender so receivers can drop repeats.
+export function encodeState(s, now, actions = []) {
   const driving = !!s.driving, body = driving ? s.car : s.player, q = s.car.q || [0, Math.sin(s.car.heading / 2), 0, Math.cos(s.car.heading / 2)];
   return {
     v: 1, t: Math.round(now), x: round(body.x), z: round(body.z), y: round(driving ? s.car.y || 0 : s.player.height || 0), h: round(body.heading || 0, 3),
     s: round(Math.min(80, Math.abs(driving ? s.car.speed || 0 : s.player.speed || 0)), 1), d: driving ? 1 : 0,
-    ...(driving ? { q: q.map(n => round(n, 3)) } : {}), k: s.down > 0 ? 1 : 0,
+    ...(driving ? { q: q.map(n => round(n, 3)) } : {}), k: s.down > 0 ? 1 : 0, w: s.weapon === 'pistol' ? 1 : 0, a: s.aimTime > 0 ? 1 : 0,
+    ...(actions.length ? { e: actions.slice(-MAX_ACTIONS).map(a => ({ i: a.id, k: a.kind === 'shot' ? 's' : 'p', c: a.combo, x: round(a.x), z: round(a.z), b: a.blood ? 1 : 0 })) } : {}),
   };
 }
 export function cleanState(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== 1) return null;
   const x = finite(raw.x, LIMIT), z = finite(raw.z, LIMIT), y = finite(raw.y, 60), h = finite(raw.h, 1e4), speed = finite(raw.s, 80);
   if ([x, z, y, h, speed].includes(null)) return null;
-  const state = { x, z, y: Math.max(0, y), h: Math.atan2(Math.sin(h), Math.cos(h)), s: Math.abs(speed), d: raw.d === 1, k: raw.k === 1 };
+  const state = { x, z, y: Math.max(0, y), h: Math.atan2(Math.sin(h), Math.cos(h)), s: Math.abs(speed), d: raw.d === 1, k: raw.k === 1, w: raw.w === 1, a: raw.a === 1 };
   if (state.d) {
     const q = Array.isArray(raw.q) && raw.q.length === 4 ? raw.q.map(n => finite(n, 1)) : null, norm = q && !q.includes(null) ? Math.hypot(...q) : 0;
     state.q = norm > 0.5 ? q.map(n => n / norm) : [0, Math.sin(state.h / 2), 0, Math.cos(state.h / 2)];
   }
   return state;
+}
+export function cleanActions(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, MAX_ACTIONS).flatMap(a => {
+    const x = finite(a?.x, LIMIT), z = finite(a?.z, LIMIT);
+    if (!Number.isSafeInteger(a?.i) || a.i < 1 || (a.k !== 's' && a.k !== 'p') || x === null || z === null) return [];
+    return [{ id: a.i, kind: a.k === 's' ? 'shot' : 'punch', combo: [0, 1, 2].includes(a.c) ? a.c : 0, x, z, blood: a.b === 1 }];
+  });
 }
 // Name, look and city: sent on join and whenever they change.
 export function encodeProfile(character, city) { return { v: 1, name: cleanName(character?.name), look: cleanCharacter(character) || { ...DEFAULT_CHARACTER }, city }; }
@@ -45,7 +56,7 @@ export function cleanProfile(raw) {
 export function createRoster() { return { players: new Map(), version: 0 }; }
 function entry(roster, id) {
   let player = roster.players.get(id);
-  if (!player) { player = { id, snapshots: [], profile: null, seen: 0, window: 0, count: 0 }; roster.players.set(id, player); roster.version++; }
+  if (!player) { player = { id, snapshots: [], actions: [], lastAction: 0, profile: null, seen: 0, window: 0, count: 0 }; roster.players.set(id, player); roster.version++; }
   return player;
 }
 export function receiveState(roster, id, raw, now) {
@@ -57,8 +68,14 @@ export function receiveState(roster, id, raw, now) {
   if (++player.count > MAX_MESSAGES_PER_SECOND) return false;
   player.snapshots.push({ at: now, ...state }); player.seen = now;
   if (player.snapshots.length > BUFFER) player.snapshots.shift();
+  for (const action of cleanActions(raw.e)) {
+    if (action.id <= player.lastAction) continue;
+    player.lastAction = action.id; player.actions.push({ at: now, ...action });
+  }
+  if (player.actions.length > ACTION_QUEUE) player.actions.splice(0, player.actions.length - ACTION_QUEUE);
   return true;
 }
+export function hasProfile(roster, id) { return !!roster.players.get(id)?.profile; }
 export function receiveProfile(roster, id, raw, now) {
   if (!validId(id)) return false;
   const profile = cleanProfile(raw); if (!profile) return false;
@@ -86,18 +103,29 @@ export function samplePlayer(player, time) {
     if (at < a.at || at > b.at) continue;
     if (b.at - a.at > 1000 || a.d !== b.d) return { ...b };
     const t = (at - a.at) / (b.at - a.at);
-    const pose = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t, h: lerpAngle(a.h, b.h, t), s: a.s + (b.s - a.s) * t, d: b.d, k: b.k };
+    const pose = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t, h: lerpAngle(a.h, b.h, t), s: a.s + (b.s - a.s) * t, d: b.d, k: b.k, w: b.w, a: b.a };
     if (b.d) pose.q = slerp(a.q, b.q, t);
     return pose;
   }
   return { ...list[list.length - 1] };
+}
+// Attacks due to play at `time`, on the same RENDER_DELAY as the poses so shots line up with the aiming body.
+// Each is returned once; ones that waited too long (the player was off screen) are dropped unplayed.
+export function dueActions(player, time) {
+  const at = time - RENDER_DELAY, due = [];
+  player.actions = player.actions.filter(action => {
+    if (action.at > at) return true;
+    if (at - action.at <= ACTION_EXPIRY) due.push(action);
+    return false;
+  });
+  return due;
 }
 // The other players worth drawing: those with a known look and a pose, nearest first, capped.
 export function visiblePlayers(roster, near, time) {
   const out = [];
   for (const player of roster.players.values()) {
     if (!player.profile) continue;
-    const pose = samplePlayer(player, time); if (pose) out.push({ id: player.id, profile: player.profile, pose, distance: Math.hypot(pose.x - near.x, pose.z - near.z) });
+    const pose = samplePlayer(player, time); if (pose) out.push({ id: player.id, player, profile: player.profile, pose, distance: Math.hypot(pose.x - near.x, pose.z - near.z) });
   }
   return out.sort((a, b) => a.distance - b.distance).slice(0, MAX_REMOTE);
 }

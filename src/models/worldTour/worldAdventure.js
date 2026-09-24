@@ -52,7 +52,7 @@ export function cleanWorldSave(value) {
   return { city: CITIES.some(c => c.id === value?.city) ? value.city : 'miami', cash: Number.isFinite(value?.cash) ? Math.max(0, Math.min(9999999, Math.floor(value.cash))) : 0, completed: [...new Set(Array.isArray(value?.completed) ? value.completed.filter(k => keys.includes(k)) : [])] };
 }
 export function createSession(city, save = {}, appearance = null) {
-  const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, ammo: 48, weapon: 'pistol', heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '. Your car is parked beside you.', messageTime: 7 };
+  const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, ammo: 48, weapon: 'pistol', heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, actions: [], actionSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '. Your car is parked beside you.', messageTime: 7 };
   s.pedestrians = createPedestrians(s);
   return s;
 }
@@ -164,11 +164,13 @@ export function attack(s) {
       if (hook || (target.health > 0 && target.health < 35)) target.knockdown = 1.4;
     }
   }
+  const reach = gun ? PISTOL_RANGE : 2, end = target || blocked || { x: from.x + Math.sin(from.heading) * reach, z: from.z + Math.cos(from.heading) * reach };
   if (gun) {
-    const heading = from.heading, end = target || blocked || { x: from.x + Math.sin(heading) * PISTOL_RANGE, z: from.z + Math.cos(heading) * PISTOL_RANGE };
     s.shots.push({ x: from.x, z: from.z, tx: end.x, tz: end.z, ttl: 0.12, police: false });
     if (blocked) bulletHit(s, blocked, end.x - from.x, end.z - from.z);
   }
+  // Each attack is recorded for other players to replay (multiplayer.js): where it landed and whether it drew blood.
+  s.actions.push({ id: ++s.actionSeq, time: s.time, kind: gun ? 'shot' : 'punch', combo: s.combo, x: end.x, z: end.z, blood: !!target && !target.child });
   if (gun || target) {
     // Harming bystanders or officers escalates the wanted level; gang fights stay at one star.
     const raise = target?.kind === 'civilian' ? (target.health ? 0.2 : 0.5) : target?.kind === 'police' ? (target.health ? 0.5 : 0.9) : 0;
@@ -208,6 +210,7 @@ function stepSimulation(s, input, dt, yaw) {
   if (!s.driving) s.aimYaw = yaw;
   s.shots = s.shots.map(shot => ({ ...shot, ttl: shot.ttl - dt })).filter(shot => shot.ttl > 0);
   if (s.impacts.length && s.time - s.impacts[0].time > 1) s.impacts = s.impacts.filter(i => s.time - i.time <= 1);
+  if (s.actions.length && s.time - s.actions[0].time > 1) s.actions = s.actions.filter(i => s.time - i.time <= 1);
   // While wasted or busted the city keeps moving (and a wasted player's ragdoll keeps falling), but the player has no control.
   const down = s.down > 0;
   if (down) { s.down -= dt; if (s.down <= 0) { recover(s); return; } }

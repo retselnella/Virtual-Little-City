@@ -7,7 +7,7 @@ import { ROADS, actor, objectivePoint, stepWorld, targetFor } from '../../models
 import { ACTIVE_UNIT } from '../../models/worldTour/worldPolice.js';
 import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.js';
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
-import { visiblePlayers } from '../../models/worldTour/multiplayer.js';
+import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.js';
 import { createRagdollRig } from '../shared/ragdollRig.js';
 
 const BLOOD_DROPS = 360, BLOOD_POOLS = 160;
@@ -23,7 +23,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const orbit = new OrbitControls(camera, renderer.domElement); orbit.enablePan = false; orbit.enableDamping = true; orbit.minDistance = 12; orbit.maxDistance = 160; orbit.maxPolarAngle = Math.PI / 2.25;
   const hemisphere = new THREE.HemisphereLight('#fff2df', '#54647f', 2.4); scene.add(hemisphere);
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
-  let root, avatar, playerCar, marker, targetRing, dynamic, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], night = false;
+  let root, avatar, playerCar, marker, targetRing, dynamic, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], night = false;
   let muzzle, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
@@ -45,7 +45,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     textures.forEach(t => t.dispose()); textures.clear();
     for (const [key, mat] of materials) if (key.startsWith('label-')) { mat.dispose(); materials.delete(key); }
     enemies.clear(); traffic = []; patrols = []; pedestrians = []; drops = []; pools = []; poolCursor = 0;
-    shotLines.forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); }); shotLines = [];
+    shotLines.forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); }); shotLines = []; remoteShots = [];
   }
   function build(city) {
     disposeCity(); lastCity = city.id; root = new THREE.Group(); scene.add(root); dynamic = new THREE.Group(); root.add(dynamic);
@@ -142,9 +142,14 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     if (avatar) root.remove(avatar.avatar);
     avatarLook = appearance;
     avatar = createCharacter(root, kit, { shirt: '#e5ded5', ...appearance, scale: session.current.player.look?.scale || 1 }); avatar.avatar.visible = true; avatar.rig = createRagdollRig(avatar.avatar, 'player');
-    const hand = avatar.avatar.getObjectByName('right-hand'); const gun = kit.box([0.16, 0.22, 0.65], '#25303c', [0, -0.16, 0.23], hand); gun.name = 'pistol';
+    muzzle = addPistol(avatar.avatar).muzzle;
+  }
+  // A pistol in the right hand with a hidden muzzle flash (the player's avatar and other players' ghosts).
+  function addPistol(body) {
+    const gun = kit.box([0.16, 0.22, 0.65], '#25303c', [0, -0.16, 0.23], body.getObjectByName('right-hand')); gun.name = 'pistol';
     if (!materials.has('muzzle')) materials.set('muzzle', new THREE.MeshBasicMaterial({ color: '#ffe7a3' }));
-    muzzle = new THREE.Mesh(unitBox, materials.get('muzzle')); muzzle.scale.set(2.2, 1.6, 0.9); muzzle.position.set(0, 0, 0.75); muzzle.visible = false; gun.add(muzzle);
+    const flash = new THREE.Mesh(unitBox, materials.get('muzzle')); flash.scale.set(2.2, 1.6, 0.9); flash.position.set(0, 0, 0.75); flash.visible = false; gun.add(flash);
+    return { gun, muzzle: flash };
   }
   // ---- Other players (multiplayer ghosts): their own look, a name tag, and a car model while they drive.
   const remotes = new Map(), REMOTE_CARS = ['#f2c14e', '#e76f51', '#8ab17d', '#9d8df1', '#ef8fb1', '#5fa8d3'];
@@ -157,10 +162,11 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   }
   function createRemote(id, profile, key) {
     const rig = createCharacter(root, kit, { ...profile.look, scale: profile.scale }); rig.avatar.visible = true;
+    const { gun, muzzle: flash } = addPistol(rig.avatar);
     const hash = [...id].reduce((sum, c) => sum + c.charCodeAt(0), 0);
     const car = createCar(root, kit, glow, { color: REMOTE_CARS[hash % REMOTE_CARS.length], headlights: false }); car.car.scale.setScalar(1.7); car.car.visible = false;
     const tag = nameTag(profile.name); root.add(tag);
-    const model = { rig, car, tag, key }; remotes.set(id, model); return model;
+    const model = { rig, car, tag, key, gun, flash, punchTime: 0, combo: 0, fired: 0 }; remotes.set(id, model); return model;
   }
   function removeRemote(id) {
     const model = remotes.get(id); if (!model) return;
@@ -169,22 +175,36 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   function updateRemotes(s, dt) {
     if (!remote?.current) return;
     const seen = new Set();
-    for (const { id, profile, pose } of visiblePlayers(remote.current, actor(s), performance.now())) {
+    const now = performance.now();
+    remoteShots = remoteShots.filter(shot => (shot.ttl -= dt) > 0);
+    for (const { id, player, profile, pose } of visiblePlayers(remote.current, actor(s), now)) {
       seen.add(id);
       const key = JSON.stringify(profile);
       let model = remotes.get(id);
       if (!model || model.key !== key) { removeRemote(id); model = createRemote(id, profile, key); }
       model.rig.avatar.visible = !pose.d; model.car.car.visible = pose.d;
+      model.punchTime = Math.max(0, model.punchTime - dt); model.fired = Math.max(0, model.fired - dt);
+      for (const action of dueActions(player, now)) playRemoteAction(s, model, pose, action);
       if (pose.d) {
         model.car.car.position.set(pose.x, pose.y, pose.z); model.car.car.quaternion.set(...pose.q);
         model.car.wheels.forEach(wheel => { wheel.rotation.x += pose.s * dt / 0.55; });
       } else {
         model.rig.update({ x: pose.x, z: pose.z, heading: pose.h, height: pose.y, speed: pose.s, waveTime: 0 }, dt);
         model.rig.avatar.position.y = 0.2 * profile.scale + pose.y;
+        if (!pose.k) poseArms(model.rig.avatar, pose.w, pose.a, model.punchTime, model.combo, model.fired / 0.12);
       }
+      model.gun.visible = pose.w; model.flash.visible = pose.w && model.fired > 0.07;
       model.tag.position.set(pose.x, pose.y + (pose.d ? 3.6 : 4.2 * profile.scale), pose.z);
     }
     for (const id of [...remotes.keys()]) if (!seen.has(id)) removeRemote(id);
+  }
+  // Another player's attack: the punch or recoil on their ghost, a tracer for shots, and blood where it landed.
+  function playRemoteAction(s, model, pose, action) {
+    if (pose.d) return;
+    const dx = action.x - pose.x, dz = action.z - pose.z, d = Math.hypot(dx, dz) || 1;
+    if (action.kind === 'punch') { model.punchTime = 0.28; model.combo = action.combo; }
+    else { model.fired = 0.12; remoteShots.push({ x: pose.x, z: pose.z, tx: action.x, tz: action.z, ttl: 0.12 }); }
+    if (action.blood && s.blood !== false) spray({ kind: action.kind, x: action.x, z: action.z, y: action.kind === 'punch' ? 2.6 : 2.2, dx: dx / d, dz: dz / d, power: action.kind === 'punch' ? 0.8 + action.combo * 0.3 : 1 });
   }
   const follow = new THREE.Vector3(), shift = new THREE.Vector3();
   const nearCamera = person => (person.x - orbit.target.x) ** 2 + (person.z - orbit.target.z) ** 2 < 240 * 240;
@@ -244,20 +264,23 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const elbowOf = arm => arm.children.find(child => child.isGroup);
   // Combat poses layered over the shared character animation: two-handed aim with recoil, boxing guard and punches.
   function posePlayer(s) {
-    const right = avatar.avatar.getObjectByName('right-shoulder'), left = avatar.avatar.getObjectByName('left-shoulder');
     const shot = s.shots.find(x => !x.police);
     muzzle.visible = !!shot && shot.ttl > 0.07 && s.weapon === 'pistol';
     if (s.driving || s.down) return;
-    if (s.weapon === 'pistol' && (s.aimTime > 0 || input.current.attack)) {
-      const recoil = shot ? shot.ttl / 0.12 : 0;
+    const pistol = s.weapon === 'pistol';
+    poseArms(avatar.avatar, pistol, s.aimTime > 0 || (pistol && input.current.attack), s.punchTime, s.combo, shot ? shot.ttl / 0.12 : 0);
+  }
+  function poseArms(body, pistol, aiming, punchTime, combo, recoil) {
+    const right = body.getObjectByName('right-shoulder'), left = body.getObjectByName('left-shoulder');
+    if (pistol && aiming) {
       right.rotation.set(-1.5 - recoil * 0.4, 0, 0.12); elbowOf(right).rotation.set(recoil * -0.3, 0, 0);
       left.rotation.set(-1.35, 0, 0.55); elbowOf(left).rotation.set(-0.35, 0, 0);
-    } else if (s.weapon === 'fists' && (s.aimTime > 0 || s.punchTime > 0)) {
+    } else if (!pistol && (aiming || punchTime > 0)) {
       for (const [arm, inward] of [[left, 1], [right, -1]]) { arm.rotation.set(-1.05, 0, inward * 0.3); elbowOf(arm).rotation.set(-1.9, 0, 0); }
-      if (s.punchTime > 0) {
-        const reach = Math.sin(Math.min(1, (1 - s.punchTime / 0.28) * 1.7) * Math.PI), arm = s.combo === 1 ? left : right, inward = arm === left ? 1 : -1;
+      if (punchTime > 0) {
+        const reach = Math.sin(Math.min(1, (1 - punchTime / 0.28) * 1.7) * Math.PI), arm = combo === 1 ? left : right, inward = arm === left ? 1 : -1;
         arm.rotation.x = -1.05 - reach * 0.55; elbowOf(arm).rotation.x = -1.9 * (1 - reach);
-        if (s.combo === 2) arm.rotation.z = inward * (0.3 + reach * 0.7);
+        if (combo === 2) arm.rotation.z = inward * (0.3 + reach * 0.7);
       }
     }
   }
@@ -299,7 +322,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     targetRing.visible = !!lock;
     if (lock) { targetRing.position.set(lock.x, 0.35, lock.z); targetRing.rotation.z = s.time * 2; targetRing.material.color.set(lock.kind === 'civilian' ? '#f3ece1' : '#ff727f'); }
     shotLines.forEach(line => { root.remove(line); line.geometry.dispose(); line.material.dispose(); });
-    shotLines = s.shots.map(shot => { const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(shot.x, 2.1, shot.z), new THREE.Vector3(shot.tx, 2, shot.tz)]); const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: shot.police ? '#ff7881' : '#fff4b0' })); root.add(line); return line; });
+    shotLines = [...s.shots, ...remoteShots].map(shot => { const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(shot.x, 2.1, shot.z), new THREE.Vector3(shot.tx, 2, shot.tz)]); const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: shot.police ? '#ff7881' : '#fff4b0' })); root.add(line); return line; });
     traffic.forEach((model, i) => updateCar(model, s.traffic[i]));
     patrols.forEach((model, i) => {
       const car = s.policeCars[i]; updateCar(model, car);

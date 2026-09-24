@@ -144,7 +144,7 @@ About 95 people live in each city. You will see families with children holding h
 
 ## 11. Playing together
 
-Everyone playing in the same city can see each other: your character, name tag, and your car when you drive. Other players also appear as pale yellow dots on the minimap, and the world map shows how many people are in each city.
+Everyone playing in the same city can see each other: your character, name tag, and your car when you drive. You also see each other fight: raising a pistol or fists, punching, muzzle flashes, bullet tracers, and blood where a hit landed. Other players also appear as pale yellow dots on the minimap, and the world map shows how many people are in each city.
 
 The status under the city name shows your connection:
 
@@ -157,9 +157,9 @@ The status under the city name shows your connection:
 
 Things to know:
 
-- Other players are visible but pass through you, and you cannot fight each other. Traffic, pedestrians, police, contracts and money are your own.
+- Other players are visible but pass through you, and you cannot fight each other. Traffic, pedestrians, police, contracts and money are your own, so the person another player hits exists only in their game: you see the attack and the blood, not the victim.
 - You only see players in **your current city**. Fly to the same city to meet.
-- To test on one computer, use **two different browsers** (or a normal and a private window). Two tabs of the same browser count as the same player online.
+- To test on one computer, open the game in two tabs or two browsers. Each tab is a separate player.
 
 ## 12. Saves and settings
 

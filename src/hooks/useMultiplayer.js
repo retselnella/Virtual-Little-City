@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { connectMultiplayer } from '../services/multiplayerClient.js';
-import { HEARTBEAT_INTERVAL, SEND_INTERVAL, cityCounts, clearRoster, createRoster, encodeProfile, encodeState, pruneRoster, receiveProfile, receiveState, removePlayer } from '../models/worldTour/multiplayer.js';
+import { HEARTBEAT_INTERVAL, SEND_INTERVAL, cityCounts, clearRoster, createRoster, encodeProfile, encodeState, hasProfile, pruneRoster, receiveProfile, receiveState, removePlayer } from '../models/worldTour/multiplayer.js';
 
 // Shared-world presence for the game. The roster lives in a ref (the renderer reads it every frame); React state only
 // carries what the HUD shows: connection status, the players here, and online counts per city.
 export function useMultiplayer(session, character, city) {
-  const roster = useRef(createRoster()), transport = useRef(null), last = useRef({ key: '', at: 0 });
+  const roster = useRef(createRoster()), transport = useRef(null), last = useRef({ key: '', at: 0 }), outbox = useRef({ session: null, cursor: 0, seq: 0 });
   const [status, setStatus] = useState({ mode: 'offline', state: 'connecting' });
   const [peers, setPeers] = useState([]), [lobby, setLobby] = useState({}), [selfId, setSelfId] = useState(null);
   useEffect(() => {
     let alive = true, current = null;
     const handlers = {
-      onState: (id, raw) => receiveState(roster.current, id, raw, performance.now()),
+      // A player forgotten while silent (a background tab, a dropped connection) is recognised again from their presence.
+      onState: (id, raw) => {
+        const now = performance.now();
+        if (receiveState(roster.current, id, raw, now) && !hasProfile(roster.current, id)) receiveProfile(roster.current, id, transport.current?.profileOf(id), now);
+      },
       onProfile: (id, raw) => receiveProfile(roster.current, id, raw, performance.now()),
       onLeave: id => removePlayer(roster.current, id),
       onLobby: presence => alive && setLobby(presence),
@@ -22,10 +26,14 @@ export function useMultiplayer(session, character, city) {
       current = transport.current = client; setSelfId(client.selfId);
       client.setProfile(encodeProfile(character, session.current.city)); client.join(session.current.city);
     }).catch(error => { console.warn('Multiplayer unavailable', error); if (alive) setStatus({ mode: 'online', state: 'error' }); });
-    // Send this player's state: every SEND_INTERVAL while it changes, at least every HEARTBEAT_INTERVAL.
+    // Send this player's state: every SEND_INTERVAL while it changes, at least every HEARTBEAT_INTERVAL. Attacks made since
+    // the last message go with it, renumbered so the sequence keeps rising when travel or recovery starts a new session.
     const sender = setInterval(() => {
       const client = transport.current; if (!client) return;
-      const now = performance.now(), state = encodeState(session.current, now), key = JSON.stringify({ ...state, t: 0 });
+      const s = session.current, out = outbox.current;
+      if (out.session !== s) { out.session = s; out.cursor = 0; }
+      const fresh = s.actions.filter(a => a.id > out.cursor); if (fresh.length) out.cursor = fresh.at(-1).id;
+      const now = performance.now(), state = encodeState(s, now, fresh.map(a => ({ ...a, id: ++out.seq }))), key = JSON.stringify({ ...state, t: 0 });
       if (key !== last.current.key || now - last.current.at >= HEARTBEAT_INTERVAL) { client.send(state); last.current = { key, at: now }; }
     }, SEND_INTERVAL);
     const housekeeping = setInterval(() => {
