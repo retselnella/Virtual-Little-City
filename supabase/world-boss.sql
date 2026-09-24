@@ -1,5 +1,6 @@
--- Little City world boss: the server-authoritative event. Run once in the Supabase SQL editor, after
--- realtime-policies.sql. Safe to run again after updates. See README.md, section 15.
+-- Little City world boss: the server-authoritative event. Run the WHOLE file in the Supabase SQL editor (nothing
+-- highlighted, or it runs only the selection), after realtime-policies.sql. Safe to run again after updates; it keeps
+-- your data. See README.md, section 15.
 --
 -- The server decides everything that matters: when the kaiju appears (12:00 Philippine time every day, on each city in
 -- turn), its HP (1,000,000,000), how much damage each hit does, how many hits a player can land per second, whether
@@ -27,8 +28,6 @@ create table if not exists public.boss_rewards (
   tier text not null, cash integer not null, title text not null, claimed_at timestamptz, primary key (week, user_id)
 );
 create table if not exists public.boss_weeks_closed (week integer primary key, closed_at timestamptz not null default now());
--- The test clock (see boss_test_clock at the end): empty unless the owner is testing.
-create table if not exists public.boss_test_clock (id boolean primary key default true check (id), offset_ms bigint not null default 0);
 
 -- Rewards are configurable: edit this table (ranks are inclusive).
 insert into public.boss_reward_tiers (rank_from, rank_to, tier, cash, title)
@@ -42,20 +41,25 @@ alter table public.boss_weekly enable row level security;
 alter table public.boss_reward_tiers enable row level security;
 alter table public.boss_rewards enable row level security;
 alter table public.boss_weeks_closed enable row level security;
-alter table public.boss_test_clock enable row level security;
-revoke all on public.boss_events, public.boss_damage, public.boss_weekly, public.boss_reward_tiers, public.boss_rewards, public.boss_weeks_closed, public.boss_test_clock from anon, authenticated;
+revoke all on public.boss_events, public.boss_damage, public.boss_weekly, public.boss_reward_tiers, public.boss_rewards, public.boss_weeks_closed from anon, authenticated;
 
 -- ---- Rules (constants mirror bossRules.js)
 -- The server clock. Test mode (players who opened the game with ?bosstest while the owner has set a test clock) runs
 -- shifted; everything real (real events, weekly boards, rewards) always uses the real time.
 drop function if exists public.boss_state();
 drop function if exists public.boss_event_now();
+-- The test clock (see boss_test_clock at the end): empty unless the owner is testing. Hidden from players like the rest.
+create table if not exists public.boss_test_clock (id boolean primary key default true check (id), offset_ms bigint not null default 0);
+alter table public.boss_test_clock enable row level security;
+revoke all on public.boss_test_clock from anon, authenticated;
 create or replace function public.boss_real_now() returns timestamptz language sql stable as $$ select now() $$;
 create or replace function public.boss_now() returns timestamptz language sql stable as $$ select public.boss_real_now() $$;
-create or replace function public.boss_testing() returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from boss_test_clock where id) $$;
-create or replace function public.boss_clock(p_test boolean) returns timestamptz language sql stable security definer set search_path = public as $$
-  select boss_real_now() + case when p_test then coalesce((select offset_ms from boss_test_clock where id), 0) else 0 end * interval '1 millisecond' $$;
+create or replace function public.boss_testing() returns boolean language plpgsql stable security definer set search_path = public as $$
+begin return exists (select 1 from public.boss_test_clock where id); end $$;
+create or replace function public.boss_clock(p_test boolean) returns timestamptz language plpgsql stable security definer set search_path = public as $$
+begin
+  return public.boss_real_now() + case when p_test then coalesce((select offset_ms from public.boss_test_clock where id), 0) else 0 end * interval '1 millisecond';
+end $$;
 create or replace function public.boss_ms(t timestamptz) returns bigint language sql immutable as $$ select floor(extract(epoch from t) * 1000)::bigint $$;
 -- Day number in Philippine time (UTC+8) and Monday-based week number.
 create or replace function public.boss_ph_day(t timestamptz) returns integer language sql immutable as $$ select floor((extract(epoch from t) + 28800) / 86400)::integer $$;
@@ -216,13 +220,16 @@ begin
     while boss_city(d) <> p_city loop d := d + 1; end loop;
   end if;
   target := to_timestamp(d::double precision * 86400 - 28800) + ph_time::interval;
-  insert into boss_test_clock (id, offset_ms) values (true, boss_ms(target) - boss_ms(real_now)) on conflict (id) do update set offset_ms = excluded.offset_ms;
+  insert into public.boss_test_clock (id, offset_ms) values (true, boss_ms(target) - boss_ms(real_now)) on conflict (id) do update set offset_ms = excluded.offset_ms;
   return format('Test clock: %s PH time; the test kaiju attacks %s. Open the game with ?bosstest. Revert with boss_test_clock_off().', to_char((target at time zone 'UTC') + interval '8 hours', 'YYYY-MM-DD HH24:MI'), boss_city(d));
 end $$;
-create or replace function public.boss_test_reset() returns text language sql security definer set search_path = public as $$
-  delete from boss_events where id like 'test-%'; select 'Test events and test damage deleted.' $$;
-create or replace function public.boss_test_clock_off() returns text language sql security definer set search_path = public as $$
-  delete from boss_test_clock; delete from boss_events where id like 'test-%'; select 'Test mode off; test events and test damage deleted. Real data untouched.' $$;
+create or replace function public.boss_test_reset() returns text language plpgsql security definer set search_path = public as $$
+begin delete from public.boss_events where id like 'test-%'; return 'Test events and test damage deleted.'; end $$;
+create or replace function public.boss_test_clock_off() returns text language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.boss_test_clock; delete from public.boss_events where id like 'test-%';
+  return 'Test mode off; test events and test damage deleted. Real data untouched.';
+end $$;
 revoke all on function public.boss_test_clock(text, text), public.boss_test_clock_off(), public.boss_test_reset() from public, anon, authenticated;
 
 -- Tell the API about the new function signatures.
