@@ -9,21 +9,27 @@ import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.j
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
 import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.js';
 import { createRagdollRig } from '../shared/ragdollRig.js';
+import { ROAD_LAMPS, terrainHeight } from '../../models/worldTour/worldIsland.js';
+import { worldConditions } from '../../models/worldTour/worldClock.js';
+import { buildIsland } from './islandScenery.js';
+import { createSky } from './skyWeather.js';
 
 const BLOOD_DROPS = 360, BLOOD_POOLS = 160;
 const OFFICER_SKIN = ['#e8bd98', '#c18b63', '#8d5a3b', '#5f3b28'];
 
 // `remote` (optional) is the multiplayer roster ref from useMultiplayer: other players are drawn as ghosts.
-export function mountAdventure(host, session, input, paused, onUpdate, onError, remote = null) {
+// `environment` (optional) is a ref to a function returning worldConditions() (Philippine time and the world's weather).
+export function mountAdventure(host, session, input, paused, onUpdate, onError, remote = null, environment = null) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.2;
   renderer.domElement.tabIndex = 0; renderer.domElement.setAttribute('aria-label', 'Open world game. WASD to move, F to enter your car, J to attack, E to interact.'); host.appendChild(renderer.domElement);
-  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(55, 1, 0.2, 1500);
-  const orbit = new OrbitControls(camera, renderer.domElement); orbit.enablePan = false; orbit.enableDamping = true; orbit.minDistance = 12; orbit.maxDistance = 160; orbit.maxPolarAngle = Math.PI / 2.25;
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(55, 1, 0.3, 3200);
+  const orbit = new OrbitControls(camera, renderer.domElement); orbit.enablePan = false; orbit.enableDamping = true; orbit.minDistance = 12; orbit.maxDistance = 200; orbit.maxPolarAngle = Math.PI / 2.25;
   const hemisphere = new THREE.HemisphereLight('#fff2df', '#54647f', 2.4); scene.add(hemisphere);
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
-  let root, avatar, playerCar, marker, targetRing, dynamic, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], night = false;
+  const sky = createSky(scene, { hemisphere, sun });
+  let root, avatar, playerCar, marker, targetRing, dynamic, island, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
   let muzzle, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
@@ -33,14 +39,23 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const enemies = new Map(), geometries = new Set(), materials = new Map(), textures = new Set();
   const unitBox = new THREE.BoxGeometry(1, 1, 1); geometries.add(unitBox);
   function material(color) { if (!materials.has(color)) materials.set(color, new THREE.MeshStandardMaterial({ color, roughness: 0.7 })); return materials.get(color); }
+  // Materials that light up at night (windows, lamps, neon, car lights); skyWeather.js sets their brightness each frame.
+  const glows = [];
+  function glowMaterial(color, strength = 1, emissive = color) {
+    const key = `glow-${color}-${emissive}-${strength}`;
+    if (!materials.has(key)) { const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, emissive, emissiveIntensity: 0 }); materials.set(key, mat); glows.push({ material: mat, strength }); }
+    return materials.get(key);
+  }
+  const wetSurfaces = [material('#36424c')];
   const kit = {
     box(size, color, position, parent = root) { const mesh = new THREE.Mesh(unitBox, material(color)); mesh.scale.set(...size); mesh.position.set(...position); parent.add(mesh); return mesh; },
     cylinder(top, bottom, height, color, position, parent = root, sides = 8) { const geometry = new THREE.CylinderGeometry(top, bottom, height, sides); geometries.add(geometry); const mesh = new THREE.Mesh(geometry, material(color)); mesh.position.set(...position); parent.add(mesh); return mesh; },
   };
-  const glow = { glow() {}, light() {} };
+  const glow = { glow(mesh, color, strength = 1) { mesh.material = glowMaterial(`#${mesh.material.color.getHexString()}`, strength * 0.7, color); }, light() {} };
   function disposeCity() {
     for (const id of [...remotes.keys()]) removeRemote(id);
     if (root) { root.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); scene.remove(root); }
+    island?.dispose(); island = null; clearPools?.(); clearPools = null;
     geometries.forEach(g => { if (g !== unitBox) { g.dispose(); geometries.delete(g); } });
     textures.forEach(t => t.dispose()); textures.clear();
     for (const [key, mat] of materials) if (key.startsWith('label-')) { mat.dispose(); materials.delete(key); }
@@ -49,10 +64,19 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   }
   function build(city) {
     disposeCity(); lastCity = city.id; root = new THREE.Group(); scene.add(root); dynamic = new THREE.Group(); root.add(dynamic);
-    scene.background = new THREE.Color(city.sky); scene.fog = new THREE.Fog(city.sky, 180, 800); night = city.id === 'tokyo'; hemisphere.intensity = night ? 1.5 : 2.4; sun.intensity = night ? 0.8 : 3;
+    // Sky colour, fog and light are set every frame by skyWeather.js from the time of day and the weather.
+    scene.fog = new THREE.Fog(city.sky, 220, 2000);
     const batches = new Map();
-    function box(size, color, position, rotation = 0) { if (!batches.has(color)) batches.set(color, []); batches.get(color).push({ size, position, rotation }); }
-    box([2400, 1, 2400], '#4c91a1', [0, -3, 0]); box([910, 2, 910], city.ground, [0, -1.1, 0]); box([30, 0.3, 910], '#e5c79e', [455, -0.1, 0]);
+    // Boxes are batched per material into instanced meshes; `mat` overrides the plain colour material (e.g. a glow).
+    function box(size, color, position, rotation = 0, mat = null) {
+      const key = mat ? mat.uuid : color;
+      if (!batches.has(key)) batches.set(key, { mat: mat || material(color), entries: [] });
+      batches.get(key).entries.push({ size, position, rotation });
+    }
+    box([910, 2, 910], city.ground, [0, -1.1, 0]); box([30, 0.3, 910], '#e5c79e', [455, -0.1, 0]);
+    island = buildIsland(root, city, { box, glowMaterial });
+    const windowGlow = glowMaterial('#587b88', 0.95, '#ffd08a'), sideGlow = glowMaterial('#688c98', 0.8, '#ffe0a6'), neon = glowMaterial(city.color, 1.3);
+    const lit = (x, y, side) => Math.abs(Math.sin(x * 12.9898 + y * 78.233 + side * 37.719) * 43758.5453) % 1 < 0.55;
     for (const road of ROADS) {
       box([21, 0.15, 880], '#36424c', [road, 0.05, 0]); box([880, 0.15, 21], '#36424c', [0, 0.06, road]);
       for (const side of [-1, 1]) { box([3, 0.3, 870], '#bac0b9', [road + side * 12, 0.1, 0]); box([870, 0.3, 3], '#bac0b9', [0, 0.1, road + side * 12]); }
@@ -68,10 +92,11 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       box([b.width - 3, 0.35, 2.5], city.color, [b.x, 3.8, front + 0.9]);
       for (let x = -b.width / 2 + 4; x < b.width / 2; x += 5) box([0.28, b.height - 3, 0.3], b.color, [b.x + x, b.height / 2 + 1, front]);
       for (let y = 5; y < b.height - 2; y += 7) for (const side of [-1, 1]) {
-        box([b.width - 4, 2.4, 0.1], night ? '#9caaca' : '#587b88', [b.x, y, b.z + side * (b.depth / 2 + 0.08)]);
-        box([0.1, 2.4, b.depth - 4], '#688c98', [b.x + side * (b.width / 2 + 0.08), y, b.z]);
+        // About half of the windows light up after sunset.
+        box([b.width - 4, 2.4, 0.1], '#587b88', [b.x, y, b.z + side * (b.depth / 2 + 0.08)], 0, lit(b.x, y, side) ? windowGlow : null);
+        box([0.1, 2.4, b.depth - 4], '#688c98', [b.x + side * (b.width / 2 + 0.08), y, b.z], 0, lit(b.z, y, side + 2) ? sideGlow : null);
       }
-      if (night) box([b.width, 0.6, 0.4], city.color, [b.x, 3.4, b.z + b.depth / 2 + 0.3]);
+      box([b.width, 0.6, 0.4], city.color, [b.x, 3.4, b.z + b.depth / 2 + 0.3], 0, neon);
       if (city.id === 'dubai' && b.height > 70) box([1.5, 25, 1.5], '#c3ced1', [b.x, b.height + 12, b.z]);
     }
     for (const tree of layout.trees) {
@@ -95,21 +120,23 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     box([11, 0.4, 3], '#e0e5e3', [-413, 4, -202]);
     box([10, 0.1, 9], '#5ca699', [8, 0.3, 12]);
     const dummy = new THREE.Object3D();
-    for (const [color, entries] of batches) {
-      const mesh = new THREE.InstancedMesh(unitBox, material(color), entries.length);
+    for (const { mat, entries } of batches.values()) {
+      const mesh = new THREE.InstancedMesh(unitBox, mat, entries.length);
       entries.forEach((e, i) => { dummy.position.set(...e.position); dummy.scale.set(...e.size); dummy.rotation.set(0, e.rotation, 0); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix); }); mesh.computeBoundingSphere(); root.add(mesh);
     }
     // Lamp posts are physics props that a fast car can knock over, so they are instanced separately.
-    postPoles = new THREE.InstancedMesh(unitBox, material('#596773'), layout.posts.length); postLamps = new THREE.InstancedMesh(unitBox, material('#fff0b9'), layout.posts.length);
+    postPoles = new THREE.InstancedMesh(unitBox, material('#596773'), layout.posts.length); postLamps = new THREE.InstancedMesh(unitBox, glowMaterial('#fff0b9', 1.8, '#ffe3a3'), layout.posts.length);
     postPoles.frustumCulled = postLamps.frustumCulled = false; root.add(postPoles, postLamps);
     layout.posts.forEach((post, i) => placePost(i, { x: post.x, y: 4, z: post.z, q: [0, 0, 0, 1] }));
+    clearPools = sky.setLampPools(root, [...layout.posts.map(post => ({ x: post.x - 3, z: post.z })), ...ROAD_LAMPS.map(l => ({ x: l.x + Math.sin(l.heading) * 3, z: l.z + Math.cos(l.heading) * 3 }))]);
     function label(text, x, z, color) {
       const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
-      const ctx = canvas.getContext('2d'); ctx.fillStyle = '#142634'; ctx.fillRect(0, 0, 512, 128); ctx.fillStyle = color; ctx.font = 'bold 46px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(text, 256, 80, 480);
+      const ctx = canvas.getContext('2d'); ctx.fillStyle = '#142634e6'; if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(8, 20, 496, 88, 44); ctx.fill(); } else ctx.fillRect(8, 20, 496, 88);
+      ctx.fillStyle = color; ctx.font = 'bold 44px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(text, 256, 80, 440);
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.add(texture);
-      const mat = new THREE.SpriteMaterial({ map: texture }); materials.set('label-' + text, mat); const sprite = new THREE.Sprite(mat); sprite.position.set(x, 6, z); sprite.scale.set(8, 2, 1); root.add(sprite);
+      const mat = new THREE.SpriteMaterial({ map: texture }); materials.set('label-' + text, mat); const sprite = new THREE.Sprite(mat); sprite.position.set(x, 7.5, z); sprite.scale.set(5.2, 1.3, 1); root.add(sprite);
     }
-    label('SAFEHOUSE', 8, 12, '#86edcb'); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff');
+    label('SAFEHOUSE', 8, 12, '#86edcb'); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('LIGHTHOUSE CAPE', -1150, 60, '#f8d47a');
     buildAvatar(session.current.appearance);
     // Pooled blood droplets and ground stains, updated as instances.
     if (!materials.has('blood')) { materials.set('blood', new THREE.MeshStandardMaterial({ color: '#7b0913', roughness: 0.35 })); materials.set('blood-pool', new THREE.MeshStandardMaterial({ color: '#4f050c', roughness: 0.18, metalness: 0.05 })); }
@@ -134,7 +161,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const markerGeo = new THREE.OctahedronGeometry(2.8); geometries.add(markerGeo); marker = new THREE.Mesh(markerGeo, material('#f8d47a')); root.add(marker);
     if (!materials.has('lock')) materials.set('lock', new THREE.MeshBasicMaterial({ color: '#ff727f' }));
     const ringGeo = new THREE.TorusGeometry(2.2, 0.12, 6, 24); geometries.add(ringGeo); targetRing = new THREE.Mesh(ringGeo, materials.get('lock')); targetRing.rotation.x = Math.PI / 2; root.add(targetRing);
-    const p = actor(session.current); camera.position.set(p.x, 11, p.z + 24); orbit.target.set(p.x, 1.8, p.z); orbit.update();
+    const p = actor(session.current); camera.position.set(p.x, 11, p.z + 24); orbit.target.set(p.x, 1.8, p.z); orbit.update(); followY = null;
   }
   // The player's look comes from the character creator; editing it mid-game rebuilds the avatar in place.
   let avatarLook;
@@ -330,7 +357,10 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     });
     // Far-away pedestrians (beyond the fog) are neither drawn nor animated.
     pedestrians.forEach((model, i) => { const person = s.pedestrians[i]; model.avatar.visible = nearCamera(person); if (!model.avatar.visible) return; model.rig.before(person); model.update(person, paused.current ? 0 : dt); model.rig.after(person, step); });
-    follow.set(p.x, 1.8 + (s.player.height || 0) * 0.3, p.z); shift.copy(follow).sub(orbit.target); camera.position.add(shift); orbit.target.copy(follow);
+    // The camera follows the ground under you (hills, or the car's height) but only a little of each jump.
+    const surface = s.driving ? Math.max(0, s.car.y || 0) : terrainHeight(p.x, p.z), lift = s.driving ? 0 : Math.max(0, (s.player.height || 0) - surface) * 0.3;
+    followY = followY === null ? surface : followY + (surface - followY) * (1 - Math.exp(-8 * dt));
+    follow.set(p.x, 1.8 + followY + lift, p.z); shift.copy(follow).sub(orbit.target); camera.position.add(shift); orbit.target.copy(follow);
     orbit.enabled = !paused.current; orbit.update();
     // Keep the camera in front of walls, including when orbiting around a corner.
     const offset = camera.position.clone().sub(orbit.target); let fraction = 1;
@@ -345,6 +375,11 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       if (hit && enter > 0) fraction = Math.min(fraction, Math.max(0.04, enter - 0.02));
     }
     if (fraction < 1) camera.position.copy(orbit.target).addScaledVector(offset, fraction);
+    // ...and above the mountainsides.
+    const ground = terrainHeight(camera.position.x, camera.position.z) + 2.5;
+    if (camera.position.y < ground) camera.position.y = ground;
+    const conditions = environment?.current?.() ?? worldConditions(Date.now());
+    sky.update(conditions, camera, step, glows, wetSurfaces); island?.update(conditions, s.time);
     // Impact shake is applied only for this render so it never accumulates into the orbit camera.
     shake *= Math.exp(-9 * step);
     const shaking = shake > 0.01 && step > 0;
@@ -353,5 +388,5 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     if (shaking) camera.position.sub(shakeOffset);
     if (time - uiTime > 100) { onUpdate(s); uiTime = time; }
   });
-  return () => { renderer.setAnimationLoop(null); observer.disconnect(); orbit.dispose(); disposeCity(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); renderer.domElement.removeEventListener('webglcontextlost', lost); renderer.dispose(); renderer.domElement.remove(); };
+  return () => { renderer.setAnimationLoop(null); observer.disconnect(); orbit.dispose(); disposeCity(); sky.dispose(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); renderer.domElement.removeEventListener('webglcontextlost', lost); renderer.dispose(); renderer.domElement.remove(); };
 }

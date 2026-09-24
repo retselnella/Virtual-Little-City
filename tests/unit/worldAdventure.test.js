@@ -10,7 +10,9 @@ test('all seven cities have distinct deterministic districts and reachable contr
     assert.ok(freePosition(8, 12, blocks));
     for (const mission of CONTRACTS) for (const point of [mission.target, mission.finish]) assert.ok(freePosition(point.x, point.z, blocks), city.name + ' ' + mission.id);
     assert.ok(!freePosition(blocks[0].x, blocks[0].z, blocks));
-    assert.ok(!freePosition(450, 0, blocks));
+    // The island: the east waterfront ends at the beach, the countryside is open, the ocean is not.
+    assert.ok(!freePosition(480, 0, blocks)); assert.ok(!freePosition(0, -1500, blocks));
+    assert.ok(freePosition(-700, 0, blocks) && freePosition(0, 800, blocks));
   }
   assert.notDeepEqual(generateBlocks(CITIES[0]), generateBlocks(CITIES[1]));
 });

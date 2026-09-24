@@ -14,7 +14,7 @@ test('states round-trip from a session and hostile values are clamped or rejecte
   s.driving = true; const driving = cleanState(encodeState(s, 1100)); assert.equal(driving.d, true); assert.equal(driving.q.length, 4);
   for (const bad of [null, 'x', { v: 2 }, { v: 1, x: NaN, z: 0, y: 0, h: 0, s: 0 }, { v: 1, x: '1', z: 0, y: 0, h: 0, s: 0 }]) assert.equal(cleanState(bad), null);
   const wild = cleanState({ v: 1, x: 1e9, z: -1e9, y: -5, h: 99, s: 1e6, d: 1, q: [9, 9, 9, 9] });
-  assert.equal(wild.x, 440); assert.equal(wild.z, -440); assert.equal(wild.y, 0); assert.equal(wild.s, 80); assert.ok(Math.abs(wild.h) <= Math.PI);
+  assert.equal(wild.x, 1400); assert.equal(wild.z, -1400); assert.equal(wild.y, 0); assert.equal(wild.s, 80); assert.ok(Math.abs(wild.h) <= Math.PI);
   assert.ok(Math.abs(Math.hypot(...wild.q) - 1) < 1e-9);
 });
 
@@ -60,7 +60,7 @@ test('attacks are shared: shots and punches replay once, on the pose delay, and 
   assert.deepEqual(dueActions(player, 1200 + RENDER_DELAY), []);
   receiveState(roster, 'p1', { ...sent, e: [{ ...sent.e[0], i: 3 }] }, 2000);
   assert.deepEqual(dueActions(player, 4000), [], 'actions left waiting too long are dropped');
-  assert.deepEqual(cleanActions([{ i: -1, k: 's', x: 0, z: 0 }, { i: 1, k: 'x', x: 0, z: 0 }, { i: 2, k: 's', x: 1e9, z: 0, c: 9, b: '1' }]), [{ id: 2, kind: 'shot', combo: 0, x: 440, z: 0, blood: false }]);
+  assert.deepEqual(cleanActions([{ i: -1, k: 's', x: 0, z: 0 }, { i: 1, k: 'x', x: 0, z: 0 }, { i: 2, k: 's', x: 1e9, z: 0, c: 9, b: '1' }]), [{ id: 2, kind: 'shot', combo: 0, x: 1400, z: 0, blood: false }]);
   assert.deepEqual(cleanActions('nope'), []);
   // A silent player is forgotten; their next state brings them back without a look until the profile is restored.
   pruneRoster(roster, 2000 + STALE_AFTER + 1); receiveState(roster, 'p1', { ...sent, e: undefined }, 9000);

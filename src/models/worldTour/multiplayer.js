@@ -27,7 +27,7 @@ export function encodeState(s, now, actions = []) {
 }
 export function cleanState(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== 1) return null;
-  const x = finite(raw.x, LIMIT), z = finite(raw.z, LIMIT), y = finite(raw.y, 60), h = finite(raw.h, 1e4), speed = finite(raw.s, 80);
+  const x = finite(raw.x, LIMIT), z = finite(raw.z, LIMIT), y = finite(raw.y, 300), h = finite(raw.h, 1e4), speed = finite(raw.s, 80);
   if ([x, z, y, h, speed].includes(null)) return null;
   const state = { x, z, y: Math.max(0, y), h: Math.atan2(Math.sin(h), Math.cos(h)), s: Math.abs(speed), d: raw.d === 1, k: raw.k === 1, w: raw.w === 1, a: raw.a === 1 };
   if (state.d) {

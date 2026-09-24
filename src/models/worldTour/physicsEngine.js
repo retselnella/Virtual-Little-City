@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { RAGDOLLS } from './ragdollProfiles.js';
 import { sceneryLayout } from './worldLayout.js';
+import { COUNTRY_TREES, LANDMARKS, MOUNTAINS, ROAD_LAMPS, SHORE_INSET, coastline } from './worldIsland.js';
 
 // Rapier (https://rapier.rs) runs World Tour's rigid bodies, vehicles, character movement, ragdolls and bullet rays.
 // Gameplay code keeps plain session objects (x, z, vx, vz, heading...) as its source of truth: each substep this module
@@ -9,7 +10,6 @@ import { sceneryLayout } from './worldLayout.js';
 await RAPIER.init();
 
 export const GRAVITY = 18;
-const LIMIT = 440;
 const GROUP = { GROUND: 1, STATIC: 2, VEHICLE: 4, CHARACTER: 8, RAGDOLL: 16, PROP: 32, QUERY: 64 };
 const ALL = 0xffff;
 const groups = (member, filter) => (member << 16) | filter;
@@ -53,8 +53,17 @@ function createWorld(s) {
   P.kcc.setSlideEnabled(true); P.kcc.enableSnapToGround(0.4); P.kcc.setMaxSlopeClimbAngle(0.8); P.kcc.setApplyImpulsesToDynamicBodies(false);
   const fixed = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   world.createCollider(RAPIER.ColliderDesc.cuboid(1400, 1, 1400).setTranslation(0, -1, 0).setFriction(0.9).setCollisionGroups(groups(GROUP.GROUND, ALL)), fixed);
-  for (const [x, z, hx, hz] of [[LIMIT + 5, 0, 5, 460], [-LIMIT - 5, 0, 5, 460], [0, LIMIT + 5, 460, 5], [0, -LIMIT - 5, 460, 5]])
-    world.createCollider(RAPIER.ColliderDesc.cuboid(hx, 40, hz).setTranslation(x, 40, z).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
+  // Invisible walls along the shoreline keep everyone on the island (worldIsland.js); mountains are solid cones.
+  const shore = coastline(180, SHORE_INSET - 3);
+  shore.forEach((a, i) => {
+    const b = shore[(i + 1) % shore.length], length = Math.hypot(b.x - a.x, b.z - a.z);
+    world.createCollider(RAPIER.ColliderDesc.cuboid(3, 40, length / 2 + 2).setTranslation((a.x + b.x) / 2, 40, (a.z + b.z) / 2).setRotation(yaw(Math.atan2(b.x - a.x, b.z - a.z))).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
+  });
+  for (const m of MOUNTAINS) world.createCollider(RAPIER.ColliderDesc.cone(m.height / 2, m.radius).setTranslation(m.x, m.height / 2, m.z).setFriction(0.9).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
+  for (const tree of COUNTRY_TREES) world.createCollider(RAPIER.ColliderDesc.cylinder(tree.height / 2, tree.radius * tree.scale).setTranslation(tree.x, tree.height / 2, tree.z).setCollisionGroups(groups(GROUP.PROP, ALL)), fixed);
+  for (const lamp of ROAD_LAMPS) world.createCollider(RAPIER.ColliderDesc.cylinder(4, 0.2).setTranslation(lamp.x, 4, lamp.z).setCollisionGroups(groups(GROUP.PROP, ALL)), fixed);
+  const { lighthouse } = LANDMARKS;
+  world.createCollider(RAPIER.ColliderDesc.cylinder(lighthouse.height / 2, lighthouse.radius).setTranslation(lighthouse.x, lighthouse.height / 2, lighthouse.z).setCollisionGroups(groups(GROUP.STATIC, ALL)), fixed);
   const { posts, trees, spots } = sceneryLayout();
   // Stall carts and bus-shelter panels are solid; benches are not, so people can sit on them.
   for (const spot of spots) for (const prop of spot.props) if (prop.collider)

@@ -3,6 +3,7 @@ import { stepPhysics, castShot } from './physicsEngine.js';
 import { updatePolice } from './worldPolice.js';
 import { createPedestrians, stepPedestrians } from './worldPedestrians.js';
 import { playerLook } from './characterProfile.js';
+import { ISLAND_EXTENT, onIsland, terrainHeight } from './worldIsland.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -13,7 +14,8 @@ export const CITIES = [
   { id: 'rio', name: 'Rio de Janeiro', country: 'Brazil', district: 'Sunset Coast', region: 'South America', color: '#b2dc83', sky: '#ddad9a', ground: '#819c68', buildings: ['#deb49e', '#d9cc91', '#a0c9b7'], trees: 'palm', map: [35, 73], seed: 59, tagline: 'Coastal roads with something around every corner.' },
   { id: 'cape', name: 'Cape Town', country: 'South Africa', district: 'Atlantic Point', region: 'Africa', color: '#8ed9c8', sky: '#abc7ce', ground: '#a4ab83', buildings: ['#c6bfb0', '#9ebcbb', '#dac9b7'], trees: 'oak', map: [53, 79], seed: 67, tagline: 'Take the long road to the ocean.' },
 ];
-export const LIMIT = 440;
+// Positions are bounded by the island's coastline (worldIsland.js); LIMIT bounds any coordinate on it.
+export const LIMIT = ISLAND_EXTENT;
 export const ROADS = ROAD_GRID;
 export const CONTRACTS = [
   { id: 'courier', title: 'Midnight delivery', type: 'DRIVING', reward: 650, description: 'Collect a package at the docks, then deliver it across the city.', target: { x: 120, z: 65 }, finish: { x: -240, z: -185 } },
@@ -33,7 +35,7 @@ export function generateBlocks(city) {
   return blocks;
 }
 export function freePosition(x, z, blocks, radius = 1) {
-  return Math.abs(x) < LIMIT - radius && Math.abs(z) < LIMIT - radius && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
+  return onIsland(x, z, radius) && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
 }
 export function clearSight(a, b, blocks) {
   return !blocks.some(block => {
@@ -94,7 +96,9 @@ export function toggleVehicle(s) {
     const exits = [[4, 0], [-4, 0], [0, 5], [0, -5]];
     const exit = exits.find(([x, z]) => freePosition(s.car.x + x, s.car.z + z, s.blocks) && [...s.traffic, ...s.policeCars].every(c => Math.hypot(s.car.x + x - c.x, s.car.z + z - c.z) > c.radius + 1));
     if (!exit) return;
-    s.player = { ...s.player, x: s.car.x + exit[0], z: s.car.z + exit[1], heading: s.car.heading, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0 }; s.driving = false;
+    // On a hillside the player steps out at the slope's height (the character controller then settles onto it).
+    const x = s.car.x + exit[0], z = s.car.z + exit[1];
+    s.player = { ...s.player, x, z, height: terrainHeight(x, z) + (terrainHeight(x, z) > 0 ? 0.3 : 0), heading: s.car.heading, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0 }; s.driving = false;
   } else if (distance(s.player, s.car) < 9 && Math.abs(s.car.speed) < 3) { s.driving = true; }
   else notify(s, 'Get closer to your cyan car to enter.');
 }
@@ -223,7 +227,8 @@ function stepSimulation(s, input, dt, yaw) {
     const dz = (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
     stepCharacterBody(p, dx, dz, dt);
     if (dx || dz) p.heading = Math.atan2(dx, dz);
-    if (control.jump && !s.jumpHeld && !p.height && (p.velocityY || 0) <= 0) p.velocityY = 8;
+    // Jump from anything solid underfoot: the street, a roof, a car or a hillside.
+    if (control.jump && !s.jumpHeld && (!p.height || p.grounded) && (p.velocityY || 0) <= 0) p.velocityY = 8;
     // Rapier integrates the jump and clears the vertical velocity on landing (roofs and car tops included).
     s.jumpHeld = !!control.jump; p.velocityY = (p.velocityY || 0) - 22 * dt;
   }

@@ -1,6 +1,6 @@
 # Little City: World Tour
 
-An open-world action game that runs in your web browser. Fly between seven cities, drive, fight, escape the police, finish contracts, and meet other players in the same city.
+An open-world action game that runs in your web browser. Fly between seven island cities, drive out past the city limits to beaches, farmland, a lighthouse and the mountains, fight, escape the police, finish contracts, and meet other players in the same city. Day and night follow the time in the Philippines, and the whole world shares one weather.
 
 **Contents**
 
@@ -9,6 +9,8 @@ An open-world action game that runs in your web browser. Fly between seven citie
 3. [Controls](#3-controls)
 4. [Reading the screen](#4-reading-the-screen)
 5. [Cities and travel](#5-cities-and-travel)
+   - [The island](#the-island)
+   - [Day, night and weather](#day-night-and-weather)
 6. [Contracts](#6-contracts)
 7. [Fighting](#7-fighting)
 8. [Police and your wanted level](#8-police-and-your-wanted-level)
@@ -54,7 +56,7 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **Q** | Switch between pistol and fists | |
 | **R** | Reload the pistol | |
 | **E** | Collect, deliver, or heal at the safehouse | |
-| **M** | World map (travel) | World map |
+| **M** | Island map and flights | Island map and flights |
 | **L** | Contract board | Contract board |
 | **Esc** | Pause menu and controls | Pause menu |
 | **Mouse drag / scroll** | Turn and zoom the camera | Turn and zoom the camera |
@@ -69,11 +71,12 @@ Opening any menu pauses the game.
 
 ## 4. Reading the screen
 
-- **Top left**: the city, its district, and your connection to other players (see [Playing together](#11-playing-together)).
-- **Top right**: your name, **wanted stars**, cash, **health**, and your weapon with ammunition, or your speed while driving.
+- **Top centre**: the **sky chip**: the time in the Philippines (PH time) and the current weather.
+- **Top left**: the city, the part of the island you are in (for example *Ocean Drive*, *Ring Road*, *Beach* or *Mount Alon*), and your connection to other players (see [Playing together](#11-playing-together)).
+- **Top right**: your name, **wanted stars**, cash, **health** (it glows red when low), and your weapon with ammunition, or your speed while driving.
 - **Left panel**: your current objective and the distance to the gold marker. **Find a contract** or **Contract details** opens the contract board.
 - **Police panel** (while wanted): what the police are doing, such as dispatching, en route, searching your last known location, on scene, or trying to arrest you.
-- **Minimap** (bottom left), with north up:
+- **Minimap** (bottom left): a round map centred on you, with north up. It zooms out as you drive faster, and a gold arrow on its edge points to an objective that is off the map. **Map ↗** opens the full island map.
   - white arrow: you
   - cyan dot: your car
   - green dot: the safehouse
@@ -82,6 +85,7 @@ Opening any menu pauses the game.
   - blue dots: police officers
   - squares: police cars, flashing when responding
   - pale yellow dots: other players
+  - orange dot: the lighthouse; grey and white circles: mountains (white tops are snow)
 - **Ring on the ground**: who your next attack will hit. Red means a threat, white means a bystander.
 - **Messages** appear briefly at the top of the screen.
 
@@ -89,9 +93,26 @@ Opening any menu pauses the game.
 
 Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeiro and Cape Town**. Each is a large district with its own skyline, colours, traffic, pedestrians, a waterfront promenade and an airport.
 
-Press **M** to open the world map and pick a destination. The flight is instant. You cannot fly while you have an unfinished contract, while you are wanted, or while you are down. The map also shows how many contracts you have finished in each city, and how many players are online there.
+Press **M** to open the map, then choose **Fly to a city** and pick a destination. The flight is instant. You cannot fly while you have an unfinished contract, while you are wanted, or while you are down. The map also shows how many contracts you have finished in each city, and how many players are online there.
 
 Your safehouse (the green pad beside your cyan car) is where you start, heal and recover.
+
+### The island
+
+Every city stands on the east shore of an island. The street grid and its waterfront are in the middle; around them you can explore on foot or by car:
+
+- the **Ring Road**, which leaves the city to the north, south and west and loops round to the beaches on either side of the waterfront, lit by street lamps at night
+- **beaches** with umbrellas all around the coast, and the **Lighthouse Cape** at the end of the Cape Road in the west
+- the **Northern Woods**, **Western Plains** and **Southern Farmland**
+- **Mount Alon** and its snow-capped range in the north-west (too steep to climb), and the gentle **South Hills**, which you can walk and drive over
+
+The sea stops you at the shoreline. Press **M** for the full island map, with place names and where you are.
+
+### Day, night and weather
+
+- **Time of day follows the Philippines** (Philippine time, UTC+8) and the real position of the sun over Manila, so sunrise and sunset match Manila's. The sky chip shows the PH time.
+- At night, windows light up, street lamps cast pools of light, neon glows on the shop fronts, car lights come on and the lighthouse beam sweeps the cape.
+- **The weather is shared by the whole world.** It is worked out from the time alone, so every city and every player has the same weather at the same moment: when it rains in one city, it rains in all of them. It drifts between clear skies, clouds, rain and thunderstorms, with more rain and afternoon storms during the Philippine wet season (June to November). A message tells you when rain arrives or clears.
 
 ## 6. Contracts
 
@@ -181,6 +202,7 @@ The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Recover to
 | The game is slow | Close other heavy tabs, make the window smaller, or zoom the camera in. |
 | Keys stop responding | Click the game once. Menus and switching tabs pause the game and release held keys. |
 | I am stuck | Pause and choose **Recover to safehouse**. |
+| It is too dark to see | Night follows Philippine time. Zoom the camera in; street lamps and lit windows help in the city. |
 | I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. |
 | I cannot collect a reward | Stop fully at the marker, and lose all wanted stars first. |
 | I do not see my friend | Check you are both in the same city and both show **Online**. On one computer, use two different browsers. |
@@ -232,6 +254,10 @@ The repository includes `vercel.json`, so Vercel needs no extra settings. It ins
 - **From Git**: import the repository in the Vercel dashboard. Use Node.js 20 or newer. Add the Supabase variables above if you want online play. Every push to your main branch deploys.
 - **From the command line**: `npx vercel` for a preview, and `npx vercel --prod` for production.
 
+### Previewing the time and weather
+
+For testing, add `?clock=HH:MM` (Philippine time, 24-hour) and/or `?weather=clear|cloudy|rain|storm` to the address, for example `/?clock=21:30&weather=rain`. The clock then runs on from that time. This only changes what that browser shows; everyone else keeps the shared live sky.
+
 ### Checks before publishing
 
 ```bash
@@ -240,7 +266,7 @@ npm run test:browser  # builds the site and plays it in Chrome, including two pl
 npm run audit:security
 ```
 
-`test:browser` uses installed Chrome on Windows, or Playwright's Chromium (`npx playwright install chromium`). Screenshots are saved in `test-results/`.
+`test:browser` uses installed Chrome on Windows, or Playwright's Chromium (`npx playwright install chromium`); set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to use another Chromium. Screenshots are saved in `test-results/`.
 
 ### Credits
 

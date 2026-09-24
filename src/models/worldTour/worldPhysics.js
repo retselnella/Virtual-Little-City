@@ -1,6 +1,7 @@
 // Driving AI, road routes and character intents for World Tour. The simulation itself (vehicle dynamics, collisions,
 // character movement, ragdolls) runs in Rapier through src/physicsEngine.js; these functions only decide what each
 // actor wants to do: drivers produce throttle/brake/steer, characters produce a desired velocity.
+import { onIsland } from './worldIsland.js';
 export const ROAD_GRID = [-360, -240, -120, 0, 120, 240, 360];
 export const length = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -9,7 +10,7 @@ export function vehicle(id, x, z, heading = 0, kind = 'traffic') {
   return { id, kind, x, z, heading, speed: 0, vx: 0, vz: 0, radius: 2.3, steer: 0, impact: 0, damage: 0, hitCooldown: 0, route: [], waypoint: 0, control: { brake: 1 } };
 }
 export function fits(x, z, blocks, radius = 1) {
-  return Math.abs(x) < 440 - radius && Math.abs(z) < 440 - radius && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
+  return onIsland(x, z, radius) && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
 }
 // Player driving: input becomes throttle, brake, steering and handbrake. Parked cars hold their brakes.
 export function driveVehicle(car, input, dt) {
