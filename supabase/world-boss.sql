@@ -1,5 +1,5 @@
 -- Little City world boss: the server-authoritative event. Run once in the Supabase SQL editor, after
--- realtime-policies.sql. See README.md, section 14.
+-- realtime-policies.sql. Safe to run again after updates. See README.md, section 15.
 --
 -- The server decides everything that matters: when the kaiju appears (12:00 Philippine time every day, on each city in
 -- turn), its HP (1,000,000,000), how much damage each hit does, how many hits a player can land per second, whether
@@ -27,7 +27,7 @@ create table if not exists public.boss_rewards (
   tier text not null, cash integer not null, title text not null, claimed_at timestamptz, primary key (week, user_id)
 );
 create table if not exists public.boss_weeks_closed (week integer primary key, closed_at timestamptz not null default now());
--- A shift of the server clock for test projects only (see boss_test_clock at the end). Empty in production.
+-- The test clock (see boss_test_clock at the end): empty unless the owner is testing.
 create table if not exists public.boss_test_clock (id boolean primary key default true check (id), offset_ms bigint not null default 0);
 
 -- Rewards are configurable: edit this table (ranks are inclusive).
@@ -46,10 +46,16 @@ alter table public.boss_test_clock enable row level security;
 revoke all on public.boss_events, public.boss_damage, public.boss_weekly, public.boss_reward_tiers, public.boss_rewards, public.boss_weeks_closed, public.boss_test_clock from anon, authenticated;
 
 -- ---- Rules (constants mirror bossRules.js)
--- The server clock: the real time, plus the test shift if a test project set one.
+-- The server clock. Test mode (players who opened the game with ?bosstest while the owner has set a test clock) runs
+-- shifted; everything real (real events, weekly boards, rewards) always uses the real time.
+drop function if exists public.boss_state();
+drop function if exists public.boss_event_now();
 create or replace function public.boss_real_now() returns timestamptz language sql stable as $$ select now() $$;
-create or replace function public.boss_now() returns timestamptz language sql stable as $$
-  select public.boss_real_now() + coalesce((select offset_ms from public.boss_test_clock where id), 0) * interval '1 millisecond' $$;
+create or replace function public.boss_now() returns timestamptz language sql stable as $$ select public.boss_real_now() $$;
+create or replace function public.boss_testing() returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from boss_test_clock where id) $$;
+create or replace function public.boss_clock(p_test boolean) returns timestamptz language sql stable security definer set search_path = public as $$
+  select boss_real_now() + case when p_test then coalesce((select offset_ms from boss_test_clock where id), 0) else 0 end * interval '1 millisecond' $$;
 create or replace function public.boss_ms(t timestamptz) returns bigint language sql immutable as $$ select floor(extract(epoch from t) * 1000)::bigint $$;
 -- Day number in Philippine time (UTC+8) and Monday-based week number.
 create or replace function public.boss_ph_day(t timestamptz) returns integer language sql immutable as $$ select floor((extract(epoch from t) + 28800) / 86400)::integer $$;
@@ -73,14 +79,16 @@ begin
   else x := -240 + along; z := -240; end if;
 end $$;
 
--- Today's event (or tomorrow's once today's has ended); creates its row when it starts.
-create or replace function public.boss_event_now() returns public.boss_events language plpgsql security definer set search_path = public as $$
-declare t timestamptz := boss_now(); d integer := boss_ph_day(t); ev public.boss_events;
+-- Today's event (or tomorrow's once today's has ended); creates its row when it starts. Test events ('test-…') are
+-- separate rows on the test clock, so they never touch the real event.
+create or replace function public.boss_event_now(p_test boolean default false) returns public.boss_events language plpgsql security definer set search_path = public as $$
+declare testing boolean := p_test and boss_testing(); t timestamptz := boss_clock(testing); d integer := boss_ph_day(t); ev public.boss_events;
+  prefix text := case when testing then 'test-' else 'boss-' end;
 begin
   if t >= boss_event_start(d) + interval '1 hour' then d := d + 1; end if;
-  select * into ev from boss_events where id = 'boss-' || d;
+  select * into ev from boss_events where id = prefix || d;
   if not found then
-    ev := row('boss-' || d, d, boss_city(d), d, boss_event_start(d), boss_event_start(d) + interval '1 hour', 1000000000, 1000000000, null)::boss_events;
+    ev := row(prefix || d, d, boss_city(d), d, boss_event_start(d), boss_event_start(d) + interval '1 hour', 1000000000, 1000000000, null)::boss_events;
     if t >= ev.starts_at then insert into boss_events values (ev.*) on conflict (id) do nothing; select * into ev from boss_events where id = ev.id; end if;
   end if;
   return ev;
@@ -108,15 +116,15 @@ begin
 end $$;
 
 -- Everything the event UI needs, for the calling player.
-create or replace function public.boss_state() returns jsonb language plpgsql security definer set search_path = public as $$
-declare ev public.boss_events := boss_event_now(); t timestamptz := boss_now(); me uuid := auth.uid(); total bigint; mine public.boss_damage; my_rank integer;
+create or replace function public.boss_state(p_test boolean default false) returns jsonb language plpgsql security definer set search_path = public as $$
+declare ev public.boss_events := boss_event_now(p_test); t timestamptz := boss_clock(ev.id like 'test-%'); me uuid := auth.uid(); total bigint; mine public.boss_damage; my_rank integer;
 begin
   perform boss_close_weeks();
   select coalesce(sum(damage), 0) into total from boss_damage where event_id = ev.id;
   select * into mine from boss_damage where event_id = ev.id and user_id = me;
   select count(*) + 1 into my_rank from boss_damage where event_id = ev.id and (damage > coalesce(mine.damage, 0) or (damage = coalesce(mine.damage, 0) and user_id::text < me::text));
   return jsonb_build_object(
-    'id', ev.id, 'city', ev.city, 'seed', ev.seed, 'startsAt', boss_ms(ev.starts_at), 'endsAt', boss_ms(ev.ends_at), 'maxHp', ev.max_hp, 'hp', ev.hp,
+    'id', ev.id, 'test', ev.id like 'test-%', 'city', ev.city, 'seed', ev.seed, 'startsAt', boss_ms(ev.starts_at), 'endsAt', boss_ms(ev.ends_at), 'maxHp', ev.max_hp, 'hp', ev.hp,
     'defeatedAt', case when ev.defeated_at is null then null else boss_ms(ev.defeated_at) end, 'phase', boss_phase(ev, t), 'serverNow', boss_ms(t), 'totalDamage', total,
     'top', coalesce((select jsonb_agg(row_to_json(r) order by r.rank) from (
       select row_number() over (order by damage desc, user_id::text) as rank, user_id::text as id, name, damage, case when total > 0 then damage::double precision / total else 0 end as share
@@ -128,13 +136,13 @@ end $$;
 -- computes the damage itself (45,000 per shot, 80,000 per punch).
 create or replace function public.boss_hit(p_event text, p_shots integer, p_punches integer, p_x double precision, p_z double precision, p_city text, p_name text)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare ev public.boss_events; t timestamptz := boss_now(); me uuid := auth.uid(); player public.boss_damage; pos record;
+declare test boolean := p_event like 'test-%'; ev public.boss_events; t timestamptz := boss_clock(p_event like 'test-%'); me uuid := auth.uid(); player public.boss_damage; pos record;
   since double precision; shots integer; punches integer; dmg bigint; clean text;
 begin
   if me is null then return jsonb_build_object('ok', false, 'reason', 'signed-out'); end if;
-  perform boss_event_now();
+  perform boss_event_now(test);
   select * into ev from boss_events where id = p_event for update;
-  if not found then return jsonb_build_object('ok', false, 'reason', 'no-event', 'damage', 0); end if;
+  if not found or (test and not boss_testing()) then return jsonb_build_object('ok', false, 'reason', 'no-event', 'damage', 0); end if;
   if boss_phase(ev, t) <> 'active' then return jsonb_build_object('ok', false, 'reason', boss_phase(ev, t), 'damage', 0, 'hp', ev.hp); end if;
   if p_city is distinct from ev.city then return jsonb_build_object('ok', false, 'reason', 'wrong-city', 'damage', 0, 'hp', ev.hp); end if;
   if p_shots is null or p_punches is null or p_shots < 0 or p_punches < 0 then return jsonb_build_object('ok', false, 'reason', 'bad-input', 'damage', 0, 'hp', ev.hp); end if;
@@ -148,14 +156,17 @@ begin
   dmg := least(ev.hp, shots::bigint * 45000 + punches::bigint * 80000);
   update boss_damage set name = clean, damage = damage + dmg, hits = hits + shots + punches, last_at = t where event_id = ev.id and user_id = me;
   update boss_events set hp = hp - dmg, defeated_at = case when hp - dmg <= 0 then t else defeated_at end where id = ev.id returning * into ev;
-  insert into boss_weekly (week, user_id, name, damage) values (boss_week(t), me, clean, dmg)
-    on conflict (week, user_id) do update set damage = boss_weekly.damage + excluded.damage, name = excluded.name;
+  -- Test damage never reaches the weekly board or rewards.
+  if not test then
+    insert into boss_weekly (week, user_id, name, damage) values (boss_week(t), me, clean, dmg)
+      on conflict (week, user_id) do update set damage = boss_weekly.damage + excluded.damage, name = excluded.name;
+  end if;
   return jsonb_build_object('ok', true, 'damage', dmg, 'hp', ev.hp, 'accepted', jsonb_build_object('shots', shots, 'punches', punches));
 end $$;
 
 -- A player was wasted during the event (counted at most once every 8 seconds).
 create or replace function public.boss_death(p_event text) returns boolean language plpgsql security definer set search_path = public as $$
-declare t timestamptz := boss_now(); n integer;
+declare t timestamptz := boss_clock(p_event like 'test-%'); n integer;
 begin
   update boss_damage set deaths = deaths + 1, last_death_at = t
   where event_id = p_event and user_id = auth.uid() and (last_death_at is null or last_death_at < t - interval '8 seconds');
@@ -184,19 +195,18 @@ begin
 end $$;
 
 -- Only the entry points are callable, and only by signed-in (anonymous) players.
-revoke all on function public.boss_event_now(), public.boss_close_weeks(), public.boss_state(), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
+revoke all on function public.boss_testing(), public.boss_clock(boolean), public.boss_event_now(boolean), public.boss_close_weeks(), public.boss_state(boolean), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
   public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() from public, anon, authenticated;
-grant execute on function public.boss_state(), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
+grant execute on function public.boss_state(boolean), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
   public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() to authenticated;
 
--- ---- Test clock: for a separate TEST project only, never production.
--- Shifts the server clock so the event can be tried at any hour; the game follows the server clock, so every tester
--- sees the countdown or the fight. Only the project owner can run these, from the SQL editor:
---   select public.boss_test_clock('11:58');           -- countdown, on today's city
---   select public.boss_test_clock('12:05', 'manila');  -- the fight, on the next day the kaiju attacks Manila
---   select public.boss_test_clock_off();               -- back to the real time
---   select public.boss_test_reset();                   -- wipe events, damage, weekly boards and rewards to try again
--- Events and damage made under a shifted clock are stored like real ones, which is why this belongs in a test project.
+-- ---- Test mode, safe on the real project. The owner sets a test clock; only players who open the game with ?bosstest
+-- in the address follow it, and they fight separate test events ('test-…') whose damage never counts toward the weekly
+-- board or rewards. Everyone else keeps the real schedule. Run these in the SQL editor (players cannot call them):
+--   select public.boss_test_clock('11:58');           -- testers see the countdown, on today's city
+--   select public.boss_test_clock('12:05', 'manila');  -- testers fight, on a day the kaiju attacks Manila
+--   select public.boss_test_reset();                   -- a fresh test kaiju (deletes test events and test damage)
+--   select public.boss_test_clock_off();               -- revert: test mode off and every test event and test damage deleted
 create or replace function public.boss_test_clock(ph_time text, p_city text default null) returns text language plpgsql security definer set search_path = public as $$
 declare real_now timestamptz := boss_real_now(); d integer := boss_ph_day(boss_real_now()); target timestamptz;
 begin
@@ -207,11 +217,13 @@ begin
   end if;
   target := to_timestamp(d::double precision * 86400 - 28800) + ph_time::interval;
   insert into boss_test_clock (id, offset_ms) values (true, boss_ms(target) - boss_ms(real_now)) on conflict (id) do update set offset_ms = excluded.offset_ms;
-  return format('Server clock now %s PH time; the kaiju attacks %s that day. Undo with boss_test_clock_off().', to_char((target at time zone 'UTC') + interval '8 hours', 'YYYY-MM-DD HH24:MI'), boss_city(d));
+  return format('Test clock: %s PH time; the test kaiju attacks %s. Open the game with ?bosstest. Revert with boss_test_clock_off().', to_char((target at time zone 'UTC') + interval '8 hours', 'YYYY-MM-DD HH24:MI'), boss_city(d));
 end $$;
-create or replace function public.boss_test_clock_off() returns text language sql security definer set search_path = public as $$
-  delete from boss_test_clock; select 'Server clock back to the real time.' $$;
 create or replace function public.boss_test_reset() returns text language sql security definer set search_path = public as $$
-  delete from boss_rewards; delete from boss_weeks_closed; delete from boss_weekly; delete from boss_damage; delete from boss_events;
-  select 'Kaiju events, damage, weekly boards and rewards wiped.' $$;
+  delete from boss_events where id like 'test-%'; select 'Test events and test damage deleted.' $$;
+create or replace function public.boss_test_clock_off() returns text language sql security definer set search_path = public as $$
+  delete from boss_test_clock; delete from boss_events where id like 'test-%'; select 'Test mode off; test events and test damage deleted. Real data untouched.' $$;
 revoke all on function public.boss_test_clock(text, text), public.boss_test_clock_off(), public.boss_test_reset() from public, anon, authenticated;
+
+-- Tell the API about the new function signatures.
+notify pgrst, 'reload schema';

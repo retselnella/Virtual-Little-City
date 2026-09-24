@@ -243,6 +243,7 @@
 .boss-banner footer span{flex:1}
 .boss-banner footer button{border:1px solid #ff8f7f66;background:none;color:#ffd0c7;border-radius:999px;padding:4px 10px;font-size:10px}
 .boss-banner footer kbd{padding:1px 4px;font-size:9px}
+.boss-test{padding:1px 6px;border-radius:4px;background:#ffd6a0;color:#1b0f12;font-size:10px;font-weight:700;letter-spacing:1px}
 .boss-banner.countdown{border-color:#ffd6a055;background:#1b1610e8}
 .boss-hits{position:absolute;z-index:4;left:50%;top:42%;pointer-events:none}
 .boss-hits span{position:absolute;left:0;white-space:nowrap;font-weight:900;font-size:18px;color:#ffd06b;text-shadow:0 2px 6px #000;animation:boss-hit 1.4s ease-out forwards}

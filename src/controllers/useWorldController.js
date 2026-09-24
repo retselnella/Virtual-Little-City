@@ -32,7 +32,7 @@ export function useWorldController(character = null, suspended = false) {
   const [sky, setSky] = useState(() => environment.current()), lastWeather = useRef(sky.kind);
   // The world boss runs on the server's clock (the preview offset only applies in local mode).
   const previewOffset = useRef(override.current.offset), nameRef = useRef(displayName(character)); nameRef.current = displayName(character);
-  const boss = useWorldBoss(session, nameRef, previewOffset);
+  const boss = useWorldBoss(session, nameRef, previewOffset, override.current.bossTest);
   useEffect(() => {
     const timer = setInterval(() => {
       const next = environment.current(); setSky(next);

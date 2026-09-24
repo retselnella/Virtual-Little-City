@@ -67,8 +67,9 @@ export function weatherLabel(c) {
 }
 
 // Preview overrides from the page address, e.g. ?clock=21:30&weather=rain. The clock then runs on from that time.
+// ?bosstest joins the world boss test mode, when the site owner has switched it on (supabase/world-boss.sql).
 export function parseEnvironmentOverride(search, now) {
-  const params = new URLSearchParams(search || ''), result = { offset: 0, weather: null };
+  const params = new URLSearchParams(search || ''), result = { offset: 0, weather: null, bossTest: params.has('bosstest') };
   const match = /^(\d{1,2}):(\d{2})$/.exec(params.get('clock') || '');
   if (match && +match[1] < 24 && +match[2] < 60) {
     const current = philippineTime(now), wanted = +match[1] + +match[2] / 60;

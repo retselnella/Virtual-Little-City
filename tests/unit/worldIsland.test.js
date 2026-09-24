@@ -167,5 +167,6 @@ test('weather is one shared function of time: every city and player sees the sam
   assert.deepEqual([...kinds].sort(), ['clear', 'cloudy', 'rain', 'storm']); assert.ok(biggest < 0.08);
   const preview = parseEnvironmentOverride('?clock=21:30&weather=storm', Date.UTC(2026, 8, 24, 4, 0));
   assert.equal(preview.weather, 'storm'); assert.equal(philippineTime(Date.UTC(2026, 8, 24, 4, 0) + preview.offset).hours, 21);
-  assert.deepEqual(parseEnvironmentOverride('?clock=99:00&weather=snow', 0), { offset: 0, weather: null });
+  assert.deepEqual(parseEnvironmentOverride('?clock=99:00&weather=snow', 0), { offset: 0, weather: null, bossTest: false });
+  assert.equal(parseEnvironmentOverride('?bosstest', 0).bossTest, true);
 });

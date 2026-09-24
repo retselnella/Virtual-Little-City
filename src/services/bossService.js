@@ -9,13 +9,14 @@ import { readJson, writeJson } from './storage.js';
 // the schedule, HP, damage and rankings; the browser only reports what the player did. Without Supabase, the same rules
 // (bossRules.js) run in this browser, shared by its tabs through storage, so the event still works for solo testing.
 //   { mode, playerId, state(), hit({ event, shots, punches, x, z, city, name }), death(event), weekly(), claim() }
-export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () => Date.now(), storage } = {}) {
+// `test` asks for the owner's test event (separate from the real one, and not counted on the weekly board).
+export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () => Date.now(), storage, test = false } = {}) {
   if (!configured) return localBoss(clock, storage);
   const { client, session } = await guestClient();
   const rpc = async (name, args) => { const { data, error } = await client.rpc(name, args); if (error) throw error; return data; };
   return {
     mode: 'online', playerId: session.user.id,
-    state: () => rpc('boss_state'),
+    state: () => rpc('boss_state', test ? { p_test: true } : undefined),
     hit: ({ event, shots, punches, x, z, city, name }) => rpc('boss_hit', { p_event: event, p_shots: shots, p_punches: punches, p_x: x, p_z: z, p_city: city, p_name: name }),
     death: event => rpc('boss_death', { p_event: event }),
     weekly: () => rpc('boss_weekly_state'),

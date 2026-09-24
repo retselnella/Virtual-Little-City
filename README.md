@@ -301,7 +301,7 @@ Without this, only tabs of the same browser share the world. Online play uses a 
      SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
      ```
    - **On Vercel**: Project → Settings → **Environment Variables**. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production (and Preview if you use it). The names `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` also work. Marking them Sensitive is fine. Then **redeploy**: the values are built into the site, so a new deployment is needed.
-7. **The Kaiju event**: in the SQL Editor, also run the whole of [`supabase/world-boss.sql`](supabase/world-boss.sql). It creates the event, damage, weekly board and reward tables (hidden from players; they can only use the game's checked functions) and the reward tiers, which you can change in the `boss_reward_tiers` table. Weeks are closed automatically the first time anyone opens the board after Monday 00:00 PH time; if you have the `pg_cron` extension, the file shows an optional schedule for it. Without this step, online play works but the Kaiju panel says the event server cannot be reached.
+7. **The Kaiju event**: in the SQL Editor, also run the whole of [`supabase/world-boss.sql`](supabase/world-boss.sql). It creates the event, damage, weekly board and reward tables (hidden from players; they can only use the game's checked functions) and the reward tiers, which you can change in the `boss_reward_tiers` table. Run it again whenever the game is updated; it keeps your data. Weeks are closed automatically the first time anyone opens the board after Monday 00:00 PH time; if you have the `pg_cron` extension, the file shows an optional schedule for it. Without this step, online play works but the Kaiju panel says the event server cannot be reached.
 8. **Check it**: the build log shows `Multiplayer: online via SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY`, and the game shows **Online · 0 other players here**.
 
 If it does not connect: **Offline** usually means anonymous sign-ins are off or the key is wrong. A status stuck on **Connecting…** usually means step 4 was not run. **Local** means the values were not found by the build.
@@ -323,20 +323,22 @@ Without Supabase, the Kaiju event runs in the same browser (all tabs share it), 
 
 ### Testing the Kaiju event online
 
-`?clock=` cannot move an online event: the server owns the time, so players cannot fake it. To test online, use a **second Supabase project** for tests and shift its server clock:
+`?clock=` cannot move an online event: the server owns the time, so players cannot fake it. Instead, the server has a **test mode** that is safe on your real project:
 
-1. **Create a test project** in Supabase and set it up exactly like the real one (steps 2–7 above: anonymous sign-ins, Realtime public access off, both SQL files).
-2. **Point preview builds at it.** In Vercel → Project → Settings → **Environment Variables**, give `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` two sets of values: the real project for **Production** only, the test project for **Preview** only. Push a branch (not `main`) and Vercel builds a preview address that uses the test project; production is untouched. Locally, put the test project's values in `.env.local`.
-3. **Move the test server's clock** in the test project's SQL Editor. The game follows the server clock, so everyone on the preview sees the same thing:
-   ```sql
-   select public.boss_test_clock('11:58');           -- the countdown, on today's city
-   select public.boss_test_clock('12:05', 'manila');  -- the fight, on a day the Kaiju attacks Manila
-   select public.boss_test_clock_off();               -- back to the real time
-   select public.boss_test_reset();                   -- wipe events, damage, weekly boards and rewards to start over
-   ```
-   The clock keeps running from the time you set. Players cannot call these functions; only the project owner can, from the SQL Editor. The sky still shows the real time of day.
+- Only browsers opened with **`?bosstest`** in the address (for example `https://your-site/?bosstest`) join it. Everyone else keeps the real schedule and never sees it.
+- Testers fight a separate **test Kaiju** (marked **TEST** in the banner). Its damage never touches the real Kaiju, the weekly board or rewards.
+- One command reverts everything.
 
-Never run `boss_test_clock` on the production project: events and damage made under a shifted clock are stored like real ones and would count on the real leaderboards.
+In your project's SQL Editor (players cannot call these; only you can):
+
+```sql
+select public.boss_test_clock('11:58');           -- testers see the countdown, on today's city
+select public.boss_test_clock('12:05', 'manila');  -- testers fight, on a day the Kaiju attacks Manila
+select public.boss_test_reset();                   -- a fresh test Kaiju (deletes test events and test damage)
+select public.boss_test_clock_off();               -- revert: test mode off, all test events and test damage deleted
+```
+
+Then open the game with `?bosstest` (colleagues can too; everyone in test mode shares the same test Kaiju). The test clock keeps running from the time you set; the sky still shows the real time of day. While test mode is off, `?bosstest` does nothing.
 
 ### Checks before publishing
 

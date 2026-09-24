@@ -6,15 +6,16 @@ import { CITIES } from '../models/worldTour/worldAdventure.js';
 
 // The world boss event for this player: polls the server for the event (schedule, HP, ranking), reports the player's
 // hits and deaths, keeps the session's clock in step with the server's, and announces the event to everyone.
-// `clockOffset` (a ref, ms) is added to the local clock for previews (?clock=) in local mode only.
-export function useWorldBoss(session, playerName, clockOffset) {
+// `clockOffset` (a ref, ms) is added to the local clock for previews (?clock=) in local mode only. `test` (?bosstest)
+// asks the server for its test event, which it only gives while the owner has test mode on.
+export function useWorldBoss(session, playerName, clockOffset, test = false) {
   const server = useRef(null), skew = useRef(0), lastPhase = useRef(null), reported = useRef({ deaths: 0 });
   const [status, setStatus] = useState('connecting'), [event, setEvent] = useState(null), [weekly, setWeekly] = useState(null), [hits, setHits] = useState([]);
   const clock = useRef(() => Date.now() + skew.current);
   useEffect(() => {
     let alive = true, busy = false;
     const local = () => Date.now() + (clockOffset.current || 0);
-    connectBoss({ clock: local }).then(api => {
+    connectBoss({ clock: local, test }).then(api => {
       if (!alive) return;
       server.current = api; setStatus(api.mode);
       if (api.mode === 'local') clock.current = local;

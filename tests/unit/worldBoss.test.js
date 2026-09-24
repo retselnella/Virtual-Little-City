@@ -114,29 +114,39 @@ test('weekly leaderboard: totals across events, closed at the end of the week wi
   assert.ok(reportDeath(store, { playerId: 'a', eventId: e1.id, now: e1.startsAt + 300_000 }) && !reportDeath(store, { playerId: 'a', eventId: e1.id, now: e1.startsAt + 301_000 }));
 });
 
-test('the owner-only test clock moves the whole server, so a test project can try the event at any hour', async () => {
+test('test mode runs on the real project without touching real data, and reverts cleanly', async () => {
   const S = await server(), owner = async (ms, sql) => { await S.db.query(`select set_config('test.now', $1, false)`, [new Date(ms).toISOString()]); return (await S.db.query(sql)).rows[0].v; };
-  assert.equal((await S.state(A, at(9))).phase, 'scheduled');
-  assert.match(await owner(at(9), `select public.boss_test_clock('11:58') as v`), /11:58 PH time/);
-  const countdown = await S.state(A, at(9, 0, 30));
-  assert.equal(countdown.phase, 'countdown'); assert.equal(countdown.city, eventForDay(day).city); assert.equal(countdown.serverNow, at(11, 58, 30), 'clients follow the shifted server clock');
-  const target = CITIES.find(c => c.id !== eventForDay(day).city && c.id !== eventForDay(day + 1).city).id;
-  await owner(at(9), `select public.boss_test_clock('12:05', '${target}') as v`);
-  const fight = await S.state(A, at(9, 1));
-  assert.equal(fight.phase, 'active'); assert.equal(fight.city, target);
-  const pose = kaijuPose((fight.serverNow - fight.startsAt) / 1000), hit = await S.hit(A, at(9, 1, 3), fight.id, 3, 0, pose.x, pose.z, target);
+  const testState = (uid, ms) => S.as(uid, ms, 'select public.boss_state(true) as v').then(r => r.v);
+  const real = eventForDay(day), rpose = kaijuPose(185);
+  // A real fight is under way (12:03) with real damage on the weekly board.
+  assert.equal((await S.hit(A, at(12, 3, 5), real.id, 3, 0, rpose.x, rpose.z, real.city)).ok, true);
+  const realHp = (await S.state(A, at(12, 3, 6))).hp, week = await S.as(A, at(12, 3, 6), 'select public.boss_weekly_state() as v').then(r => r.v);
+  // ?bosstest without test mode switched on is simply the real event.
+  assert.equal((await testState(B, at(12, 3, 6))).id, real.id);
+  // The owner moves the test clock to 12:05 on another city's day: only ?bosstest players follow it.
+  const target = CITIES.find(c => c.id !== real.city && c.id !== eventForDay(day + 1).city).id;
+  assert.match(await owner(at(12, 3), `select public.boss_test_clock('12:05', '${target}') as v`), /test kaiju attacks/);
+  const fight = await testState(B, at(12, 3, 10));
+  assert.equal(fight.test, true); assert.match(fight.id, /^test-/); assert.equal(fight.phase, 'active'); assert.equal(fight.city, target); assert.equal(Number(fight.hp), BOSS_HP);
+  const everyone = await S.state(A, at(12, 3, 10));
+  assert.equal(everyone.id, real.id); assert.equal(everyone.test, false); assert.equal(everyone.serverNow, at(12, 3, 10), 'other players keep the real clock');
+  const pose = kaijuPose((fight.serverNow - fight.startsAt) / 1000), hit = await S.hit(B, at(12, 3, 13), fight.id, 3, 0, pose.x, pose.z, target);
   assert.equal(hit.ok, true); assert.equal(Number(hit.damage), 3 * WEAPONS.shot.damage);
-  await assert.rejects(owner(at(9), `select public.boss_test_clock('25:00') as v`), /HH:MM/);
-  await owner(at(9), 'select public.boss_test_clock_off() as v');
-  assert.equal((await S.state(A, at(9, 2))).phase, 'scheduled', 'back to the real time');
-  await owner(at(9), 'select public.boss_test_reset() as v');
-  assert.equal((await S.db.query('select count(*)::int as n from boss_damage')).rows[0].n, 0);
+  assert.equal((await S.state(A, at(12, 3, 14))).hp, realHp, 'test damage never touches the real kaiju');
+  assert.deepEqual((await S.as(A, at(12, 3, 14), 'select public.boss_weekly_state() as v')).v.rows, week.rows, 'nor the weekly board');
+  await assert.rejects(owner(at(12, 3), `select public.boss_test_clock('25:00') as v`), /HH:MM/);
+  // Revert: test mode off, test data gone, real data as it was.
+  await owner(at(12, 4), 'select public.boss_test_clock_off() as v');
+  assert.equal((await S.db.query(`select count(*)::int as n from boss_events where id like 'test-%'`)).rows[0].n, 0);
+  assert.equal((await S.hit(B, at(12, 4, 5), fight.id, 1, 0, pose.x, pose.z, target)).ok, false, 'old test events cannot be hit');
+  assert.equal((await testState(B, at(12, 4, 6))).id, real.id);
+  assert.equal((await S.state(A, at(12, 4, 6))).hp, realHp);
 });
 
 test('clients cannot touch the tables or call internal functions', async () => {
   const S = await server();
   for (const sql of ['select * from boss_events', 'update boss_events set hp = 0', "insert into boss_weekly values (1, gen_random_uuid(), 'x', 999999999999)", 'select public.boss_close_weeks()', 'select public.boss_event_now()', 'select * from boss_reward_tiers',
-    "select public.boss_test_clock('12:05')", 'select public.boss_test_clock_off()', 'select public.boss_test_reset()', 'update boss_test_clock set offset_ms = 1']) {
+    "select public.boss_test_clock('12:05')", 'select public.boss_test_clock_off()', 'select public.boss_test_reset()', 'update boss_test_clock set offset_ms = 1', 'select public.boss_clock(true)', 'select public.boss_event_now(true)']) {
     await assert.rejects(S.as(A, at(12, 5), sql), /permission denied/, sql);
   }
   assert.equal((await S.as(null, at(12, 5), `select public.boss_hit('x', 1, 0, 0, 0, 'miami', 'x') as v`)).v.reason, 'signed-out');

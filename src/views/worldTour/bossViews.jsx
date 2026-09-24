@@ -40,7 +40,7 @@ export function BossBanner({ boss, city, now, onOpen, onMap }) {
   if (!ev || !(ev.phase === 'countdown' || ev.phase === 'active' || ((ev.phase === 'defeated' || ev.phase === 'ended') && now < ev.endsAt + 600_000))) return null;
   const where = cityName(ev.city), here = ev.city === city.id, pct = ev.hp / ev.maxHp * 100;
   return <section className={`boss-banner ${ev.phase}`} aria-label={`${BOSS_NAME} event`}>
-    <header><b>{BOSS_NAME}</b><span>{where}</span>
+    <header><b>{BOSS_NAME}</b><span>{where}</span>{ev.test && <mark className="boss-test">TEST</mark>}
       {ev.phase === 'countdown' && <em>rises in {clockText(ev.startsAt - now)}</em>}
       {ev.phase === 'active' && <em>{clockText(ev.endsAt - now)} left</em>}
       {ev.phase === 'defeated' && <em>Defeated</em>}{ev.phase === 'ended' && <em>Retreated</em>}
@@ -64,7 +64,7 @@ export function BossPanel({ boss, city, now, onClaim }) {
   const status = { scheduled: `Next appearance: ${cityName(ev.city)}, 12:00 PH time (in ${clockText(ev.startsAt - now)}).`, countdown: `Rises off ${cityName(ev.city)} in ${clockText(ev.startsAt - now)}.`,
     active: `Attacking ${cityName(ev.city)} · ${clockText(ev.endsAt - now)} left.`, defeated: `Defeated in ${cityName(ev.city)}.`, ended: `Retreated from ${cityName(ev.city)} when time ran out.` }[ev.phase];
   return <div className="boss-panel">
-    <p className="boss-status"><b>{status}</b> HP {ev.hp.toLocaleString()} / {ev.maxHp.toLocaleString()} ({(ev.hp / ev.maxHp * 100).toFixed(2)}%). Every day at 12:00 Philippine time {BOSS_NAME} rises off a different city for one hour. The server counts every hit.{city.id === ev.city ? ' It is on your island.' : ''}</p>
+    <p className="boss-status"><b>{status}</b> HP {ev.hp.toLocaleString()} / {ev.maxHp.toLocaleString()} ({(ev.hp / ev.maxHp * 100).toFixed(2)}%). Every day at 12:00 Philippine time {BOSS_NAME} rises off a different city for one hour. The server counts every hit.{city.id === ev.city ? ' It is on your island.' : ''}{ev.test ? ' This is a test event: its damage does not count toward the weekly board or rewards.' : ''}</p>
     <div className="boss-me"><div><small>YOUR DAMAGE</small><b>{ev.me.damage.toLocaleString()}</b></div><div><small>RANK</small><b>{ev.me.rank ? `#${ev.me.rank}` : '—'}</b></div><div><small>HITS</small><b>{ev.me.hits || 0}</b></div><div><small>DEATHS</small><b>{ev.me.deaths || 0}</b></div></div>
     <h3>Live ranking</h3>
     <table className="boss-table"><thead><tr><th>Rank</th><th>Player</th><th>Damage</th><th>Share</th></tr></thead>
