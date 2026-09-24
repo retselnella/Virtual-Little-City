@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, guidePoint, interact, nearAirport, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, toggleVehicle } from '../models/worldTour/worldAdventure.js';
+import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, equip, guidePoint, interact, nearAirport, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, toggleVehicle } from '../models/worldTour/worldAdventure.js';
 import { mountAdventure } from '../scenes/worldTour/adventureScene.js';
 import { disposePhysics } from '../models/worldTour/physicsEngine.js';
 
@@ -8,10 +8,11 @@ import { readBloodPreference, writeBloodPreference } from '../services/preferenc
 import { useWorldInput } from '../hooks/useWorldInput.js';
 import { useMultiplayer } from '../hooks/useMultiplayer.js';
 import { useWorldBoss } from '../hooks/useWorldBoss.js';
-import { policeStatus, snapshot } from '../models/worldTour/presentation.js';
+import { missionTask, policeStatus, snapshot } from '../models/worldTour/presentation.js';
 import { displayName } from '../models/worldTour/characterProfile.js';
 import { parseEnvironmentOverride, weatherLabel, worldConditions } from '../models/worldTour/worldClock.js';
 import { islandFor } from '../models/worldTour/worldIsland.js';
+import { WEAPON_ORDER, atGunShop, buyWeapon, nextWeapon } from '../models/worldTour/weapons.js';
 
 function sessionFor(city, save, blood = true, appearance = null, arrival = null) { return { ...createSession(city, save, appearance, arrival), cityInfo: city, blood }; }
 
@@ -63,8 +64,9 @@ export function useWorldController(character = null, suspended = false) {
     const s = session.current;
     if (key === 'vehicle') toggleVehicle(s);
     if (key === 'attack') attack(s);
-    if (key === 'interact') interact(s);
-    if (key === 'weapon') { s.weapon = s.weapon === 'pistol' ? 'fists' : 'pistol'; notify(s, s.weapon === 'pistol' ? 'Pistol equipped. J to fire.' : 'Fists equipped. Get close and press J.'); }
+    if (key === 'interact') { interact(s); if (s.shopping) { s.shopping = false; open('shop'); return; } }
+    if (key === 'weapon') equip(s, nextWeapon(s.weapon, s.owned));
+    if (key.startsWith('slot')) { const id = WEAPON_ORDER[Number(key.slice(4)) - 1]; if (id && !equip(s, id)) notify(s, `You do not own a ${id === 'smg' ? 'SMG' : id}. The gun shop is in Miami.`); }
     if (key === 'reload') startReload(s);
     if (key === 'map') { open('world'); return; }
     setHud(snapshot(s));
@@ -81,14 +83,22 @@ export function useWorldController(character = null, suspended = false) {
     session.current = sessionFor(CITIES.find(c => c.id === id), old, old.blood, old.appearance, mode); disposePhysics(old); save(session.current); setHud(snapshot(session.current)); open(null);
   }
   const [dispatchTitle, dispatchHint] = policeStatus(hud);
-  const task = !current ? 'The world is yours.' : hud.mission.stage === 0 ? current.id === 'crew' ? `Eliminate the crew · ${hud.enemies.filter(e => e.kind === 'gang' && e.health <= 0).length}/4` : 'Collect the marked package' : hud.heat > 0 ? 'Lose the police' : 'Reach the drop-off';
+  const task = missionTask(hud, current);
   function acceptContract(id) { startContract(session.current, id); setHud(snapshot(session.current)); open(null); }
   function abandonContract() { session.current.mission = null; session.current.enemies = session.current.enemies.filter(e => e.kind !== 'gang'); notify(session.current, 'Contract abandoned. You can accept it again.'); setHud(snapshot(session.current)); open(null); }
+  // The gun shop counter: buying is checked against your cash and saved at once; you can only buy standing in the shop.
+  function buy(id) {
+    const s = session.current; if (!atGunShop(s.city, s.player)) return;
+    const result = buyWeapon(s, id);
+    notify(s, result.ok ? `Bought: ${id === 'smg' ? 'SMG' : id}. Press ${WEAPON_ORDER.indexOf(id) + 1} or Q to equip it.` : result.reason);
+    if (result.ok) save(s); setHud(snapshot(s));
+  }
+  function equipWeapon(id) { if (equip(session.current, id)) setHud(snapshot(session.current)); }
   function recoverToSafehouse() { recover(session.current); setHud(snapshot(session.current)); open(null); }
   function sail(id) { if (setCourse(session.current, id)) { setHud(snapshot(session.current)); open(null); } }
   function stopSailing() { cancelCourse(session.current); setHud(snapshot(session.current)); }
   function guide(point) { setWaypoint(session.current, point); setHud(snapshot(session.current)); open(null); }
   const island = islandFor(city.id), playerName = displayName(character), region = island.regionAt(p.x, p.z, city.district), weather = weatherLabel(sky);
   async function claimRewards() { const cash = await boss.claim(); if (cash) { notify(session.current, `Weekly boss rewards claimed: +$${cash.toLocaleString()}.`); save(session.current); setHud(snapshot(session.current)); } }
-  return { boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), canFly: nearAirport(hud), sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
+  return { boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), canFly: nearAirport(hud), sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CITIES, CONTRACTS } from '../../models/worldTour/worldAdventure.js';
+import { CITIES, CONTRACTS, reachableNear } from '../../models/worldTour/worldAdventure.js';
 import { formatClock } from '../../models/worldTour/worldClock.js';
 import { ExperienceDialog } from '../shared/ExperienceDialog.jsx';
 import { IslandLayers, PlayerArrow, mapView } from './islandMap.jsx';
@@ -8,6 +8,8 @@ import { STATIONS, nearestStation } from '../../models/worldTour/metro.js';
 import { voyage } from '../../models/worldTour/worldBoat.js';
 import { BOSS_NAME } from '../../models/worldTour/bossRules.js';
 import { BossBanner, BossHits, BossPanel, WorldAtlas } from './bossViews.jsx';
+import { ShopPanel, WeaponBar } from './weaponViews.jsx';
+import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
 // Connection chip: who else is here, and whether this is the shared online world or the same-browser fallback.
 function onlineLabel({ status, peers }) {
   const others = peers.length, players = `${others} other player${others === 1 ? '' : 's'} here`;
@@ -35,7 +37,7 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { boss, claimRewards, online, playerName, sky, weather, region, island, prompt, canFly, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const { boss, claimRewards, online, playerName, sky, weather, region, island, prompt, canFly, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [mapTab, setMapTab] = useState('world'), [picked, setPicked] = useState(null);
   const now = boss.clock.current(), bossEvent = boss.event;
   const clock = formatClock(sky.clock), [onlineState, onlineText] = onlineLabel(online);
@@ -50,14 +52,14 @@ export default function WorldView({ controller, onEditCharacter }) {
   const canTravel = !hud.mission && !(hud.heat > 0) && !(hud.down > 0) && ready && !error;
   const view = mapView(island), mapK = view.width / 780;
   const places = [
-    { label: 'City Hub', x: 8, z: 12 }, { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z }, { label: 'Airport', x: AIRPORT.x + 20, z: AIRPORT.z },
+    { label: 'City Hub', x: 8, z: 12 }, ...(city.id === GUN_SHOP.city ? [{ label: 'Gun shop', ...GUN_SHOP.door }] : []), { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z }, { label: 'Airport', x: AIRPORT.x + 20, z: AIRPORT.z },
     { label: `${STATIONS[nearestStation(p.x, p.z)].name} metro station`, ...STATIONS[nearestStation(p.x, p.z)].exit },
     { label: 'Lighthouse', x: island.landmarks.lighthouse.x + 22, z: island.landmarks.lighthouse.z },
-    ...(island.landmarks.feature ? [{ label: island.landmarks.feature.name, x: island.landmarks.feature.x, z: island.landmarks.feature.z + island.landmarks.feature.radius + 8 }] : []),
+    ...(island.landmarks.feature ? [{ label: island.landmarks.feature.name, ...reachableNear(island, { x: island.landmarks.feature.x, z: island.landmarks.feature.z + island.landmarks.feature.radius + 8 }) }] : []),
     ...island.suburbs.slice(0, 1).map(sb => ({ label: sb.name, x: sb.x, z: sb.z })),
     ...island.lakes.slice(0, 1).map(l => ({ label: l.name, x: l.x, z: l.z + l.rz + 20 })),
   ];
-  const vehicle = hud.driving ? ['SPORT COUPE', `${Math.round(speed * 3.6)} km/h`] : hud.boating ? ['SPEEDBOAT', `${Math.round(speed * 3.6)} km/h`] : hud.riding ? ['METRO', STATIONS[hud.train.station ?? hud.train.next].name.toUpperCase()] : [hud.weapon === 'pistol' ? 'PISTOL' : 'UNARMED', hud.reload > 0 ? 'RELOADING' : hud.weapon === 'pistol' ? `${hud.ammo} / ∞` : 'FISTS'];
+  const vehicle = hud.driving ? ['SPORT COUPE', `${Math.round(speed * 3.6)} km/h`] : hud.boating ? ['SPEEDBOAT', `${Math.round(speed * 3.6)} km/h`] : hud.riding ? ['METRO', STATIONS[hud.train.station ?? hud.train.next].name.toUpperCase()] : [WEAPONS[hud.weapon]?.gun ? WEAPONS[hud.weapon].name.toUpperCase() : 'UNARMED', hud.reload > 0 ? 'RELOADING' : WEAPONS[hud.weapon]?.gun ? `${hud.mags[hud.weapon]} / ∞` : 'FISTS'];
   // The left card: the contract, else the voyage, else the metro ride, else a nudge to explore.
   const card = current ? null : course ? {
     kicker: `SEA VOYAGE / ${course.name.toUpperCase()}`,
@@ -114,6 +116,7 @@ export default function WorldView({ controller, onEditCharacter }) {
     {hud.down > 0 && <div className={'adventure-wasted' + (hud.downReason === 'busted' ? ' busted' : '')}><h2>{hud.downReason === 'busted' ? 'BUSTED' : 'WASTED'}</h2><p>{hud.downReason === 'busted' ? 'Released at the City Hub…' : 'Returning to the City Hub…'}</p></div>}
     {!ready && !error && <div className="adventure-loading"><span className="loading-ring" />Building {city.name}…</div>}
     {error && <div className="adventure-loading"><strong>The city needs WebGL.</strong><p>Enable hardware acceleration and reload to play.</p><button onClick={() => location.reload()}>Reload</button></div>}
+    {!hud.driving && !hud.boating && !hud.riding && <WeaponBar hud={hud} onEquip={equipWeapon} />}
     <div className="adventure-bottom">
       <section className="adventure-radar" aria-label="Island minimap">
         <div className="radar-dial">
@@ -127,9 +130,10 @@ export default function WorldView({ controller, onEditCharacter }) {
         <footer><span><i /> {hud.driving ? 'IN VEHICLE' : hud.boating ? 'AT SEA' : hud.riding ? 'ON THE METRO' : 'ON FOOT'} · {region}</span><button onClick={() => openMap('island')}>Map ↗</button></footer>
       </section>
       <div className="adventure-hints"><span><kbd>W A S D</kbd> {hud.driving || hud.boating ? 'Drive' : 'Move'}</span><span><kbd>F</kbd> {hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'}</span><span><kbd>J</kbd> Attack</span><span><kbd>E</kbd> Interact · metro</span><span><kbd>M</kbd> Map</span><small>Drag to look · Scroll to zoom</small></div>
-      <div className="adventure-actions"><button disabled={!ready || error} onClick={() => action('vehicle')}>{hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'} <kbd>F</kbd></button><button disabled={!ready || error || hud.driving || hud.boating || hud.riding} {...touchControl('attack')}>Attack <kbd>J</kbd></button><button disabled={!ready || error} onClick={() => action('interact')}>Interact <kbd>E</kbd></button><button onClick={() => action('weapon')}>{hud.weapon === 'pistol' ? 'Use fists' : 'Use pistol'} <kbd>Q</kbd></button><button onClick={() => action('reload')}>Reload <kbd>R</kbd></button></div>
+      <div className="adventure-actions"><button disabled={!ready || error} onClick={() => action('vehicle')}>{hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'} <kbd>F</kbd></button><button disabled={!ready || error || hud.driving || hud.boating || hud.riding} {...touchControl('attack')}>Attack <kbd>J</kbd></button><button disabled={!ready || error} onClick={() => action('interact')}>Interact <kbd>E</kbd></button><button onClick={() => action('weapon')}>Switch weapon <kbd>Q</kbd></button><button onClick={() => action('reload')}>Reload <kbd>R</kbd></button></div>
     </div>
     <div className="adventure-touch" aria-label="Touch movement controls">{[['forward', '↑'], ['left', '←'], ['backward', '↓'], ['right', '→'], ['run', 'Run'], ['brake', hud.driving ? 'Brake' : 'Jump']].map(([key, title]) => <button key={key} className={'control-' + key} aria-label={key} {...touchControl(key)}>{title}</button>)}</div>
+    {panel === 'shop' && <ExperienceDialog title={`${GUN_SHOP.name}.`} className="adventure-dialog shop-dialog" onClose={() => open(null)}><ShopPanel hud={hud} onBuy={buy} onEquip={equipWeapon} /></ExperienceDialog>}
     {panel === 'boss' && <ExperienceDialog title={`${BOSS_NAME}: the world boss.`} className="adventure-dialog boss-dialog" onClose={() => open(null)}><BossPanel boss={boss} city={city} now={now} onClaim={claimRewards} /></ExperienceDialog>}
     {panel === 'world' && <ExperienceDialog title={mapTab === 'island' ? `${city.name}.` : 'The world.'} className="adventure-dialog world-dialog" onClose={() => open(null)}>
       <div className="map-tabs" role="tablist" aria-label="Map views">
@@ -161,7 +165,7 @@ export default function WorldView({ controller, onEditCharacter }) {
           return <article key={c.id} id={`trip-${c.id}`} className={(here ? 'selected' : '') + (picked === c.id ? ' picked' : '')} style={{ '--destination-color': c.color }} aria-label={`${c.country} ${c.name}`}>
             <small>{c.country}</small><strong>{c.name}<span>{here ? '● You are here' : ''}</span></strong>{bossHere && <span className="boss-tag">{BOSS_NAME} {bossEvent.phase === 'active' ? 'attacking now' : 'at 12:00'}</span>}
             <em>{c.district}</em><p>{theme.summary}</p>
-            <span className="progress">{hud.completed.filter(key => key.startsWith(c.id + ':')).length}/3 contracts{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</span>
+            <span className="progress">{hud.completed.filter(key => key.startsWith(c.id + ':')).length}/{CONTRACTS.length} contracts{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</span>
             {!here && <div className="trip">
               <button disabled={!canTravel || course?.to === c.id} onClick={() => sail(c.id)}>{course?.to === c.id ? 'Course set' : `Sail · ${(trip.total / 1000).toFixed(1)} km`}</button>
               <button disabled={!canTravel || !canFly} title={canFly ? '' : 'Flights leave from the airport terminal (west side of the city)'} onClick={() => travel(c.id, 'flight')}>Fly</button>
@@ -171,7 +175,7 @@ export default function WorldView({ controller, onEditCharacter }) {
         <small className="travel-note">{canFly ? 'You are at the airport: flights leave now.' : 'Flights leave from the airport terminal on the west side of the city. Use GPS on the Island map to get there.'}</small>
       </div>}
     </ExperienceDialog>}
-    {panel === 'contracts' && <ExperienceDialog title="Good work. Better pay." className="adventure-dialog" onClose={() => open(null)}><p>Available in {city.name}. Follow the gold marker, stop, then press E at the objective. Combat locks onto the nearest visible enemy in range.</p><div className="world-contracts">{CONTRACTS.map(m => { const done = hud.completed.includes(`${city.id}:${m.id}`); return <article key={m.id}><div><small>{m.type}</small><b>${m.reward.toLocaleString()}</b></div><h3>{m.title}</h3><p>{m.description}</p><button disabled={done || !!hud.mission || !ready || error || hud.down > 0} onClick={() => acceptContract(m.id)}>{done ? '✓ Completed' : hud.mission?.id === m.id ? 'In progress' : 'Accept contract ↗'}</button></article>; })}</div>{hud.mission && <button className="adventure-secondary" onClick={abandonContract}>Abandon current contract</button>}<p className="adventure-save">{storage ? 'Cash and completed contracts save automatically on this browser. Unfinished contracts restart after reloading.' : 'Browser storage is unavailable. Progress lasts for this session.'} {hud.completed.length}/21 completed.</p></ExperienceDialog>}
+    {panel === 'contracts' && <ExperienceDialog title="Good work. Better pay." className="adventure-dialog" onClose={() => open(null)}><p>Available in {city.name}. Follow the gold marker: stop and press E at pick-ups and drop-offs; races and tours count as soon as you pass each checkpoint. Combat locks onto the nearest visible enemy in range.</p><div className="world-contracts">{CONTRACTS.map(m => { const done = hud.completed.includes(`${city.id}:${m.id}`); return <article key={m.id}><div><small>{m.type}</small><b>${m.reward.toLocaleString()}</b></div><h3>{m.title}</h3><p>{m.description}</p><button disabled={done || !!hud.mission || !ready || error || hud.down > 0} onClick={() => acceptContract(m.id)}>{done ? '✓ Completed' : hud.mission?.id === m.id ? 'In progress' : 'Accept contract ↗'}</button></article>; })}</div>{hud.mission && <button className="adventure-secondary" onClick={abandonContract}>Abandon current contract</button>}<p className="adventure-save">{storage ? 'Cash and completed contracts save automatically on this browser. Unfinished contracts restart after reloading.' : 'Browser storage is unavailable. Progress lasts for this session.'} {hud.completed.length}/{CITIES.length * CONTRACTS.length} completed.</p></ExperienceDialog>}
     {panel === 'help' && <ExperienceDialog title="Make yourself at home." className="adventure-dialog" onClose={() => open(null)}><p>The game is paused. Explore the island on foot or take your cyan coupe. Pick up contracts, ride the metro, and sail or fly to another island.</p><div className="adventure-help">{[['WASD / arrows', 'Move or drive'], ['Shift / Space', 'Sprint / jump; Space is the handbrake while driving'], ['F', 'Enter or exit your car (stop first)'], ['J / Attack', 'Shoot or punch; the ring shows who you will hit. Hold to keep firing'], ['Q / R', 'Switch fists / pistol; reload (automatic when empty)'], ['E', 'Collect, deliver, or heal at the City Hub forecourt'], ['M / L', 'Map, GPS and travel / contracts'], ['Drag / scroll', 'Look around / zoom']].map(([key, text]) => <div key={key}><kbd>{key}</kbd><span>{text}</span></div>)}</div><p>Your speedboat is moored at the marina pier on the east waterfront: set a course on the map, sail out to open sea and follow the arrow to reach another island. Flights leave from the airport. The metro loops over the city with four stations; press E on the pavement below one to wait for the train, and again to get off. Day and night follow the time in the Philippines, and the weather is shared by the whole world: when it rains in one city, it rains in all of them, for every player. Shots and attacks attract police. Patrol cars respond by road and chase you while they can see you; out of sight, they search your last known location. At one star, officers try to arrest you on foot: stand still and you are busted and fined. Hurting bystanders or officers raises your stars, and at two or more officers open fire. Stop attacking for 12 seconds and stay out of police sight for 8 seconds to begin losing heat. Aim with the camera: the pistol locks onto threats first and only onto bystanders in front of you. Punches chain into a three-hit combo whose last hook knocks people down. Children are never targets. At zero health you respawn and can restart your contract. Return to the City Hub forecourt (where you arrived) and press E on foot to heal. Other players in your city appear with their own look and name tag (and in their car while driving) and on the minimap. Traffic, pedestrians, police and contracts are your own; you cannot collide with or fight other players.</p><div className="adventure-menu-actions"><button onClick={() => open(null)}>Resume game ↗</button><button aria-pressed={blood} onClick={toggleBlood}>Blood effects: {blood ? 'On' : 'Off'}</button><button onClick={recoverToSafehouse}>Return to City Hub</button><button onClick={() => { open(null); onEditCharacter?.(); }}>Edit character</button></div></ExperienceDialog>}
   </div>;
 }

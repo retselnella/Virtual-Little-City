@@ -81,7 +81,7 @@ test('pistol prefers threats, spares bystanders behind the camera and stops stra
   s.enemies = []; s.pedestrians = []; s.blocks = [{ x: 8, z: -10, width: 20, depth: 4 }];
   attack(s); const shot = s.shots.at(-1);
   assert.ok(Math.abs(shot.tz - -8) < 0.01, 'the tracer ends at the wall instead of passing through');
-  s.ammo = 0; s.cooldown = 0; s.reload = 0; attack(s); assert.equal(s.reload, 1.5, 'an empty pistol reloads automatically');
+  s.mags.pistol = 0; s.cooldown = 0; s.reload = 0; attack(s); assert.equal(s.reload, 1.5, 'an empty pistol reloads automatically');
 });
 
 test('at one star officers arrest a suspect who stays still, and busted players are fined', () => {
@@ -159,7 +159,7 @@ test('traffic loops use opposite lanes, keep flowing, and wedged cars reverse ou
 test('street spots sit clear of buildings, contracts and the safehouse in every city', () => {
   const { spots } = sceneryLayout();
   assert.ok(spots.length >= 30); assert.ok(['stall', 'bus', 'bench', 'chat'].every(type => spots.some(spot => spot.type === type)));
-  const keep = [{ x: 8, z: 12 }, ...CONTRACTS.flatMap(m => [m.target, m.finish])];
+  const keep = [{ x: 8, z: 12 }, ...CONTRACTS.filter(m => m.target).flatMap(m => [m.target, m.finish])];
   for (const spot of spots) for (const point of keep) assert.ok(Math.hypot(spot.x - point.x, spot.z - point.z) > 20, `${spot.id} is clear of ${point.x},${point.z}`);
   for (const city of CITIES) {
     const blocks = generateBlocks(city);

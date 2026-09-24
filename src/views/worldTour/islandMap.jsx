@@ -39,7 +39,7 @@ export function IslandLayers({ island, hud, online, p, point, k = 1, labels = fa
     <rect x={-CITY_EDGE + 15} y={-CITY_EDGE + 15} width={CITY_EDGE * 2 - 30} height={CITY_EDGE * 2 - 30} fill="#233639" />
     {L.routes.map((r, i) => <path key={i} d={r.d} fill="none" stroke="#8d9a93" strokeWidth={r.street ? Math.max(6, 8 * k) : Math.max(9, 12 * k)} strokeLinejoin="round" />)}
     <path d={L.houses} fill="#b88a5c" />
-    {hud.blocks.map((b, i) => <rect key={i} x={b.x - b.width / 2} y={b.z - b.depth / 2} width={b.width} height={b.depth} fill={b.hub ? '#7fc7b0' : '#46595a'} />)}
+    {hud.blocks.map((b, i) => <rect key={i} x={b.x - b.width / 2} y={b.z - b.depth / 2} width={b.width} height={b.depth} fill={b.hub ? '#7fc7b0' : b.shop ? '#c0584a' : '#46595a'} />)}
     {ROADS.map(n => <g key={n} stroke="#8d9a93" strokeWidth="9"><path d={`M${n} -440V440`} /><path d={`M-440 ${n}H440`} /></g>)}
     <rect x={-h} y={-h} width={h * 2} height={h * 2} fill="none" stroke="#6fb2e6" strokeWidth={Math.max(4, 5 * k)} strokeDasharray={`${16 * k} ${8 * k}`} />
     {STATIONS.map(st => <circle key={st.id} cx={st.x} cy={st.z} r={13 * k} fill="#2f6fb0" stroke="#dff1ff" strokeWidth={4 * k}><title>{st.name} station</title></circle>)}

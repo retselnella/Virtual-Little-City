@@ -1,6 +1,6 @@
 # Little City: World Tour
 
-An open-world action game that runs in your web browser. Sail or fly between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, fight, escape the police, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
+An open-world action game that runs in your web browser. Sail or fly between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, play as a human, a wolf, a hulking brute or a robot, buy guns at the gun shop in Miami, fight, escape the police, race the ring road, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
 
 **Contents**
 
@@ -37,7 +37,16 @@ The first time you play, you design your character. After that, the game opens s
 The character creator appears before your first game.
 
 - **Name**: up to 24 characters. It appears in your HUD and above your head for other players. Leave it blank to be called "Newcomer".
-- **Look**: skin tone, hair style (short, long, buzz cut, bun, cap or bald), hair colour (a cap takes the hair colour), shirt, trousers and shoes.
+- **Character**: choose what you are. Each kind has its own colours and one small perk:
+
+  | Kind | Colours | Perk |
+  | --- | --- | --- |
+  | **Human** | skin tone, hair style and hair colour | Balanced all-rounder. |
+  | **Wolf** | fur (grey, timber, arctic, black, red fox, golden); ears, muzzle and tail | Sprints 15% faster. |
+  | **Brute** | skin (jade, forest, olive, stone, crimson, tan), hair; a head taller and much broader | Punches hit 40% harder. |
+  | **Robot** | plating (chrome, gunmetal, gold, pearl, teal, rust red); visor and antenna | Takes 20% less damage. |
+
+- **Look**: skin, fur or plating, hair style and colour (humans and brutes; a cap takes the hair colour), shirt, trousers and shoes (a robot's shirt is its chest panel).
 - **Build**: compact, average or tall. This changes your size in the game, not just how you look.
 - **Preview**: the 3D model updates as you choose. Drag it to turn it around.
 - **Randomize** picks a random look (it keeps your name). **Reset** returns to the default look.
@@ -56,9 +65,10 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **Space** | Jump | Handbrake (slides the rear for drifting) | |
 | **F** | Get into your car or the boat (stand next to it) | Get out (stop first) | Go ashore (slow down next to a beach or the marina) |
 | **J** | Shoot or punch; hold to keep attacking | | |
-| **Q** | Switch between pistol and fists | | |
+| **Q** | Switch to the next weapon you own | | |
+| **1 – 5** | Fists, pistol, SMG, shotgun, assault rifle (the ones you own) | | |
 | **R** | Reload the pistol | | |
-| **E** | Collect, deliver, heal at the City Hub, or take the metro at a station | | |
+| **E** | Collect, deliver, heal at the City Hub, take the metro at a station, or browse the gun shop | | |
 | **M** | World map, island map and travel | World map, island map and travel | World map, island map and travel |
 | **L** | Contract board | Contract board | Contract board |
 | **B** | Kaiju event and rankings | Kaiju event and rankings | Kaiju event and rankings |
@@ -81,6 +91,7 @@ Opening any menu pauses the game.
 - **Top left**: the country and region, the city, the part of the island you are in (a district such as *Neon Crossing*, or *Ring road*, *Beach*, *Lighthouse*, *Open sea* and so on), and your connection to other players (see [Playing together](#12-playing-together)).
 - **Top right**: your name, **wanted stars**, cash, **health** (it glows red when low), and your weapon with ammunition, or your speed while driving.
 - **Left panel**: your current objective and the distance to the gold marker. **Find a contract** or **Contract details** opens the contract board. On a sea voyage it shows your course, and on the metro the next stop. The **GPS** buttons on the island map set the gold marker to a place such as the marina or the airport.
+- **Weapon bar** (above the controls): fists and every gun you own, with rounds left. Click one or press its number.
 - **Kaiju banner** (under the sky chip, from an hour before the event): the countdown, then the Kaiju's health, the time left, and your damage and rank. See [Kaiju: the world boss](#8-kaiju-the-world-boss).
 - **Police panel** (while wanted): what the police are doing, such as dispatching, en route, searching your last known location, on scene, or trying to arrest you.
 - **Minimap** (bottom left): a round map centred on you, with north up. It zooms out as you drive faster, and a gold arrow on its edge points to an objective that is off the map. **Map ↗** opens the full island map.
@@ -89,6 +100,7 @@ Opening any menu pauses the game.
   - green dot: the City Hub forecourt (spawn); the hub building is the mint block beside it
   - gold dot and dashed line: your objective
   - red dots: gang members
+  - red block (Miami): the gun shop
   - blue dots: police officers
   - squares: police cars, flashing when responding
   - pale yellow dots: other players
@@ -149,28 +161,40 @@ Your speedboat is moored at the end of the **marina** pier on the east waterfron
 
 ## 6. Contracts
 
-Each city has three contracts, 21 in total:
+Each city has six contracts, 42 in total:
 
 | Contract | Reward | What to do |
 | --- | --- | --- |
 | **Midnight delivery** | $650 | Collect a package at the gold marker, then deliver it across the city. |
 | **Take back the block** | $1,200 | Defeat the four armed gang members, lose the police, then return to the City Hub. |
 | **Heat on the highway** | $950 | Pick up a case, which brings two wanted stars. Escape the police, then reach the drop-off. |
+| **Ring road sprint** | $1,100 | Race the island ring road end to end through seven checkpoints in 2 minutes 30. The clock starts at the first checkpoint; run out of time and you start again from it. |
+| **Island explorer** | $800 | Visit the lighthouse, then the island's landmark, then the campsite (or the marina), in that order, by car, boat or on foot. |
+| **Wanted: the gang boss** | $1,600 | A gang boss in a black suit and gold cap (three times tougher than his crew) and two bodyguards wait at a crossing across the city. Take the boss down, lose the police, then report to the City Hub. |
 
 - Press **L** to open the contract board and accept one. Only one contract can be active at a time.
-- Follow the **gold marker**. At the marker, **stop** within about 12 metres and press **E**.
+- Follow the **gold marker**. At pick-ups and drop-offs, **stop** within about 12 metres and press **E**. Race checkpoints and tour sights count as soon as you pass through them.
 - You must have **no wanted stars** to collect a reward.
 - Each contract pays once per city. You can **abandon** an unfinished contract from the board and restart it later.
 - If you are wasted, busted or return to the City Hub, the unfinished contract is cancelled. Your earned cash is kept.
 
 ## 7. Fighting
 
-- **Pistol**: 48 rounds, unlimited spare ammunition. It reloads automatically when empty, or press **R**. It is strongest up to about 30 metres, and reaches about 65.
+- **Guns**: everyone has a pistol. More are sold at **Ocean Drive Arms**, the gun shop in Miami (the red storefront across the avenue from the City Hub; the island map's GPS has a **Gun shop** button). Walk to its door and press **E**. Guns you buy are yours for good, in every city. Ammunition is free: each gun reloads automatically when empty, or press **R**.
+
+  | Gun | Price | Magazine | Range | Notes |
+  | --- | --- | --- | --- | --- |
+  | **Pistol** | free | 48 | 65 m | Strongest up to about 25 m. |
+  | **SMG** | $1,800 | 40 | 50 m | Fully automatic and very fast; weak per bullet. |
+  | **Shotgun** | $2,800 | 8 | 32 m | Devastating up close (and knocks people down), weak at range, forgiving to aim. |
+  | **Assault rifle** | $4,500 | 30 | 110 m | Automatic and long range: the best all-rounder. |
+
+- **Switching**: **Q** cycles through fists and your guns; **1–5** pick one directly; or click the weapon bar. Switching cancels a reload. Handguns are aimed at arm's length with both hands; the shotgun and rifle are shouldered.
 - **Fists**: press **J** quickly for a **jab, cross and hook**. The hook knocks people off their feet; they get up again unless they were defeated.
 - **Aiming**: aim with the camera. The game locks onto the best target: armed threats first, and bystanders only when they are in front of you. The ring on the ground shows who you will hit.
 - **Cover**: buildings, cars and lamp posts block bullets, for you and for anyone shooting at you. Standing still makes you easier to hit. Sprinting and distance make enemies miss more.
 - **Children** can never be targeted or hurt.
-- **Health**: at zero health you are **WASTED** and wake up at the City Hub. To heal, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills your ammunition.
+- **Health**: at zero health you are **WASTED** and wake up at the City Hub. To heal, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills every gun.
 - **Blood** effects can be switched off in the pause menu.
 
 ## 8. Kaiju: the world boss
@@ -178,7 +202,7 @@ Each city has three contracts, 21 in total:
 Every day at **12:00 Philippine time**, a giant Kaiju, taller than the city's towers, rises from the sea off one of the seven cities and attacks it for **one hour**. The cities take turns, one per day. It has **1,000,000,000 HP** shared by every player in the world.
 
 - **Before**: an hour ahead, a banner announces where it will appear, with a countdown. Sail or fly there in time. The World map marks the city.
-- **The fight**: it wades ashore and stomps through the streets. Shoot or punch it (**J**) from up to about 220 metres. It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
+- **The fight**: it wades ashore and stomps through the streets. Shoot or punch it (**J**) from up to about 220 metres. Any gun works; the server counts each gunshot the same and caps how many count per second, so a faster gun does not deal more boss damage. It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
 - **Destruction**: buildings, trees and lamp posts it hits collapse into rubble and craters. The damage stays for the whole hour and the city is restored when the event ends.
 - **The end**: when its HP reaches zero it is **defeated**. If time runs out first, it **retreats**. Either way, the next day's event is prepared.
 
@@ -245,7 +269,7 @@ Things to know:
 The game saves automatically **in your browser** on this device:
 
 - your character
-- cash, completed contracts and your current city
+- cash, completed contracts, your current city and the guns you own
 - the blood effects setting
 - your **guest identity**: online, the game signs you in anonymously the first time and keeps that session in this browser, so every later visit is the same guest, with the same Kaiju damage, weekly rank and rewards. Without an online server, a guest id is saved instead.
 
@@ -352,4 +376,4 @@ npm run audit:security
 
 ### Credits
 
-Physics by [Rapier](https://rapier.rs), rendering by [Three.js](https://threejs.org), multiplayer by [Supabase Realtime](https://supabase.com/docs/guides/realtime). All characters, cars, boats, trains, scenery and the Kaiju itself are generated in code, and its sounds are synthesised in the browser, so there are no third-party models or audio with licences to track. The Kaiju server tests use [PGlite](https://pglite.dev).
+Physics by [Rapier](https://rapier.rs), rendering by [Three.js](https://threejs.org), multiplayer by [Supabase Realtime](https://supabase.com/docs/guides/realtime). All characters (wolf, brute and robot included), guns, cars, boats, trains, scenery and the Kaiju itself are generated in code, and its sounds are synthesised in the browser, so there are no third-party models or audio with licences to track. The Kaiju server tests use [PGlite](https://pglite.dev).

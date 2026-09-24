@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createCharacter } from '../shared/character.js';
-import { BUILD_SCALE } from '../../models/worldTour/characterProfile.js';
+import { playerLook } from '../../models/worldTour/characterProfile.js';
 
 // A small turntable scene for the character creator: the same rig the game uses, idling, rebuilt on every change.
 export function mountCharacterPreview(host, onError) {
@@ -22,7 +22,7 @@ export function mountCharacterPreview(host, onError) {
   const idle = { x: 0, z: 0, heading: 0, height: 0, speed: 0, waveTime: 0 };
   function build(appearance) {
     if (rig) turntable.remove(rig.avatar);
-    rig = createCharacter(turntable, kit, { ...appearance, scale: BUILD_SCALE[appearance.build] ?? 1 });
+    rig = createCharacter(turntable, kit, { ...appearance, scale: playerLook(appearance).scale });
     rig.avatar.visible = true;
   }
   function resize() { const w = host.clientWidth, h = Math.max(1, host.clientHeight); camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h); }

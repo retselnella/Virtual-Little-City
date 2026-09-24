@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CHARACTER_OPTIONS, DEFAULT_CHARACTER, MAX_NAME_LENGTH, cleanCharacter, cleanName, randomCharacter } from '../models/worldTour/characterProfile.js';
+import { CHARACTER_OPTIONS, DEFAULT_CHARACTER, MAX_NAME_LENGTH, cleanCharacter, cleanName, randomCharacter, skinOptions } from '../models/worldTour/characterProfile.js';
 import { readCharacter, writeCharacter } from '../services/characterStorage.js';
 
 // First launch opens the creator (no saved character); afterwards it opens from the pause menu to edit.
@@ -9,7 +9,12 @@ export function useCharacterController() {
   const [saved, setSaved] = useState(true);
   const creating = !character;
   // Option fields accept only listed values; the name keeps spaces while typing and is cleaned on confirm.
-  function set(field, value) { if (CHARACTER_OPTIONS[field]?.some(([id]) => id === value)) setDraft(current => ({ ...current, [field]: value })); }
+  // Changing kind keeps the name and clothes and picks that kind's colours (fur, plating...) for the skin.
+  function set(field, value) {
+    if (field === 'kind' && CHARACTER_OPTIONS.kind.some(([id]) => id === value)) { setDraft(current => ({ ...current, kind: value, skin: skinOptions(value).some(([id]) => id === current.skin) ? current.skin : skinOptions(value)[2][0] })); return; }
+    const options = field === 'skin' ? skinOptions(draft.kind) : CHARACTER_OPTIONS[field];
+    if (options?.some(([id]) => id === value)) setDraft(current => ({ ...current, [field]: value }));
+  }
   function setName(value) { setDraft(current => ({ ...current, name: value.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, MAX_NAME_LENGTH) })); }
   function randomize() { setDraft(current => randomCharacter(Math.random, current.name)); }
   function reset() { setDraft(current => ({ ...DEFAULT_CHARACTER, name: current.name })); }

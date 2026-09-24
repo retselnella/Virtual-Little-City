@@ -11,8 +11,8 @@ const memory = () => { const data = new Map(); return { getItem: key => data.get
 
 test('world saves validate cities, cash and contract IDs and keep their own key', () => {
   const storage = memory();
-  assert(writeWorldSave(serializeWorldSave({ city: 'tokyo', cash: 85, completed: ['tokyo:courier', 'bad', 'tokyo:courier'] }), storage));
-  assert.deepEqual(readWorldSave(storage), { city: 'tokyo', cash: 85, completed: ['tokyo:courier'] });
+  assert(writeWorldSave(serializeWorldSave({ city: 'tokyo', cash: 85, completed: ['tokyo:courier', 'bad', 'tokyo:courier'], owned: ['rifle', 'bazooka', '__proto__'] }), storage));
+  assert.deepEqual(readWorldSave(storage), { city: 'tokyo', cash: 85, completed: ['tokyo:courier'], owned: ['pistol', 'rifle'] }, 'only real guns are kept, and the pistol always');
   assert.equal(storage.getItem(STORAGE_KEYS.character), null, 'world saves never touch the character save');
 });
 test('character saves are rebuilt from known options; names stay bounded plain text', () => {
@@ -34,7 +34,7 @@ test('character saves are rebuilt from known options; names stay bounded plain t
 test('unavailable, corrupt and oversized storage fail without breaking play', () => {
   const blocked = { getItem() { throw new Error('Denied'); }, setItem() { throw new Error('Quota'); } };
   assert.equal(readCharacter(blocked), null); assert.equal(writeCharacter(DEFAULT_CHARACTER, blocked), false);
-  assert.deepEqual(readWorldSave(blocked), { city: 'miami', cash: 0, completed: [] });
+  assert.deepEqual(readWorldSave(blocked), { city: 'miami', cash: 0, completed: [], owned: ['pistol'] });
   const storage = memory(); storage.setItem('bad', '{'); assert.equal(readJson('bad', storage).value, null);
   storage.setItem('large', 'x'.repeat(1_000_001)); assert.equal(readJson('large', storage).value, null);
   const cycle = {}; cycle.self = cycle; assert.equal(writeJson('cycle', cycle, storage), false);

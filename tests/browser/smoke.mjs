@@ -29,6 +29,12 @@ try {
   assert.equal(await page.locator('.adventure-canvas').count(), 0, 'the game waits for the character');
   assert.equal(await page.locator('.creator-preview canvas').count(), 1, 'live 3D preview');
   await page.getByLabel('Name').fill('<img src=x onerror=1>Ada');
+  // Character kinds: a wolf offers fur colours and no hair; back to human for the rest of the run.
+  await button('Wolf').click(); await page.locator('legend', { hasText: /^Fur$/ }).waitFor();
+  assert.equal(await page.locator('legend', { hasText: 'Hair style' }).count(), 0);
+  await button('Robot').click(); await page.locator('legend', { hasText: /^Plating$/ }).waitFor();
+  await page.screenshot({ path: 'test-results/character-creator-robot.png' });
+  await button('Human').click(); await page.locator('legend', { hasText: /^Skin tone$/ }).waitFor();
   for (const choice of ['Skin tone: Bronze', 'Hair colour: Auburn', 'Shirt: Green', 'Trousers: Navy', 'Shoes: Red']) await page.getByRole('button', { name: choice }).click();
   await button('Long').click(); await button('Tall').click();
   assert.equal(await button('Long').getAttribute('aria-pressed'), 'true');
@@ -39,10 +45,14 @@ try {
   assert.equal(await page.locator('.adventure-player').innerText(), '<IMG SRC=X ONERROR=1>ADA');
   assert.equal(await page.locator('.adventure-player img').count(), 0, 'the name stays escaped text');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('little-city-character-v1')));
-  assert.deepEqual({ ...saved, name: undefined }, { name: undefined, skin: '#9a6644', hair: '#8c3b2b', hairStyle: 'long', shirt: '#4f8a6b', pants: '#1f3a5f', shoes: '#b5523b', build: 'tall' });
+  assert.deepEqual({ ...saved, name: undefined }, { name: undefined, kind: 'human', skin: '#9a6644', hair: '#8c3b2b', hairStyle: 'long', shirt: '#4f8a6b', pants: '#1f3a5f', shoes: '#b5523b', build: 'tall' });
   assert.equal(await page.locator('.adventure-canvas canvas').count(), 1);
   // The sky chip shows Philippine time and the shared weather.
   assert.match(await page.locator('.adventure-sky').innerText(), /\d{1,2}:\d{2} (AM|PM)[\s\S]*PH TIME/);
+  // The inventory: fists and the pistol to start with; number keys switch.
+  assert.deepEqual(await page.locator('.weapon-bar button span').allInnerTexts(), ['Fists', 'Pistol']);
+  await page.keyboard.press('Digit1'); assert.equal(await page.getByRole('button', { name: /Fists/ }).first().getAttribute('aria-pressed'), 'true');
+  await page.keyboard.press('Digit2'); assert.match(await page.locator('.weapon-status').innerText(), /PISTOL[\s\S]*48 \/ ∞/);
   const playerMarker = page.locator('.adventure-radar svg > path').last();
   const before = await playerMarker.getAttribute('transform');
   await page.keyboard.down('KeyW'); await page.waitForTimeout(750); await page.keyboard.up('KeyW');

@@ -9,6 +9,7 @@ import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.j
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
 import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.js';
 import { createRagdollRig } from '../shared/ragdollRig.js';
+import { GUN_INFO, createGunHolder, poseArms } from '../shared/guns.js';
 import { MARINA, THEMES, islandFor } from '../../models/worldTour/worldIsland.js';
 import { buildMetro } from './metroScene.js';
 import { createKaiju } from './kaijuScene.js';
@@ -34,7 +35,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const sky = createSky(scene, { hemisphere, sun });
   let kaiju = null, citySlots = new Map(), ruinsShown = '', hiddenOwners = new Map(), rubble = null, craterMesh = null;
   let root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
-  let muzzle, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
+  let guns, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
   const layout = sceneryLayout(), lean = new THREE.Quaternion(), forwardAxis = new THREE.Vector3(0, 0, 1);
@@ -113,6 +114,17 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       }
       box([b.width, 0.6, 0.4], city.color, [b.x, 3.4, b.z + b.depth / 2 + 0.3], 0, neon);
       if (city.id === 'dubai' && b.height > 70) box([1.5, 25, 1.5], '#c3ced1', [b.x, b.height + 12, b.z]);
+      if (b.shop) gunShopFront(b, front);
+    }
+    // Miami's gun shop: a dark storefront with a red neon band, a lit display window of rifles and a door on the avenue.
+    function gunShopFront(b, front) {
+      const red = glowMaterial('#b8322a', 1.4, '#ff5a4a');
+      box([b.width - 2, 4.6, 0.5], '#1d2024', [b.x, 2.4, front + 0.2]);
+      box([b.width - 1, 1.3, 0.6], '#b8322a', [b.x, 5.3, front + 0.4], 0, red);
+      box([b.width - 12, 2.6, 0.2], '#3b4a52', [b.x - 4, 2.3, front + 0.5], 0, windowGlow);
+      for (let i = 0; i < 4; i++) { box([0.25, 0.25, 0.1], '#16191d', [b.x - 9 + i * 3, 2.9, front + 0.62]); box([2.2, 0.25, 0.1], '#16191d', [b.x - 9 + i * 3, 2.3 - (i % 2) * 0.5, front + 0.62]); }
+      box([3, 3.4, 0.3], '#6e4a2c', [b.x + 9, 1.8, front + 0.5]);
+      box([4.4, 0.35, 3], '#b8322a', [b.x + 9, 3.8, front + 1.6]);
     }
     // The City Hub: a low glass office with white floor bands, an accent crown, an entrance canopy facing the spawn
     // forecourt, flags and planters. Its glass lights up at night.
@@ -186,7 +198,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.add(texture);
       const mat = new THREE.SpriteMaterial({ map: texture }); materials.set(`label-${text}-${x}-${z}`, mat); const sprite = new THREE.Sprite(mat); sprite.position.set(x, y, z); sprite.scale.set(5.2 * size, 1.3 * size, 1); root.add(sprite);
     }
-    const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('MARINA', MARINA.x0 + 20, MARINA.z - 8, '#9fd6ff');
+    const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5);
+    const shop = session.current.blocks.find(b => b.shop); if (shop) label('GUN SHOP', shop.x + 9, shop.z + shop.depth / 2 + 3, '#ff8a7a', 7.5, 1.2); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('MARINA', MARINA.x0 + 20, MARINA.z - 8, '#9fd6ff');
     const lighthouse = islandData.landmarks.lighthouse; label('LIGHTHOUSE', lighthouse.x + 10, lighthouse.z + 10, '#f8d47a', 40, 1.4);
     if (islandData.landmarks.feature) label(islandData.landmarks.feature.name.toUpperCase(), islandData.landmarks.feature.x, islandData.landmarks.feature.z, '#f3eee5', 16, 1.4);
     for (const suburb of islandData.suburbs) label(suburb.name.toUpperCase(), suburb.x, suburb.z, '#f3eee5', 14, 1.4);
@@ -259,14 +272,12 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     if (avatar) root.remove(avatar.avatar);
     avatarLook = appearance;
     avatar = createCharacter(root, kit, { shirt: '#e5ded5', ...appearance, scale: session.current.player.look?.scale || 1 }); avatar.avatar.visible = true; avatar.rig = createRagdollRig(avatar.avatar, 'player');
-    muzzle = addPistol(avatar.avatar).muzzle;
+    guns = addGuns(avatar.avatar);
   }
-  // A pistol in the right hand with a hidden muzzle flash (the player's avatar and other players' ghosts).
-  function addPistol(body) {
-    const gun = kit.box([0.16, 0.22, 0.65], '#25303c', [0, -0.16, 0.23], body.getObjectByName('right-hand')); gun.name = 'pistol';
+  // Guns in the right hand, each with a hidden muzzle flash (the player's avatar and other players' ghosts).
+  function addGuns(body) {
     if (!materials.has('muzzle')) materials.set('muzzle', new THREE.MeshBasicMaterial({ color: '#ffe7a3' }));
-    const flash = new THREE.Mesh(unitBox, materials.get('muzzle')); flash.scale.set(2.2, 1.6, 0.9); flash.position.set(0, 0, 0.75); flash.visible = false; gun.add(flash);
-    return { gun, muzzle: flash };
+    return createGunHolder(body, kit, materials.get('muzzle'));
   }
   // ---- Other players (multiplayer ghosts): their own look, a name tag, and a car model while they drive.
   const remotes = new Map(), REMOTE_CARS = ['#f2c14e', '#e76f51', '#8ab17d', '#9d8df1', '#ef8fb1', '#5fa8d3'];
@@ -279,12 +290,12 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   }
   function createRemote(id, profile, key) {
     const rig = createCharacter(root, kit, { ...profile.look, scale: profile.scale }); rig.avatar.visible = true;
-    const { gun, muzzle: flash } = addPistol(rig.avatar);
+    const guns = addGuns(rig.avatar);
     const hash = [...id].reduce((sum, c) => sum + c.charCodeAt(0), 0);
     const car = createCar(root, kit, glow, { color: REMOTE_CARS[hash % REMOTE_CARS.length], headlights: false }); car.car.scale.setScalar(1.7); car.car.visible = false;
     const tag = nameTag(profile.name); root.add(tag);
     const boat = createBoatModel('#f3eee5', REMOTE_CARS[hash % REMOTE_CARS.length]); boat.group.visible = false;
-    const model = { rig, car, boat, tag, key, gun, flash, punchTime: 0, combo: 0, fired: 0 }; remotes.set(id, model); return model;
+    const model = { rig, car, boat, tag, key, guns, punchTime: 0, combo: 0, fired: 0 }; remotes.set(id, model); return model;
   }
   function removeRemote(id) {
     const model = remotes.get(id); if (!model) return;
@@ -312,7 +323,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
         model.rig.avatar.position.y = 0.2 * profile.scale + pose.y;
         if (!pose.k) poseArms(model.rig.avatar, pose.w, pose.a, model.punchTime, model.combo, model.fired / 0.12);
       }
-      model.gun.visible = pose.w; model.flash.visible = pose.w && model.fired > 0.07;
+      model.guns.set(pose.w); model.guns.flash(!!pose.w && model.fired > 0.07);
       model.tag.position.set(pose.x, pose.y + (pose.d ? 3.6 : pose.b ? 4 : 4.2 * profile.scale), pose.z);
     }
     for (const id of [...remotes.keys()]) if (!seen.has(id)) removeRemote(id);
@@ -410,28 +421,13 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     });
     bloodPools.count = pools.length; bloodPools.instanceMatrix.needsUpdate = true;
   }
-  const elbowOf = arm => arm.children.find(child => child.isGroup);
   // Combat poses layered over the shared character animation: two-handed aim with recoil, boxing guard and punches.
   function posePlayer(s) {
     const shot = s.shots.find(x => !x.police);
-    muzzle.visible = !!shot && shot.ttl > 0.07 && s.weapon === 'pistol';
+    guns.flash(!!shot && shot.ttl > 0.07);
     if (s.driving || s.down) return;
-    const pistol = s.weapon === 'pistol';
-    poseArms(avatar.avatar, pistol, s.aimTime > 0 || (pistol && input.current.attack), s.punchTime, s.combo, shot ? shot.ttl / 0.12 : 0);
-  }
-  function poseArms(body, pistol, aiming, punchTime, combo, recoil) {
-    const right = body.getObjectByName('right-shoulder'), left = body.getObjectByName('left-shoulder');
-    if (pistol && aiming) {
-      right.rotation.set(-1.5 - recoil * 0.4, 0, 0.12); elbowOf(right).rotation.set(recoil * -0.3, 0, 0);
-      left.rotation.set(-1.35, 0, 0.55); elbowOf(left).rotation.set(-0.35, 0, 0);
-    } else if (!pistol && (aiming || punchTime > 0)) {
-      for (const [arm, inward] of [[left, 1], [right, -1]]) { arm.rotation.set(-1.05, 0, inward * 0.3); elbowOf(arm).rotation.set(-1.9, 0, 0); }
-      if (punchTime > 0) {
-        const reach = Math.sin(Math.min(1, (1 - punchTime / 0.28) * 1.7) * Math.PI), arm = combo === 1 ? left : right, inward = arm === left ? 1 : -1;
-        arm.rotation.x = -1.05 - reach * 0.55; elbowOf(arm).rotation.x = -1.9 * (1 - reach);
-        if (combo === 2) arm.rotation.z = inward * (0.3 + reach * 0.7);
-      }
-    }
+    const gun = GUN_INFO[s.weapon] ? s.weapon : null;
+    poseArms(avatar.avatar, gun, s.aimTime > 0 || (!!gun && input.current.attack), s.punchTime, s.combo, shot ? shot.ttl / 0.12 : 0);
   }
   function resize() { camera.aspect = host.clientWidth / Math.max(1, host.clientHeight); camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); }
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
@@ -446,7 +442,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     s.worldTime = (clock?.current?.() ?? Date.now()) / 1000;
     if (!paused.current && !document.hidden) stepWorld(s, input.current, dt, yaw);
     const p = actor(s), point = guidePoint(s), step = paused.current || document.hidden ? 0 : dt;
-    avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = 0.2 * (s.player.look?.scale || 1) + s.player.height; avatar.avatar.getObjectByName('pistol').visible = s.weapon === 'pistol';
+    avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = 0.2 * (s.player.look?.scale || 1) + s.player.height; guns.set(s.weapon);
     posePlayer(s); avatar.rig.after(s.player, step);
     for (const hit of s.impacts) {
       if (hit.id <= lastImpact) continue;
@@ -467,10 +463,11 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     for (const e of s.enemies) {
       if (!enemies.has(e.id)) {
         const hash = [...e.id].reduce((sum, c) => sum + c.charCodeAt(0), 0);
-        const model = createStreetNpc(dynamic, kit, { shirt: e.kind === 'police' ? '#4366af' : '#b64e6d', armed: true, police: e.kind === 'police', look: { skin: OFFICER_SKIN[hash % 4], hairStyle: hash % 3 ? 'short' : 'cap', hair: '#221a16' } });
-        const bar = kit.box([1.6, 0.15, 0.15], '#ff747b', [0, 3.7, 0], model.avatar); bar.name = 'health'; model.rig = createRagdollRig(model.avatar, 'npc'); enemies.set(e.id, model);
+        // The bounty's gang boss stands out: black suit, gold cap and a gold health bar.
+        const model = createStreetNpc(dynamic, kit, { shirt: e.kind === 'police' ? '#4366af' : e.boss ? '#1f2026' : '#b64e6d', armed: true, police: e.kind === 'police', look: e.boss ? { skin: OFFICER_SKIN[hash % 4], hairStyle: 'cap', hair: '#d4a53a' } : { skin: OFFICER_SKIN[hash % 4], hairStyle: hash % 3 ? 'short' : 'cap', hair: '#221a16' } });
+        const bar = kit.box([1.6, 0.15, 0.15], e.boss ? '#ffc34d' : '#ff747b', [0, 3.7, 0], model.avatar); bar.name = 'health'; model.rig = createRagdollRig(model.avatar, 'npc'); enemies.set(e.id, model);
       }
-      const model = enemies.get(e.id); model.rig.before(e); model.update(e, paused.current ? 0 : dt); model.rig.after(e, step); model.avatar.getObjectByName('health').visible = e.health > 0; model.avatar.getObjectByName('health').scale.x = Math.max(0.01, e.health / 100 * 1.6);
+      const model = enemies.get(e.id); model.rig.before(e); model.update(e, paused.current ? 0 : dt); model.rig.after(e, step); model.avatar.getObjectByName('health').visible = e.health > 0; model.avatar.getObjectByName('health').scale.x = Math.max(0.01, e.health / (e.boss ? 300 : 100) * 1.6);
     }
     for (const [id, model] of enemies) if (!s.enemies.some(e => e.id === id)) { dynamic.remove(model.avatar); enemies.delete(id); }
     // The ring marks exactly who an attack would hit now; while driving it marks the nearest threat.

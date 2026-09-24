@@ -20,3 +20,5 @@
 .creator-dialog .creator-swatches button:focus-visible,.creator-dialog .creator-chips button:focus-visible,.creator-dialog .creator-actions button:focus-visible{outline:2px solid #9ee8d1;outline-offset:3px}
 .adventure-player{display:block;font-size:10px;letter-spacing:1.5px;color:#e7e4df;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:760px){.creator{grid-template-columns:1fr;gap:16px}.creator-stage{min-height:260px;height:38svh}.creator-dialog .creator-swatches button{width:30px;height:30px}.creator-dialog .creator-actions .creator-primary{margin-left:0;flex-basis:100%}.adventure-player{font-size:8px}}
+
+.creator-perk{margin:-6px 0 0;font-size:12px;color:#ffd6a0}
