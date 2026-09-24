@@ -17,10 +17,11 @@ const round = (value, digits = 2) => Math.round(value * 10 ** digits) / 10 ** di
 // What this player sends ~10 times a second (compact keys keep Realtime messages small). `actions` are the attacks made
 // since the last message, numbered by the sender so receivers can drop repeats.
 export function encodeState(s, now, actions = []) {
-  const driving = !!s.driving, body = driving ? s.car : s.player, q = s.car.q || [0, Math.sin(s.car.heading / 2), 0, Math.cos(s.car.heading / 2)];
+  // On a boat or the metro you are sent at the boat's or train's position (standing on the train's deck).
+  const driving = !!s.driving, body = driving ? s.car : s.boating ? s.boat : s.riding ? s.train : s.player, q = s.car.q || [0, Math.sin(s.car.heading / 2), 0, Math.cos(s.car.heading / 2)];
   return {
-    v: 1, t: Math.round(now), x: round(body.x), z: round(body.z), y: round(driving ? s.car.y || 0 : s.player.height || 0), h: round(body.heading || 0, 3),
-    s: round(Math.min(80, Math.abs(driving ? s.car.speed || 0 : s.player.speed || 0)), 1), d: driving ? 1 : 0,
+    v: 1, t: Math.round(now), x: round(body.x), z: round(body.z), y: round(driving ? s.car.y || 0 : s.riding ? s.train.y + 0.4 : s.boating ? 0 : s.player.height || 0), h: round(body.heading || 0, 3),
+    s: round(Math.min(80, Math.abs(body.speed || 0)), 1), d: driving ? 1 : 0, ...(s.boating ? { b: 1 } : {}),
     ...(driving ? { q: q.map(n => round(n, 3)) } : {}), k: s.down > 0 ? 1 : 0, w: s.weapon === 'pistol' ? 1 : 0, a: s.aimTime > 0 ? 1 : 0,
     ...(actions.length ? { e: actions.slice(-MAX_ACTIONS).map(a => ({ i: a.id, k: a.kind === 'shot' ? 's' : 'p', c: a.combo, x: round(a.x), z: round(a.z), b: a.blood ? 1 : 0 })) } : {}),
   };
@@ -29,7 +30,7 @@ export function cleanState(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== 1) return null;
   const x = finite(raw.x, LIMIT), z = finite(raw.z, LIMIT), y = finite(raw.y, 300), h = finite(raw.h, 1e4), speed = finite(raw.s, 80);
   if ([x, z, y, h, speed].includes(null)) return null;
-  const state = { x, z, y: Math.max(0, y), h: Math.atan2(Math.sin(h), Math.cos(h)), s: Math.abs(speed), d: raw.d === 1, k: raw.k === 1, w: raw.w === 1, a: raw.a === 1 };
+  const state = { x, z, y: Math.max(0, y), h: Math.atan2(Math.sin(h), Math.cos(h)), s: Math.abs(speed), d: raw.d === 1, b: raw.b === 1 && raw.d !== 1, k: raw.k === 1, w: raw.w === 1, a: raw.a === 1 };
   if (state.d) {
     const q = Array.isArray(raw.q) && raw.q.length === 4 ? raw.q.map(n => finite(n, 1)) : null, norm = q && !q.includes(null) ? Math.hypot(...q) : 0;
     state.q = norm > 0.5 ? q.map(n => n / norm) : [0, Math.sin(state.h / 2), 0, Math.cos(state.h / 2)];
@@ -103,7 +104,7 @@ export function samplePlayer(player, time) {
     if (at < a.at || at > b.at) continue;
     if (b.at - a.at > 1000 || a.d !== b.d) return { ...b };
     const t = (at - a.at) / (b.at - a.at);
-    const pose = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t, h: lerpAngle(a.h, b.h, t), s: a.s + (b.s - a.s) * t, d: b.d, k: b.k, w: b.w, a: b.a };
+    const pose = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t, h: lerpAngle(a.h, b.h, t), s: a.s + (b.s - a.s) * t, d: b.d, b: b.b, k: b.k, w: b.w, a: b.a };
     if (b.d) pose.q = slerp(a.q, b.q, t);
     return pose;
   }

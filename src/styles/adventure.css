@@ -202,3 +202,31 @@
 @media(pointer:coarse) and (min-width:761px){.adventure-touch{position:absolute;z-index:3;bottom:280px;right:38px;display:flex;gap:5px}.adventure-touch button{padding:14px;background:#18303ed9;color:white;border:1px solid #ffffff40;border-radius:6px;touch-action:none}}
 @media(max-height:570px){.adventure-location{top:84px}.adventure-stats{top:80px}.adventure-objective{top:190px}.adventure-radar{display:none}.adventure-actions{margin-left:auto}.adventure-touch{bottom:18px}.adventure-objective p{display:none}.adventure-objective h2{font-size:14px}.adventure-objective .objective-distance{margin:6px 0}.adventure-hints{display:none}.adventure-dispatch{top:245px;right:18px;width:145px}}
 @media(prefers-reduced-motion:reduce){.objective-edge,.adventure-stats label.low progress,.loading-ring{animation:none}}
+
+/* Context prompt: the one action available right here (also a tap target on touch screens). */
+.adventure-prompt{position:absolute;z-index:4;left:50%;bottom:148px;transform:translate(-50%);display:flex;align-items:center;gap:10px;padding:9px 16px 9px 9px;border-radius:999px;background:#10202bf0;border:1px solid #ffffff38;color:#f7f2ea;font-size:13px;font-weight:700;box-shadow:0 6px 24px #0a162466;animation:toast-in .2s ease-out;cursor:pointer}
+.adventure-prompt kbd{font-size:12px;min-width:28px;text-align:center;padding:5px 8px;border-radius:8px;background:#f8d47a;color:#1c2b33;border:0;font-weight:900}
+.adventure-prompt.passive{cursor:default;padding-left:16px;font-weight:400;opacity:.92}
+.adventure-prompt:disabled{opacity:.92}
+.adventure-prompt:hover:not(:disabled){background:#17303df5}
+.adventure-objective h2 .bearing{display:inline-block;margin-right:9px;color:#9fd6ff;font-size:22px;transition:transform .2s linear}
+.island-where span{display:block;margin-top:6px;font-size:11px;color:#9fb6ba;line-height:1.6}
+.gps small{display:block;font-size:9px;letter-spacing:2px;color:#9fb6ba;margin-bottom:9px}
+.gps>div{display:flex;flex-wrap:wrap;gap:6px}
+.gps button{border:1px solid #ffffff26;background:#ffffff08;color:#e7efee;border-radius:999px;padding:7px 11px;font-size:11px}
+.gps button:hover:not(:disabled){border-color:#f8d47a;color:#f8d47a}
+.gps button.clear{border-color:#e8b0b055;color:#e8b0b0}
+.travel .destination-grid article{border:1px solid #ffffff20;border-radius:12px;padding:16px;background:#ffffff04;display:flex;flex-direction:column;gap:6px}
+.travel .destination-grid article.selected{border-color:var(--destination-color);background:#ffffff08}
+.travel .destination-grid strong{margin:4px 0 0;font-size:19px;align-items:baseline}
+.travel .destination-grid strong span{font-size:10px;font-weight:400}
+.travel .destination-grid em{font-style:normal;font-size:12px;color:var(--destination-color);font-weight:700}
+.travel .destination-grid article p{margin:0;font-size:11px;line-height:1.6;color:#aabcc1}
+.travel .progress{font-size:10px;color:#8ea4a9}
+.travel .trip{display:flex;gap:6px;margin-top:auto;padding-top:8px}
+.travel .trip button{flex:1;border:1px solid #bcd5c5;background:#bfdcd0;color:#1c393d;border-radius:7px;padding:9px 8px;font-size:11px;font-weight:700}
+.travel .trip button+button{flex:0 0 64px;background:transparent;color:#c5d7d6;border-color:#ffffff30;font-weight:400}
+.travel-course{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:9px;background:#9fd6ff12;border:1px solid #9fd6ff40;color:#cfe9ff!important}
+.travel-course button{margin-left:auto;border:1px solid #9fd6ff60;background:none;color:#cfe9ff;border-radius:6px;padding:5px 10px;font-size:11px}
+@media(max-width:760px){.adventure-prompt{left:auto;right:14px;transform:none;bottom:152px;max-width:calc(100% - 170px);font-size:11px;padding:7px 12px 7px 7px;text-align:left}.adventure-prompt kbd{font-size:10px;min-width:22px;padding:4px 6px}.travel .destination-grid{grid-template-columns:1fr}}
+@media(max-height:570px){.adventure-prompt{bottom:70px}}

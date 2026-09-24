@@ -3,13 +3,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCharacter } from '../shared/character.js';
 import { createCar } from '../shared/car.js';
 import { createStreetNpc } from '../shared/streetNpc.js';
-import { ROADS, actor, objectivePoint, stepWorld, targetFor } from '../../models/worldTour/worldAdventure.js';
+import { ROADS, actor, guidePoint, onFoot, stepWorld, targetFor } from '../../models/worldTour/worldAdventure.js';
 import { ACTIVE_UNIT } from '../../models/worldTour/worldPolice.js';
 import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.js';
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
 import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.js';
 import { createRagdollRig } from '../shared/ragdollRig.js';
-import { ROAD_LAMPS, terrainHeight, treesAround } from '../../models/worldTour/worldIsland.js';
+import { MARINA, THEMES, islandFor } from '../../models/worldTour/worldIsland.js';
+import { buildMetro } from './metroScene.js';
 import { worldConditions } from '../../models/worldTour/worldClock.js';
 import { buildIsland } from './islandScenery.js';
 import { createSky } from './skyWeather.js';
@@ -29,7 +30,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const hemisphere = new THREE.HemisphereLight('#fff2df', '#54647f', 2.4); scene.add(hemisphere);
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
   const sky = createSky(scene, { hemisphere, sun });
-  let root, avatar, playerCar, marker, targetRing, dynamic, island, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
+  let root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
   let muzzle, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
@@ -55,7 +56,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   function disposeCity() {
     for (const id of [...remotes.keys()]) removeRemote(id);
     if (root) { root.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); scene.remove(root); }
-    island?.dispose(); island = null; clearPools?.(); clearPools = null;
+    island?.dispose(); island = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null;
+    hullGeometry = deckGeometry = null; // disposed with the city's geometries below; rebuilt for the next city
     geometries.forEach(g => { if (g !== unitBox) { g.dispose(); geometries.delete(g); } });
     textures.forEach(t => t.dispose()); textures.clear();
     for (const [key, mat] of materials) if (key.startsWith('label-')) { mat.dispose(); materials.delete(key); }
@@ -74,7 +76,9 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       batches.get(key).entries.push({ size, position, rotation });
     }
     box([910, 2, 910], city.ground, [0, -1.1, 0]); box([30, 0.3, 910], '#e5c79e', [455, -0.1, 0]);
-    island = buildIsland(root, city, { box, glowMaterial });
+    islandData = islandFor(city.id);
+    island = buildIsland(root, city, islandData, { box, glowMaterial });
+    metro = buildMetro(root, { box, glowMaterial, label });
     const windowGlow = glowMaterial('#587b88', 0.95, '#ffd08a'), sideGlow = glowMaterial('#688c98', 0.8, '#ffe0a6'), neon = glowMaterial(city.color, 1.3);
     const lit = (x, y, side) => Math.abs(Math.sin(x * 12.9898 + y * 78.233 + side * 37.719) * 43758.5453) % 1 < 0.55;
     for (const road of ROADS) {
@@ -152,7 +156,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     postPoles = new THREE.InstancedMesh(unitBox, material('#596773'), layout.posts.length); postLamps = new THREE.InstancedMesh(unitBox, glowMaterial('#fff0b9', 1.8, '#ffe3a3'), layout.posts.length);
     postPoles.frustumCulled = postLamps.frustumCulled = false; root.add(postPoles, postLamps);
     layout.posts.forEach((post, i) => placePost(i, { x: post.x, y: 4, z: post.z, q: [0, 0, 0, 1] }));
-    clearPools = sky.setLampPools(root, [...layout.posts.map(post => ({ x: post.x - 3, z: post.z })), ...ROAD_LAMPS.map(l => ({ x: l.x + Math.sin(l.heading) * 3, z: l.z + Math.cos(l.heading) * 3 })), ...island.lights]);
+    clearPools = sky.setLampPools(root, [...layout.posts.map(post => ({ x: post.x - 3, z: post.z })), ...islandData.lamps.map(l => ({ x: l.x + Math.sin(l.heading) * 3, z: l.z + Math.cos(l.heading) * 3 })), ...island.lights]);
     function label(text, x, z, color, y = 7.5, size = 1) {
       const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
       const ctx = canvas.getContext('2d'); ctx.fillStyle = '#142634e6'; if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(8, 20, 496, 88, 44); ctx.fill(); } else ctx.fillRect(8, 20, 496, 88);
@@ -160,7 +164,10 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.add(texture);
       const mat = new THREE.SpriteMaterial({ map: texture }); materials.set(`label-${text}-${x}-${z}`, mat); const sprite = new THREE.Sprite(mat); sprite.position.set(x, y, z); sprite.scale.set(5.2 * size, 1.3 * size, 1); root.add(sprite);
     }
-    const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('LIGHTHOUSE CAPE', -1150, 60, '#f8d47a');
+    const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('MARINA', MARINA.x0 + 20, MARINA.z - 8, '#9fd6ff');
+    const lighthouse = islandData.landmarks.lighthouse; label('LIGHTHOUSE', lighthouse.x + 10, lighthouse.z + 10, '#f8d47a', 40, 1.4);
+    if (islandData.landmarks.feature) label(islandData.landmarks.feature.name.toUpperCase(), islandData.landmarks.feature.x, islandData.landmarks.feature.z, '#f3eee5', 16, 1.4);
+    for (const suburb of islandData.suburbs) label(suburb.name.toUpperCase(), suburb.x, suburb.z, '#f3eee5', 14, 1.4);
     buildAvatar(session.current.appearance);
     // Pooled blood droplets and ground stains, updated as instances.
     if (!materials.has('blood')) { materials.set('blood', new THREE.MeshStandardMaterial({ color: '#7b0913', roughness: 0.35 })); materials.set('blood-pool', new THREE.MeshStandardMaterial({ color: '#4f050c', roughness: 0.18, metalness: 0.05 })); }
@@ -169,6 +176,12 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     bloodPools = new THREE.InstancedMesh(poolGeometry, materials.get('blood-pool'), BLOOD_POOLS); bloodPools.frustumCulled = false; bloodPools.count = 0; root.add(bloodPools);
     lastImpact = session.current.impactSeq || 0;
     playerCar = createCar(root, kit, glow, { color: '#67dccc', headlights: false }); playerCar.car.scale.setScalar(1.7);
+    playerBoat = createBoatModel('#f3eee5', city.color);
+    // Seen from a sea voyage: the destination island rising on the horizon.
+    horizon = new THREE.Group(); horizon.visible = false; root.add(horizon);
+    const moundGeometry = new THREE.ConeGeometry(900, 70, 24), peakGeometry = new THREE.ConeGeometry(260, 280, 9); geometries.add(moundGeometry); geometries.add(peakGeometry);
+    const mound = new THREE.Mesh(moundGeometry, material('#6f9a5c')), peak = new THREE.Mesh(peakGeometry, material('#7c8279'));
+    mound.position.y = 20; peak.position.set(-200, 140, 120); horizon.add(mound, peak);
     for (let i = 0; i < session.current.traffic.length; i++) {
       const model = createCar(root, kit, glow, { color: ['#dba186', '#d0c9bb', '#798bac', '#bc7d94', '#e6d27a', '#8fb89a', '#f2f0ea', '#3b4450'][i % 8], headlights: false }); model.car.scale.setScalar(1.5);
       traffic.push(model);
@@ -186,6 +199,37 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     if (!materials.has('lock')) materials.set('lock', new THREE.MeshBasicMaterial({ color: '#ff727f' }));
     const ringGeo = new THREE.TorusGeometry(2.2, 0.12, 6, 24); geometries.add(ringGeo); targetRing = new THREE.Mesh(ringGeo, materials.get('lock')); targetRing.rotation.x = Math.PI / 2; root.add(targetRing);
     const p = actor(session.current); camera.position.set(p.x, 11, p.z + 24); orbit.target.set(p.x, 1.8, p.z); orbit.update(); followY = null;
+  }
+  // A speedboat: a tapered hull, deck, cabin with a lit windscreen, and an outboard; bobbing and heeling are added per frame.
+  // A speedboat: one pointed, extruded hull with a waterline stripe, a teak deck, a cabin with a lit windscreen and an
+  // outboard; bobbing and heeling are added per frame.
+  let hullGeometry = null, deckGeometry = null;
+  function hullShape(scale) {
+    const shape = new THREE.Shape(), w = 1.6 * scale, back = -4.4 * scale;
+    shape.moveTo(-w, -back); shape.lineTo(w, -back); shape.lineTo(w, -1.4 * scale); shape.quadraticCurveTo(w * 0.95, -4 * scale, 0, -5.2 * scale); shape.quadraticCurveTo(-w * 0.95, -4 * scale, -w, -1.4 * scale); shape.closePath();
+    return shape;
+  }
+  function createBoatModel(hullColor, trim) {
+    if (!hullGeometry) {
+      hullGeometry = new THREE.ExtrudeGeometry(hullShape(1), { depth: 1.5, bevelEnabled: false }).rotateX(-Math.PI / 2); geometries.add(hullGeometry);
+      deckGeometry = new THREE.ShapeGeometry(hullShape(0.9)).rotateX(-Math.PI / 2); geometries.add(deckGeometry);
+    }
+    const group = new THREE.Group(), hull = new THREE.Group(); group.add(hull); root.add(group);
+    const body = new THREE.Mesh(hullGeometry, material(hullColor)); hull.add(body);
+    const stripe = new THREE.Mesh(hullGeometry, material(trim)); stripe.scale.set(1.02, 0.18, 1.02); stripe.position.y = 0.25; hull.add(stripe);
+    const deck = new THREE.Mesh(deckGeometry, material('#c9a47a')); deck.position.y = 1.52; hull.add(deck);
+    kit.box([2.4, 1.1, 1.9], '#eef2f3', [0, 2.05, 0.2], hull); kit.box([2.5, 0.12, 2.3], trim, [0, 2.65, 0.1], hull);
+    const screen = kit.box([2.2, 0.75, 0.08], '#35424a', [0, 2.1, 1.18], hull); screen.material = glowMaterial('#35424a', 0.9, '#bfe7ff');
+    kit.box([0.7, 1.5, 0.7], '#2f3b45', [0, 1.1, -4.7], hull); kit.box([0.25, 0.9, 0.25], '#2f3b45', [0, 0.3, -4.9], hull);
+    const wake = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#f3fbff', transparent: true, opacity: 0, depthWrite: false }));
+    geometries.add(wake.geometry); wake.position.set(0, 0.05, -10); group.add(wake);
+    return { group, hull, wake };
+  }
+  function placeBoat(model, boat, time, dt) {
+    const speed = Math.abs(boat.speed || 0), bob = Math.sin(time * 1.7 + boat.x * 0.01) * 0.18;
+    model.group.position.set(boat.x, -2.1 + bob, boat.z); model.group.rotation.y = boat.heading;
+    model.hull.rotation.set(-Math.min(0.12, speed * 0.004) + Math.sin(time * 1.3) * 0.02, 0, -(boat.steer || 0) * Math.min(0.2, speed * 0.008) + Math.sin(time * 1.1) * 0.03);
+    model.wake.scale.set(2.5 + speed * 0.25, 1, 4 + speed * 0.7); model.wake.position.z = -5.5 - speed * 0.35; model.wake.material.opacity = Math.min(0.55, speed * 0.03);
   }
   // The player's look comes from the character creator; editing it mid-game rebuilds the avatar in place.
   let avatarLook;
@@ -217,11 +261,12 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const hash = [...id].reduce((sum, c) => sum + c.charCodeAt(0), 0);
     const car = createCar(root, kit, glow, { color: REMOTE_CARS[hash % REMOTE_CARS.length], headlights: false }); car.car.scale.setScalar(1.7); car.car.visible = false;
     const tag = nameTag(profile.name); root.add(tag);
-    const model = { rig, car, tag, key, gun, flash, punchTime: 0, combo: 0, fired: 0 }; remotes.set(id, model); return model;
+    const boat = createBoatModel('#f3eee5', REMOTE_CARS[hash % REMOTE_CARS.length]); boat.group.visible = false;
+    const model = { rig, car, boat, tag, key, gun, flash, punchTime: 0, combo: 0, fired: 0 }; remotes.set(id, model); return model;
   }
   function removeRemote(id) {
     const model = remotes.get(id); if (!model) return;
-    root.remove(model.rig.avatar, model.car.car, model.tag); model.tag.material.map.dispose(); model.tag.material.dispose(); remotes.delete(id);
+    root.remove(model.rig.avatar, model.car.car, model.boat.group, model.tag); model.tag.material.map.dispose(); model.tag.material.dispose(); remotes.delete(id);
   }
   function updateRemotes(s, dt) {
     if (!remote?.current) return;
@@ -233,7 +278,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       const key = JSON.stringify(profile);
       let model = remotes.get(id);
       if (!model || model.key !== key) { removeRemote(id); model = createRemote(id, profile, key); }
-      model.rig.avatar.visible = !pose.d; model.car.car.visible = pose.d;
+      model.rig.avatar.visible = !pose.d && !pose.b; model.car.car.visible = pose.d; model.boat.group.visible = !!pose.b;
+      if (pose.b) placeBoat(model.boat, { x: pose.x, z: pose.z, heading: pose.h, speed: pose.s }, performance.now() / 1000, dt);
       model.punchTime = Math.max(0, model.punchTime - dt); model.fired = Math.max(0, model.fired - dt);
       for (const action of dueActions(player, now)) playRemoteAction(s, model, pose, action);
       if (pose.d) {
@@ -245,7 +291,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
         if (!pose.k) poseArms(model.rig.avatar, pose.w, pose.a, model.punchTime, model.combo, model.fired / 0.12);
       }
       model.gun.visible = pose.w; model.flash.visible = pose.w && model.fired > 0.07;
-      model.tag.position.set(pose.x, pose.y + (pose.d ? 3.6 : 4.2 * profile.scale), pose.z);
+      model.tag.position.set(pose.x, pose.y + (pose.d ? 3.6 : pose.b ? 4 : 4.2 * profile.scale), pose.z);
     }
     for (const id of [...remotes.keys()]) if (!seen.has(id)) removeRemote(id);
   }
@@ -344,9 +390,11 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     else if (s.appearance !== avatarLook) buildAvatar(s.appearance);
     const dt = lastTime ? Math.min(0.05, (time - lastTime) / 1000) : 0; lastTime = time;
     const yaw = Math.atan2(orbit.target.x - camera.position.x, orbit.target.z - camera.position.z);
+    // The metro timetable runs on the shared world clock, so every player sees the same train.
+    s.worldTime = Date.now() / 1000;
     if (!paused.current && !document.hidden) stepWorld(s, input.current, dt, yaw);
-    const p = actor(s), point = objectivePoint(s), step = paused.current || document.hidden ? 0 : dt;
-    avatar.avatar.visible = !s.driving; avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = 0.2 * (s.player.look?.scale || 1) + s.player.height; avatar.avatar.getObjectByName('pistol').visible = s.weapon === 'pistol';
+    const p = actor(s), point = guidePoint(s), step = paused.current || document.hidden ? 0 : dt;
+    avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = 0.2 * (s.player.look?.scale || 1) + s.player.height; avatar.avatar.getObjectByName('pistol').visible = s.weapon === 'pistol';
     posePlayer(s); avatar.rig.after(s.player, step);
     for (const hit of s.impacts) {
       if (hit.id <= lastImpact) continue;
@@ -356,7 +404,10 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     }
     updateBlood(step);
     updateRemotes(s, paused.current ? 0 : dt);
-    updateCar(playerCar, s.car);
+    updateCar(playerCar, s.car); placeBoat(playerBoat, s.boat, s.time, step); metro.update(s.train);
+    // The destination island rises over the horizon as a voyage nears its end.
+    const course = s.boating && s.course?.openSea ? s.course : null; horizon.visible = !!course;
+    if (course) { const far = course.remaining + 1400; horizon.position.set(s.boat.x + Math.sin(course.bearing) * far, -2, s.boat.z + Math.cos(course.bearing) * far); horizon.children[0].material = material(THEMES[course.to]?.ground.grass || '#6f9a5c'); }
     s.props?.forEach((prop, i) => { if (prop.fallen) placePost(i, prop); });
     marker.visible = !!point; if (point) { marker.position.set(point.x, 6 + Math.sin(s.time * 2), point.z); marker.rotation.y = s.time; }
     for (const e of s.enemies) {
@@ -369,7 +420,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     }
     for (const [id, model] of enemies) if (!s.enemies.some(e => e.id === id)) { dynamic.remove(model.avatar); enemies.delete(id); }
     // The ring marks exactly who an attack would hit now; while driving it marks the nearest threat.
-    const lock = s.driving ? s.enemies.filter(e => e.health > 0).sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0] : targetFor(s);
+    const lock = !onFoot(s) && !s.driving ? null : s.driving ? s.enemies.filter(e => e.health > 0).sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0] : targetFor(s);
     targetRing.visible = !!lock;
     if (lock) { targetRing.position.set(lock.x, 0.35, lock.z); targetRing.rotation.z = s.time * 2; targetRing.material.color.set(lock.kind === 'civilian' ? '#f3ece1' : '#ff727f'); }
     shotLines.forEach(line => { root.remove(line); line.geometry.dispose(); line.material.dispose(); });
@@ -382,7 +433,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     // Far-away pedestrians (beyond the fog) are neither drawn nor animated.
     pedestrians.forEach((model, i) => { const person = s.pedestrians[i]; model.avatar.visible = nearCamera(person); if (!model.avatar.visible) return; model.rig.before(person); model.update(person, paused.current ? 0 : dt); model.rig.after(person, step); });
     // The camera follows the ground under you (hills, or the car's height) but only a little of each jump.
-    const surface = s.driving ? Math.max(0, s.car.y || 0) : terrainHeight(p.x, p.z), lift = s.driving ? 0 : Math.max(0, (s.player.height || 0) - surface) * 0.3;
+    const surface = s.driving ? Math.max(0, s.car.y || 0) : s.riding ? s.train.y : s.boating ? -0.5 : islandData.terrainHeight(p.x, p.z), lift = onFoot(s) ? Math.max(0, (s.player.height || 0) - surface) * 0.3 : 0;
     followY = followY === null ? surface : followY + (surface - followY) * (1 - Math.exp(-8 * dt));
     follow.set(p.x, 1.8 + followY + lift, p.z); shift.copy(follow).sub(orbit.target); camera.position.add(shift); orbit.target.copy(follow);
     orbit.enabled = !paused.current; orbit.update();
@@ -401,14 +452,14 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     if (fraction < 1) camera.position.copy(orbit.target).addScaledVector(offset, fraction);
     // Trees between you and the camera are hidden while they block the view (canopies are vertical cylinders).
     const view = camera.position.clone().sub(orbit.target), span = Math.hypot(view.x, view.z), blocking = new Set();
-    if (span > 0.5) for (const t of treesAround(orbit.target.x + view.x / 2, orbit.target.z + view.z / 2, span / 2 + 8)) {
+    if (span > 0.5) for (const t of islandData.treesAround(orbit.target.x + view.x / 2, orbit.target.z + view.z / 2, span / 2 + 8)) {
       const radius = (t.kind === 'pine' ? 3.6 : t.kind === 'broad' ? 4.6 : 5.5) * t.scale + 0.8, top = t.y + t.height + 4.5 * t.scale;
       const u = Math.max(0, Math.min(1, ((t.x - orbit.target.x) * view.x + (t.z - orbit.target.z) * view.z) / (span * span)));
       if (Math.hypot(orbit.target.x + view.x * u - t.x, orbit.target.z + view.z * u - t.z) < radius && orbit.target.y + view.y * u < top) blocking.add(t);
     }
     island?.hideTrees(blocking);
     // ...and above the mountainsides.
-    const ground = terrainHeight(camera.position.x, camera.position.z) + 2.5;
+    const ground = islandData.terrainHeight(camera.position.x, camera.position.z) + 2.5;
     if (camera.position.y < ground) camera.position.y = ground;
     const conditions = environment?.current?.() ?? worldConditions(Date.now());
     sky.update(conditions, camera, step, glows, wetSurfaces); island?.update(conditions, s.time, camera);

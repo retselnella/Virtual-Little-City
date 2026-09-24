@@ -3,7 +3,9 @@ import { stepPhysics, castShot } from './physicsEngine.js';
 import { updatePolice } from './worldPolice.js';
 import { createPedestrians, stepPedestrians } from './worldPedestrians.js';
 import { playerLook } from './characterProfile.js';
-import { ISLAND_EXTENT, onIsland, terrainHeight } from './worldIsland.js';
+import { AIRPORT, MARINA, SEA_LIMIT, islandFor } from './worldIsland.js';
+import { ARRIVAL, createBoat, landingSpot, stepBoat, stepVoyage, voyage } from './worldBoat.js';
+import { STATIONS, arrivalIn, trainAt } from './metro.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -15,7 +17,7 @@ export const CITIES = [
   { id: 'cape', name: 'Cape Town', country: 'South Africa', district: 'Atlantic Point', region: 'Africa', color: '#8ed9c8', sky: '#abc7ce', ground: '#a4ab83', buildings: ['#c6bfb0', '#9ebcbb', '#dac9b7'], trees: 'oak', map: [53, 79], seed: 67, tagline: 'Take the long road to the ocean.' },
 ];
 // Positions are bounded by the island's coastline (worldIsland.js); LIMIT bounds any coordinate on it.
-export const LIMIT = ISLAND_EXTENT;
+export const LIMIT = SEA_LIMIT;
 export const ROADS = ROAD_GRID;
 // Everyone arrives at the City Hub: a glass-fronted public office on the corner of the two central avenues. Its forecourt
 // (the spawn point) is where you start, respawn, heal and meet other players.
@@ -37,10 +39,11 @@ export function generateBlocks(city) {
   }
   // The block beside the spawn point is the City Hub office (same footprint, so streets and contracts are unchanged).
   Object.assign(blocks.find(b => b.x === 37 && b.z === 37), { hub: true, height: 19, color: '#e4ebe8' });
+  Object.defineProperty(blocks, 'island', { value: islandFor(city.id) });
   return blocks;
 }
 export function freePosition(x, z, blocks, radius = 1) {
-  return onIsland(x, z, radius) && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
+  return (blocks.island ? blocks.island.onIsland(x, z, radius) : Math.abs(x) < 440 - radius && Math.abs(z) < 440 - radius) && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
 }
 export function clearSight(a, b, blocks) {
   return !blocks.some(block => {
@@ -58,14 +61,57 @@ export function cleanWorldSave(value) {
   const keys = CITIES.flatMap(c => CONTRACTS.map(m => `${c.id}:${m.id}`));
   return { city: CITIES.some(c => c.id === value?.city) ? value.city : 'miami', cash: Number.isFinite(value?.cash) ? Math.max(0, Math.min(9999999, Math.floor(value.cash))) : 0, completed: [...new Set(Array.isArray(value?.completed) ? value.completed.filter(k => keys.includes(k)) : [])] };
 }
-export function createSession(city, save = {}, appearance = null) {
+// `arrival` is 'boat' when you sail in from another island (you arrive offshore, at the helm of your boat).
+export function createSession(city, save = {}, appearance = null, arrival = null) {
   const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, ammo: 48, weapon: 'pistol', heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, actions: [], actionSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '! You are at the City Hub. Your car is parked outside.', messageTime: 7 };
   s.pedestrians = createPedestrians(s);
+  Object.assign(s, { boat: createBoat(), boating: false, metro: null, riding: false, train: trainAt(0), course: null, waypoint: null, arrival: null });
+  if (arrival === 'boat') {
+    s.boat = createBoat(ARRIVAL); s.boating = true;
+    s.message = `Welcome to ${city.name}! ${islandFor(city.id).name} lies ahead. Steer for the marina pier and press F to go ashore.`;
+  } else if (arrival === 'flight') s.message = `Welcome to ${city.name}! Your flight has landed; the airport shuttle dropped you at the City Hub.`;
   return s;
 }
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-export const actor = s => s.driving ? s.car : s.player;
+// Who you are controlling: your car, your boat, the metro train you are riding, or yourself on foot.
+export const actor = s => s.driving ? s.car : s.boating ? s.boat : s.riding ? s.train : s.player;
+export const onFoot = s => !s.driving && !s.boating && !s.riding;
 export function objectivePoint(s) { return s.mission ? CONTRACTS.find(m => m.id === s.mission.id)[s.mission.stage === 0 ? 'target' : 'finish'] : null; }
+// Where the gold marker points: the contract, else the marina when a sea course is set, else your GPS waypoint.
+export function guidePoint(s) {
+  const point = objectivePoint(s);
+  if (point) return { ...point, label: 'Contract' };
+  if (s.course && !s.boating) return { x: MARINA.x0 + 40, z: MARINA.z, label: 'Marina pier' };
+  return s.waypoint;
+}
+export function setWaypoint(s, point) { s.waypoint = point ? { x: point.x, z: point.z, label: point.label || 'Waypoint' } : null; if (point) notify(s, `GPS set: ${s.waypoint.label}. Follow the gold marker.`); }
+// Plan a crossing by sea to another island (you still have to sail it).
+export function setCourse(s, cityId) {
+  const from = CITIES.find(c => c.id === s.city), to = CITIES.find(c => c.id === cityId);
+  if (!to || s.mission || s.heat > 0 || s.down) return false;
+  s.course = voyage(from, to);
+  notify(s, s.boating ? `Course set for ${to.name}: head out to open sea and follow the arrow.` : `Course set for ${to.name}. Take your boat from the marina pier on the east waterfront.`);
+  return true;
+}
+export function cancelCourse(s) { s.course = null; }
+export const nearAirport = s => (onFoot(s) || s.driving) && distance(actor(s), AIRPORT) < 70;
+const stationNear = s => STATIONS.findIndex(st => distance(s.player, st) < 20);
+// The one thing you can do right here, for the on-screen prompt (and its touch button).
+export function promptFor(s) {
+  if (s.down) return null;
+  if (s.riding) return s.train.station !== null ? { key: 'E', action: 'interact', text: `Get off at ${STATIONS[s.train.station].name}` } : { key: null, text: `Metro · next stop ${STATIONS[s.train.next].name}` };
+  if (s.metro) return { key: 'E', action: 'interact', text: `Waiting for the metro · ${Math.ceil(arrivalIn(s.worldTime ?? s.time, s.metro.station))} s · E to leave` };
+  const at = actor(s), point = objectivePoint(s);
+  if (point && distance(at, point) < 12) return { key: 'E', action: 'interact', text: s.mission.stage === 0 ? 'Collect' : 'Deliver' };
+  if (s.boating) return landingSpot(s.boat, islandFor(s.city), (x, z) => freePosition(x, z, s.blocks, 1)) && Math.abs(s.boat.speed) < 3 ? { key: 'F', action: 'vehicle', text: 'Go ashore' } : null;
+  if (nearAirport(s)) return { key: 'M', action: 'map', text: 'Fly to another island' };
+  if (s.driving) return null;
+  if (distance(s.player, s.boat) < 15) return { key: 'F', action: 'vehicle', text: 'Take the boat' };
+  if (stationNear(s) >= 0) return { key: 'E', action: 'interact', text: `Take the metro at ${STATIONS[stationNear(s)].name}` };
+  if (distance(s.player, s.car) < 9) return { key: 'F', action: 'vehicle', text: 'Get in your car' };
+  if (distance(s.player, HUB) < 13 && (s.health < 100 || s.ammo < 48)) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
+  return null;
+}
 export function notify(s, message) { s.message = message; s.messageTime = 5; }
 export function startContract(s, id) {
   const mission = CONTRACTS.find(m => m.id === id);
@@ -76,6 +122,15 @@ export function startContract(s, id) {
 }
 export function interact(s) {
   if (s.down) return;
+  // The metro: get off at a station, leave the platform, or wait for the next train.
+  if (s.riding) {
+    const stop = s.train.station;
+    if (stop === null) { notify(s, `Next stop: ${STATIONS[s.train.next].name}. Press E when the train stops.`); return; }
+    const exit = STATIONS[stop].exit;
+    s.player = { ...s.player, x: exit.x, z: exit.z, height: 0, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0 }; s.riding = false; s.metro = null;
+    notify(s, `${STATIONS[stop].name} station.`); return;
+  }
+  if (s.metro) { s.metro = null; notify(s, 'You left the platform.'); return; }
   const at = actor(s), point = objectivePoint(s);
   if (point && distance(at, point) < 12 && Math.abs(at.speed) < 3) {
     if (s.mission.stage === 0) {
@@ -91,11 +146,24 @@ export function interact(s) {
     }
     return;
   }
-  if (distance(at, HUB) < 13 && !s.driving && s.heat === 0) { s.health = 100; s.ammo = 48; notify(s, 'City Hub: health and supplies restored.'); return; }
+  const station = onFoot(s) ? stationNear(s) : -1;
+  if (station >= 0) {
+    if (s.heat > 0) { notify(s, 'Lose the police before taking the metro.'); return; }
+    s.metro = { station }; notify(s, `Waiting at ${STATIONS[station].name} station. The train arrives in ${Math.ceil(arrivalIn(s.worldTime ?? s.time, station))} s.`); return;
+  }
+  if (distance(at, HUB) < 13 && onFoot(s) && s.heat === 0) { s.health = 100; s.ammo = 48; notify(s, 'City Hub: health and supplies restored.'); return; }
   notify(s, 'Move to the gold marker and stop to interact.');
 }
 export function toggleVehicle(s) {
   if (s.down) return;
+  if (s.riding || s.metro) { notify(s, 'Press E to get off at a station.'); return; }
+  if (s.boating) {
+    if (Math.abs(s.boat.speed) > 3) { notify(s, 'Slow down before going ashore.'); return; }
+    const spot = landingSpot(s.boat, islandFor(s.city), (x, z) => freePosition(x, z, s.blocks, 1));
+    if (!spot) { notify(s, 'Bring the boat alongside the marina pier or a beach to go ashore.'); return; }
+    s.player = { ...s.player, x: spot.x, z: spot.z, height: 0, heading: s.boat.heading, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0 }; s.boating = false; s.boat.speed = 0;
+    notify(s, 'Ashore. Press F beside the boat to sail again.'); return;
+  }
   if (s.driving) {
     if (Math.abs(s.car.speed) > 3) { notify(s, 'Brake before getting out.'); return; }
     const exits = [[4, 0], [-4, 0], [0, 5], [0, -5]];
@@ -103,7 +171,12 @@ export function toggleVehicle(s) {
     if (!exit) return;
     // On a hillside the player steps out at the slope's height (the character controller then settles onto it).
     const x = s.car.x + exit[0], z = s.car.z + exit[1];
-    s.player = { ...s.player, x, z, height: terrainHeight(x, z) + (terrainHeight(x, z) > 0 ? 0.3 : 0), heading: s.car.heading, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0 }; s.driving = false;
+    const ground = islandFor(s.city).terrainHeight(x, z);
+    s.player = { ...s.player, x, z, height: ground + (ground > 0 ? 0.3 : 0), heading: s.car.heading, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0 }; s.driving = false;
+  } else if (distance(s.player, s.boat) < 15) {
+    if (s.heat > 0) { notify(s, 'Lose the police before taking the boat.'); return; }
+    s.boating = true;
+    notify(s, s.course ? `Sailing for ${s.course.name}: head out to open sea and follow the arrow.` : 'W to throttle, A/D to steer, Shift for full power. Set a course on the map to sail to another island.');
   } else if (distance(s.player, s.car) < 9 && Math.abs(s.car.speed) < 3) { s.driving = true; }
   else notify(s, 'Get closer to your cyan car to enter.');
 }
@@ -111,7 +184,7 @@ export const PISTOL_RANGE = 65, FIST_RANGE = 5;
 // Soft lock-on: hostiles anywhere in range (nearest and closest to your aim first); bystanders only when in front of you.
 // Children are never targets.
 export function targetFor(s) {
-  if (s.driving || s.down) return null;
+  if (!onFoot(s) || s.down) return null;
   const gun = s.weapon === 'pistol', range = gun ? PISTOL_RANGE : FIST_RANGE, aim = gun ? s.aimYaw ?? s.player.heading : s.player.heading;
   const scored = [];
   for (const e of [...s.enemies, ...s.pedestrians]) {
@@ -143,7 +216,7 @@ export function startReload(s) {
 }
 export function attack(s) {
   const gun = s.weapon === 'pistol';
-  if (s.driving || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
+  if (!onFoot(s) || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
   if (gun && s.ammo <= 0) { startReload(s); return; }
   s.cooldown = gun ? 0.3 : 0.45; if (gun) s.ammo--;
   // Punches chain into a jab, cross and heavier hook when thrown in quick succession.
@@ -206,6 +279,7 @@ export function setAppearance(s, appearance) {
 }
 export function recover(s) {
   s.player = { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(s.appearance) }; s.car = vehicle('player', 3, 12, Math.PI, 'player'); s.driving = false; s.health = 100; s.ammo = 48; s.reload = 0; s.heat = 0; s.down = 0; s.mission = null; s.enemies = []; s.traffic = createTraffic(); s.policeCars = createPatrols(); s.incident = false; s.arrest = 0; s.downReason = ''; s.lastSeen = null; s.alarm = null;
+  s.boat = createBoat(); s.boating = false; s.riding = false; s.metro = null; s.arrival = null;
   notify(s, 'Back at the City Hub. Any unfinished contract can be restarted.');
 }
 export function stepWorld(s, input, delta, yaw = Math.PI) {
@@ -224,9 +298,23 @@ function stepSimulation(s, input, dt, yaw) {
   const down = s.down > 0;
   if (down) { s.down -= dt; if (s.down <= 0) { recover(s); return; } }
   if (!down && s.reload > 0) { s.reload -= dt; if (s.reload <= 0) { s.ammo = 48; notify(s, 'Reloaded.'); } }
+  // The metro runs to its timetable; waiting passengers board when the train stops at their station.
+  s.train = trainAt(s.worldTime ?? s.time);
+  if (s.metro && !s.riding) {
+    const st = STATIONS[s.metro.station];
+    if (distance(s.player, st) > 26 || s.heat > 0 || down) { s.metro = null; notify(s, 'You left the platform.'); }
+    else if (s.train.station === s.metro.station) { s.riding = true; notify(s, `All aboard at ${st.name}! Press E when the train stops to get off.`); }
+  }
   const p = actor(s), control = !down && !(s.player.knockdown > 0) ? input : {};
   const forward = Number(!!control.forward) - Number(!!control.backward), right = Number(!!control.right) - Number(!!control.left);
-  if (!s.driving) {
+  if (s.boating) {
+    const island = islandFor(s.city);
+    stepBoat(s.boat, island, control, dt);
+    if (s.course && stepVoyage(s.course, s.boat, island, dt)) s.arrival = s.course.to;
+  }
+  const guide = !s.mission && s.waypoint;
+  if (guide && distance(p, guide) < 15) { notify(s, `You have arrived: ${guide.label}.`); s.waypoint = null; }
+  if (onFoot(s)) {
     const length = Math.hypot(forward, right) || 1, speed = control.run ? 15 : 8;
     const dx = (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
     const dz = (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
@@ -242,7 +330,7 @@ function stepSimulation(s, input, dt, yaw) {
   if (!down) updatePolice(s, p, dt, clearSight);
   const cars = [s.car, ...s.traffic, ...s.policeCars];
   const walkers = s.pedestrians.filter(person => person.health > 0 && !person.ragdoll);
-  if (!s.driving) walkers.push(s.player);
+  if (onFoot(s)) walkers.push(s.player);
   for (const car of cars) {
     car.hitCooldown = Math.max(0, car.hitCooldown - dt); car.impact *= Math.exp(-7 * dt);
     if (car === s.car) driveVehicle(car, s.driving && !down ? input : { park: true }, dt);

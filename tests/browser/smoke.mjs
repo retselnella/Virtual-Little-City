@@ -49,16 +49,21 @@ try {
   assert.notEqual(await playerMarker.getAttribute('transform'), before, 'World Tour movement still works');
   await pause(); await button('Blood effects: On').click();
   assert.equal(await button('Blood effects: Off').count(), 1); await close();
-  // M opens the island map; flights are on the second tab.
+  // M opens the island map; travel is on the second tab. Flights leave only from the airport; sailing sets a course.
   await page.keyboard.press('KeyM');
-  assert.match(await page.locator('.island-map > svg').getAttribute('aria-label'), /Map of the island/);
-  await page.getByRole('tab', { name: 'Fly to a city' }).click();
-  await page.getByRole('button', { name: /Japan Tokyo/ }).click();
-  await page.waitForFunction(() => document.querySelector('.adventure-location h1')?.textContent.includes('Tokyo'));
+  assert.match(await page.locator('.island-map > svg').getAttribute('aria-label'), /Map of Biscayne Key/);
+  await page.getByRole('tab', { name: 'Travel' }).click();
+  const tokyoCard = page.getByRole('article', { name: 'Japan Tokyo' });
+  assert.equal(await tokyoCard.getByRole('button', { name: 'Fly' }).isDisabled(), true, 'flights only from the airport');
+  await tokyoCard.getByRole('button', { name: /^Sail/ }).click();
+  await page.locator('.adventure-objective', { hasText: 'SEA VOYAGE' }).waitFor();
+  assert.match(await page.locator('.adventure-objective h2').innerText(), /marina/);
+  // The current island is saved: switch the save to Tokyo and reload.
+  await page.evaluate(() => { const save = JSON.parse(localStorage.getItem('little-city-world-v1')); localStorage.setItem('little-city-world-v1', JSON.stringify({ ...save, city: 'tokyo' })); });
   await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !document.querySelector('.adventure-loading'));
   assert.match(await page.locator('.adventure-location h1').innerText(), /Tokyo/);
   await page.keyboard.press('KeyL'); await page.getByRole('button', { name: 'Accept contract' }).first().click();
-  await page.keyboard.press('KeyM'); await page.getByRole('tab', { name: 'Fly to a city' }).click(); assert.equal(await page.getByRole('button', { name: /Philippines Manila/ }).isDisabled(), true); await close();
+  await page.keyboard.press('KeyM'); await page.getByRole('tab', { name: 'Travel' }).click(); assert.equal(await page.getByRole('article', { name: 'Philippines Manila' }).getByRole('button', { name: /^Sail/ }).isDisabled(), true); await close();
   await page.keyboard.press('KeyL'); await button('Abandon current contract').click();
   await pause(); assert.equal(await button('Blood effects: Off').count(), 1);
   for (const width of [390, 320]) {
@@ -96,7 +101,7 @@ try {
   await friend.close();
   await page.locator('.adventure-online', { hasText: 'Local · 0 other tabs' }).waitFor({ timeout: 10000 });
   assert.deepEqual(errors, []); assert.deepEqual(violations, []); assert.deepEqual(external, [], 'no third-party requests');
-  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, island map, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
+  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, island map, sailing course, airport-only flights, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.httpServer.close(resolve));
