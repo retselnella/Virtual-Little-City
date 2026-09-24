@@ -15,10 +15,12 @@ async function server() {
   const db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create schema auth;
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
-    grant usage on schema public, auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;`);
+    grant usage on schema public, auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;
+    alter default privileges in schema public grant all on tables to anon, authenticated;
+    alter default privileges in schema public grant execute on functions to anon, authenticated;`); // as Supabase does
   await db.exec(readFileSync(new URL('../../supabase/world-boss.sql', import.meta.url), 'utf8'));
   // Tests control the server clock; production uses now().
-  await db.exec(`create or replace function public.boss_now() returns timestamptz language sql stable as $$ select coalesce(nullif(current_setting('test.now', true), '')::timestamptz, now()) $$;`);
+  await db.exec(`create or replace function public.boss_real_now() returns timestamptz language sql stable as $$ select coalesce(nullif(current_setting('test.now', true), '')::timestamptz, now()) $$;`);
   const as = async (uid, ms, sql, params = []) => {
     await db.query(`select set_config('test.uid', $1, false), set_config('test.now', $2, false)`, [uid || '', new Date(ms).toISOString()]);
     await db.exec('set role authenticated');
@@ -112,9 +114,29 @@ test('weekly leaderboard: totals across events, closed at the end of the week wi
   assert.ok(reportDeath(store, { playerId: 'a', eventId: e1.id, now: e1.startsAt + 300_000 }) && !reportDeath(store, { playerId: 'a', eventId: e1.id, now: e1.startsAt + 301_000 }));
 });
 
+test('the owner-only test clock moves the whole server, so a test project can try the event at any hour', async () => {
+  const S = await server(), owner = async (ms, sql) => { await S.db.query(`select set_config('test.now', $1, false)`, [new Date(ms).toISOString()]); return (await S.db.query(sql)).rows[0].v; };
+  assert.equal((await S.state(A, at(9))).phase, 'scheduled');
+  assert.match(await owner(at(9), `select public.boss_test_clock('11:58') as v`), /11:58 PH time/);
+  const countdown = await S.state(A, at(9, 0, 30));
+  assert.equal(countdown.phase, 'countdown'); assert.equal(countdown.city, eventForDay(day).city); assert.equal(countdown.serverNow, at(11, 58, 30), 'clients follow the shifted server clock');
+  const target = CITIES.find(c => c.id !== eventForDay(day).city && c.id !== eventForDay(day + 1).city).id;
+  await owner(at(9), `select public.boss_test_clock('12:05', '${target}') as v`);
+  const fight = await S.state(A, at(9, 1));
+  assert.equal(fight.phase, 'active'); assert.equal(fight.city, target);
+  const pose = kaijuPose((fight.serverNow - fight.startsAt) / 1000), hit = await S.hit(A, at(9, 1, 3), fight.id, 3, 0, pose.x, pose.z, target);
+  assert.equal(hit.ok, true); assert.equal(Number(hit.damage), 3 * WEAPONS.shot.damage);
+  await assert.rejects(owner(at(9), `select public.boss_test_clock('25:00') as v`), /HH:MM/);
+  await owner(at(9), 'select public.boss_test_clock_off() as v');
+  assert.equal((await S.state(A, at(9, 2))).phase, 'scheduled', 'back to the real time');
+  await owner(at(9), 'select public.boss_test_reset() as v');
+  assert.equal((await S.db.query('select count(*)::int as n from boss_damage')).rows[0].n, 0);
+});
+
 test('clients cannot touch the tables or call internal functions', async () => {
   const S = await server();
-  for (const sql of ['select * from boss_events', 'update boss_events set hp = 0', "insert into boss_weekly values (1, gen_random_uuid(), 'x', 999999999999)", 'select public.boss_close_weeks()', 'select * from boss_reward_tiers']) {
+  for (const sql of ['select * from boss_events', 'update boss_events set hp = 0', "insert into boss_weekly values (1, gen_random_uuid(), 'x', 999999999999)", 'select public.boss_close_weeks()', 'select public.boss_event_now()', 'select * from boss_reward_tiers',
+    "select public.boss_test_clock('12:05')", 'select public.boss_test_clock_off()', 'select public.boss_test_reset()', 'update boss_test_clock set offset_ms = 1']) {
     await assert.rejects(S.as(A, at(12, 5), sql), /permission denied/, sql);
   }
   assert.equal((await S.as(null, at(12, 5), `select public.boss_hit('x', 1, 0, 0, 0, 'miami', 'x') as v`)).v.reason, 'signed-out');

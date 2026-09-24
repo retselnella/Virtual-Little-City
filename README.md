@@ -321,6 +321,23 @@ For testing, add `?clock=HH:MM` (Philippine time, 24-hour) and/or `?weather=clea
 
 Without Supabase, the Kaiju event runs in the same browser (all tabs share it), and the preview clock moves it too: `/?clock=11:58` shows the countdown and `/?clock=12:05` the fight. With Supabase configured, the event always follows the server's clock.
 
+### Testing the Kaiju event online
+
+`?clock=` cannot move an online event: the server owns the time, so players cannot fake it. To test online, use a **second Supabase project** for tests and shift its server clock:
+
+1. **Create a test project** in Supabase and set it up exactly like the real one (steps 2–7 above: anonymous sign-ins, Realtime public access off, both SQL files).
+2. **Point preview builds at it.** In Vercel → Project → Settings → **Environment Variables**, give `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` two sets of values: the real project for **Production** only, the test project for **Preview** only. Push a branch (not `main`) and Vercel builds a preview address that uses the test project; production is untouched. Locally, put the test project's values in `.env.local`.
+3. **Move the test server's clock** in the test project's SQL Editor. The game follows the server clock, so everyone on the preview sees the same thing:
+   ```sql
+   select public.boss_test_clock('11:58');           -- the countdown, on today's city
+   select public.boss_test_clock('12:05', 'manila');  -- the fight, on a day the Kaiju attacks Manila
+   select public.boss_test_clock_off();               -- back to the real time
+   select public.boss_test_reset();                   -- wipe events, damage, weekly boards and rewards to start over
+   ```
+   The clock keeps running from the time you set. Players cannot call these functions; only the project owner can, from the SQL Editor. The sky still shows the real time of day.
+
+Never run `boss_test_clock` on the production project: events and damage made under a shifted clock are stored like real ones and would count on the real leaderboards.
+
 ### Checks before publishing
 
 ```bash

@@ -27,6 +27,8 @@ create table if not exists public.boss_rewards (
   tier text not null, cash integer not null, title text not null, claimed_at timestamptz, primary key (week, user_id)
 );
 create table if not exists public.boss_weeks_closed (week integer primary key, closed_at timestamptz not null default now());
+-- A shift of the server clock for test projects only (see boss_test_clock at the end). Empty in production.
+create table if not exists public.boss_test_clock (id boolean primary key default true check (id), offset_ms bigint not null default 0);
 
 -- Rewards are configurable: edit this table (ranks are inclusive).
 insert into public.boss_reward_tiers (rank_from, rank_to, tier, cash, title)
@@ -40,10 +42,14 @@ alter table public.boss_weekly enable row level security;
 alter table public.boss_reward_tiers enable row level security;
 alter table public.boss_rewards enable row level security;
 alter table public.boss_weeks_closed enable row level security;
-revoke all on public.boss_events, public.boss_damage, public.boss_weekly, public.boss_reward_tiers, public.boss_rewards, public.boss_weeks_closed from anon, authenticated;
+alter table public.boss_test_clock enable row level security;
+revoke all on public.boss_events, public.boss_damage, public.boss_weekly, public.boss_reward_tiers, public.boss_rewards, public.boss_weeks_closed, public.boss_test_clock from anon, authenticated;
 
 -- ---- Rules (constants mirror bossRules.js)
-create or replace function public.boss_now() returns timestamptz language sql stable as $$ select now() $$;
+-- The server clock: the real time, plus the test shift if a test project set one.
+create or replace function public.boss_real_now() returns timestamptz language sql stable as $$ select now() $$;
+create or replace function public.boss_now() returns timestamptz language sql stable as $$
+  select public.boss_real_now() + coalesce((select offset_ms from public.boss_test_clock where id), 0) * interval '1 millisecond' $$;
 create or replace function public.boss_ms(t timestamptz) returns bigint language sql immutable as $$ select floor(extract(epoch from t) * 1000)::bigint $$;
 -- Day number in Philippine time (UTC+8) and Monday-based week number.
 create or replace function public.boss_ph_day(t timestamptz) returns integer language sql immutable as $$ select floor((extract(epoch from t) + 28800) / 86400)::integer $$;
@@ -179,6 +185,33 @@ end $$;
 
 -- Only the entry points are callable, and only by signed-in (anonymous) players.
 revoke all on function public.boss_event_now(), public.boss_close_weeks(), public.boss_state(), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
-  public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() from public, anon;
+  public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() from public, anon, authenticated;
 grant execute on function public.boss_state(), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
   public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() to authenticated;
+
+-- ---- Test clock: for a separate TEST project only, never production.
+-- Shifts the server clock so the event can be tried at any hour; the game follows the server clock, so every tester
+-- sees the countdown or the fight. Only the project owner can run these, from the SQL editor:
+--   select public.boss_test_clock('11:58');           -- countdown, on today's city
+--   select public.boss_test_clock('12:05', 'manila');  -- the fight, on the next day the kaiju attacks Manila
+--   select public.boss_test_clock_off();               -- back to the real time
+--   select public.boss_test_reset();                   -- wipe events, damage, weekly boards and rewards to try again
+-- Events and damage made under a shifted clock are stored like real ones, which is why this belongs in a test project.
+create or replace function public.boss_test_clock(ph_time text, p_city text default null) returns text language plpgsql security definer set search_path = public as $$
+declare real_now timestamptz := boss_real_now(); d integer := boss_ph_day(boss_real_now()); target timestamptz;
+begin
+  if ph_time !~ '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' then raise exception 'Use HH:MM, 24-hour Philippine time, for example 12:05'; end if;
+  if p_city is not null then
+    if p_city <> all (array['miami','tokyo','manila','london','dubai','rio','cape']) then raise exception 'Unknown city %', p_city; end if;
+    while boss_city(d) <> p_city loop d := d + 1; end loop;
+  end if;
+  target := to_timestamp(d::double precision * 86400 - 28800) + ph_time::interval;
+  insert into boss_test_clock (id, offset_ms) values (true, boss_ms(target) - boss_ms(real_now)) on conflict (id) do update set offset_ms = excluded.offset_ms;
+  return format('Server clock now %s PH time; the kaiju attacks %s that day. Undo with boss_test_clock_off().', to_char((target at time zone 'UTC') + interval '8 hours', 'YYYY-MM-DD HH24:MI'), boss_city(d));
+end $$;
+create or replace function public.boss_test_clock_off() returns text language sql security definer set search_path = public as $$
+  delete from boss_test_clock; select 'Server clock back to the real time.' $$;
+create or replace function public.boss_test_reset() returns text language sql security definer set search_path = public as $$
+  delete from boss_rewards; delete from boss_weeks_closed; delete from boss_weekly; delete from boss_damage; delete from boss_events;
+  select 'Kaiju events, damage, weekly boards and rewards wiped.' $$;
+revoke all on function public.boss_test_clock(text, text), public.boss_test_clock_off(), public.boss_test_reset() from public, anon, authenticated;
