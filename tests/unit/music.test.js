@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { audioType, buildPlaylist, cleanTracks, playOrder, stepTrack, storagePath, trackFromFile } from '../../src/models/worldTour/playlist.js';
-import { loadPlaylist } from '../../src/services/musicService.js';
+import { audioType, buildPlaylist, buildPlaylists, cleanTracks, playOrder, stepTrack, storagePath, trackFromFile } from '../../src/models/worldTour/playlist.js';
+import { loadPlaylists } from '../../src/services/musicService.js';
 import { readMusicPreference, writeMusicPreference } from '../../src/services/preferences.js';
 
 test('file names become tracks with Storage-safe paths', () => {
@@ -46,27 +46,37 @@ test('play order: in order, or shuffled with every track once; next and previous
   assert.equal(stepTrack([], 0, 1), -1);
 });
 
-test('the playlist lists the bucket, with URLs built from the project address', async () => {
+test('each folder in the bucket is a playlist; URLs are built from the project address', async () => {
   const calls = [];
+  // Storage lists folders as entries without an id.
+  const tree = { '': [{ name: 'Classic Rock', id: null }, { name: 'Worship Song', id: null }, { name: '.emptyFolderPlaceholder', id: 'p' }, { name: 'Loose Song.mp3', id: 'a' }],
+    'Classic Rock': [{ name: 'Queen - Bohemian Rhapsody (Official Video).mp3', id: 'b' }, { name: 'ABBA - Dancing Queen.mp3', id: 'c' }], 'Worship Song': [{ name: 'Cebuano Worship Song.mp3', id: 'd' }] };
   const client = {
-    storage: { from(bucket) { calls.push(['bucket', bucket]); return { list: async () => ({ data: [{ name: 'Sun & Sea #1.mp3' }, { name: 'x.mp3' }], error: null }) }; } },
+    storage: { from(bucket) { calls.push(['bucket', bucket]); return { list: async folder => { calls.push(['list', folder]); return { data: tree[folder], error: null }; } }; } },
     from(name) { calls.push(['from', name]); return { select: async () => ({ data: null, error: { message: 'relation "music_tracks" does not exist' } }) }; },
   };
-  const tracks = await loadPlaylist({ configured: true, client });
-  assert.deepEqual(calls, [['bucket', 'music'], ['from', 'music_tracks']]);
-  assert.deepEqual(tracks.map(t => t.title), ['Sun & Sea #1', 'x'], 'no table needed: titles come from file names');
-  assert.match(tracks[0].url, /\/storage\/v1\/object\/public\/music\/Sun%20%26%20Sea%20%231\.mp3$/, 'names are URL-encoded under the project address');
-  await assert.rejects(loadPlaylist({ configured: true, client: { ...client, storage: { from: () => ({ list: async () => ({ data: null, error: new Error('Bucket not found') }) }) } } }), /Bucket not found/);
-  assert.equal(await loadPlaylist({ configured: false }), null, 'no Supabase: no playlist and no requests');
+  const playlists = await loadPlaylists({ configured: true, client });
+  assert.deepEqual(playlists.map(p => [p.name, p.tracks.map(t => t.title)]), [['Classic Rock', ['Dancing Queen', 'Bohemian Rhapsody (Official Video)']], ['Worship Song', ['Cebuano Worship Song']], ['Music', ['Loose Song']]]);
+  assert.equal(playlists[0].tracks[1].artist, 'Queen', 'no table needed: titles and artists come from file names');
+  assert.match(playlists[0].tracks[1].url, /\/storage\/v1\/object\/public\/music\/Classic%20Rock\/Queen%20-%20Bohemian%20Rhapsody%20\(Official%20Video\)\.mp3$/, 'names are URL-encoded under the project address');
+  await assert.rejects(loadPlaylists({ configured: true, client: { ...client, storage: { from: () => ({ list: async () => ({ data: null, error: new Error('Bucket not found') }) }) } } }), /Bucket not found/);
+  assert.equal(await loadPlaylists({ configured: false }), null, 'no Supabase: no playlists and no requests');
+});
+
+test('folder playlists take titles and order from the table, and skip empty folders', () => {
+  const url = path => `https://x/${path}`;
+  const lists = buildPlaylists({ Rock: [{ name: 'b.mp3' }, { name: 'a.mp3' }], Empty: [{ name: 'cover.jpg' }], '': [] }, [{ path: 'Rock/b.mp3', title: 'Opener', position: 0 }, { path: 'Rock/a.mp3', title: 'A', enabled: false }], url);
+  assert.deepEqual(lists.map(l => [l.name, l.tracks.map(t => t.title)]), [['Rock', ['Opener']]]);
+  assert.equal(lists[0].tracks[0].url, 'https://x/Rock/b.mp3');
 });
 
 test('music settings are remembered per browser and cleaned on read', () => {
   const data = new Map(), storage = { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, String(v)) };
-  assert.deepEqual(readMusicPreference(storage), { volume: 0.6, shuffle: false, on: false });
-  writeMusicPreference({ volume: 0.3, shuffle: true, on: true }, storage);
-  assert.deepEqual(readMusicPreference(storage), { volume: 0.3, shuffle: true, on: true });
+  assert.deepEqual(readMusicPreference(storage), { volume: 0.6, shuffle: false, on: false, playlist: '' });
+  writeMusicPreference({ volume: 0.3, shuffle: true, on: true, playlist: 'Classic Rock' }, storage);
+  assert.deepEqual(readMusicPreference(storage), { volume: 0.3, shuffle: true, on: true, playlist: 'Classic Rock' });
   data.set('little-city-music-v1', JSON.stringify({ volume: 9, shuffle: 'yes' }));
-  assert.deepEqual(readMusicPreference(storage), { volume: 1, shuffle: false, on: false });
+  assert.deepEqual(readMusicPreference(storage), { volume: 1, shuffle: false, on: false, playlist: '' });
 });
 
 test('music.sql: players can list the music bucket and read the playlist, and cannot add, change or delete anything', async () => {

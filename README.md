@@ -228,7 +228,7 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 
 ### Music
 
-Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, and the playlist to pick a track from. It keeps playing everywhere (on foot, driving, at sea, in every city), and the button turns green while music plays. Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
+Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, the playlists (one per folder of the site's music) and their songs to pick from. It keeps playing everywhere (on foot, driving, at sea, in every city), and the button turns green while music plays. Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
 
 ## 9. Police and your wanted level
 
@@ -356,18 +356,21 @@ Without Supabase, the Kaiju event runs in the same browser (all tabs share it), 
 
 ### Music playlist
 
-The in-game radio plays the audio files in your Supabase project's Storage. Set it up once:
+The in-game radio plays the audio files in your Supabase project's Storage. **Each folder is a playlist**, named after the folder (for example *Classic Rock*, *Worship Song*); files outside any folder form one more playlist, *Music*. Set it up once:
 
-1. **SQL Editor → New query**: paste the whole of [`supabase/music.sql`](supabase/music.sql) and click **Run** (nothing highlighted). It creates a public bucket named **music** (audio files only, up to 50 MB each) and lets players list it and read the playlist; only you can add or change files.
-2. **Storage → music → Upload files**: select the songs from your folder (mp3, m4a, aac, ogg, opus, wav, webm or flac) and upload them to the top of the bucket, not into a subfolder.
-3. **Reload the game** and press **N**. Every file plays in file-name order, titled from its name: `01 - Artist - Title.mp3` shows as **Title** by **Artist**; `My Song.mp3` shows as **My Song**. Rename files before uploading to set the order and titles.
+1. **SQL Editor → New query**: paste the whole of [`supabase/music.sql`](supabase/music.sql) and click **Run** (nothing highlighted). It creates a public bucket named **music** for audio files and lets players list it and read the playlist; only you can add or change files.
+2. **Storage → music**: click **Create folder** for each playlist, open it, and **Upload files** (mp3, m4a, aac, ogg, opus, wav, webm or flac).
+3. **Reload the game** and press **N**. Pick a playlist, then a song or ▶. Songs play in file-name order, titled from their names: `01 - Artist - Title.mp3` shows as **Title** by **Artist**.
 
-To remove a song, delete the file in the bucket. Optional extras:
+Things to know:
 
-- **Custom titles, order or hiding**: add rows to the `music_tracks` table (Table Editor): `path` is the file's exact name in the bucket, plus `title`, `artist`, `position` (lower plays first), and `enabled` (untick to hide the file). Songs with a row play first, the rest follow by name.
-- **Upload a whole folder from your computer** with `node scripts/upload-music.mjs "C:\path\to\your music"` (add `--sync` to hide songs no longer in the folder). It needs `SUPABASE_URL` and your **secret** key in `SUPABASE_SECRET_KEY`, set in that terminal only (Command Prompt: `set SUPABASE_SECRET_KEY=sb_secret_...`; PowerShell: `$env:SUPABASE_SECRET_KEY="sb_secret_..."`). Never put the secret key in `.env` files or Vercel.
-
-Files in a public bucket can be downloaded by anyone who has their link, so only upload music you have the right to share. Without Supabase, the music panel explains that the playlist needs it.
+- **File size**: each file must fit your Supabase plan's upload limit: **50 MB per file on the Free plan** (it cannot be raised there). Paid plans can raise it under **Storage → Settings**; the bucket itself sets no lower limit. Long non-stop mixes are often 50–200 MB: split or re-encode them (see below), or use single songs.
+- **Bandwidth**: every play downloads the whole file from your project, and plans include a limited amount of egress per month. Smaller files (128 kbps MP3 is about 1 MB per minute) go much further.
+- **Names**: Storage only accepts plain-ASCII file and folder names. If the dashboard says *Invalid key*, rename the file: replace `–` with `-`, and remove accents and emoji. The upload script does this for you.
+- **Removing**: delete the file in the bucket. To rename a song, hide one or change the order without renaming files, add rows to the `music_tracks` table: `path` is the file's name in the bucket including its folder (`Classic Rock/Queen - Bohemian Rhapsody.mp3`), plus `title`, `artist`, `position` (lower plays first) and `enabled` (untick to hide).
+- **Upload a whole folder of folders from your computer** with `node scripts/upload-music.mjs "C:\Users\you\Downloads\Music"`: each subfolder becomes a playlist (add `--sync` to hide songs no longer in the folder). It needs `SUPABASE_URL` and your **secret** key in `SUPABASE_SECRET_KEY`, set in that terminal only (Command Prompt: `set SUPABASE_SECRET_KEY=sb_secret_...`; PowerShell: `$env:SUPABASE_SECRET_KEY="sb_secret_..."`). Never put the secret key in `.env` files or Vercel.
+- **Splitting or shrinking a long mix** with the free [FFmpeg](https://ffmpeg.org): `ffmpeg -i "Long Mix.mp3" -f segment -segment_time 1200 -c copy "Long Mix part %02d.mp3"` cuts it into 20-minute parts without re-encoding; `ffmpeg -i "Long Mix.mp3" -b:a 96k "Long Mix 96k.mp3"` makes a smaller copy.
+- **Rights**: files in a public bucket can be downloaded by anyone who has their link, and the radio streams them to every player. Only upload music you have the right to share publicly (your own, licensed, or royalty-free); commercial recordings generally need a licence for this.
 
 ### Testing the Kaiju event online
 

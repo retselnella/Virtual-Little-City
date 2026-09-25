@@ -14,11 +14,25 @@ export function buildPlaylist(files, rows, urlFor) {
   const listed = (Array.isArray(rows) ? rows : []).filter(r => validPath(r?.path)).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const hidden = new Set(listed.filter(r => r.enabled === false).map(r => r.path)), known = new Set(listed.map(r => r.path));
   const names = (Array.isArray(files) ? files : []).map(f => f?.name).filter(name => validPath(name) && audioType(name)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const title = name => trackFromFile(name.split('/').pop());
   const inBucket = new Set(names);
   return cleanTracks([
     ...listed.filter(r => r.enabled !== false && (!files || inBucket.has(r.path))),
-    ...names.filter(name => !known.has(name) && !hidden.has(name)).map(name => ({ path: name, ...trackFromFile(name) })),
+    ...names.filter(name => !known.has(name) && !hidden.has(name)).map(name => ({ path: name, ...title(name) })),
   ], urlFor);
+}
+// Playlists from folders: each folder in the bucket is a playlist named after it (files at the top form one more,
+// "Music"). `folders` maps a folder name ('' for the top) to its listed files; files are named relative to the folder.
+export function buildPlaylists(folders, rows, urlFor) {
+  const playlists = [];
+  for (const [folder, files] of Object.entries(folders || {}).sort(([a], [b]) => (a === '') - (b === '') || a.localeCompare(b, undefined, { numeric: true }))) {
+    if (folder && (!validPath(folder) || folder.includes('/'))) continue;
+    const prefix = folder ? `${folder}/` : '';
+    const own = (Array.isArray(rows) ? rows : []).filter(r => typeof r?.path === 'string' && r.path.startsWith(prefix) && (folder || !r.path.includes('/')));
+    const tracks = buildPlaylist((files || []).map(f => ({ name: prefix + f?.name })), own, urlFor);
+    if (tracks.length) playlists.push({ id: folder || '(top)', name: text(folder, 60) || 'Music', tracks });
+  }
+  return playlists;
 }
 // Rows from the server are untrusted: keep only well-formed tracks, with a playable URL built by `urlFor`.
 export function cleanTracks(rows, urlFor) {

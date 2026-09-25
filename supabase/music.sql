@@ -2,8 +2,9 @@
 -- Safe to run again; it keeps your files and tracks.
 --
 -- Then add music either way:
---   * Dashboard: Storage -> music -> Upload files. Every audio file at the top of the bucket plays, in file-name order,
---     titled from its name ("01 - Artist - Title.mp3" shows as "Title" by "Artist").
+--   * Dashboard: Storage -> music. Each folder you create there is a playlist named after it (files at the top form
+--     one more, "Music"). Songs play in file-name order, titled from their names ("01 - Artist - Title.mp3" shows as
+--     "Title" by "Artist"). Storage only accepts plain-ASCII names: rename "–" to "-" and remove accents first.
 --   * Script: node scripts/upload-music.mjs "your folder" (README 15), which also fills the music_tracks table.
 -- The optional music_tracks table sets a track's title, artist and position, or hides it (enabled = false).
 --
@@ -12,9 +13,10 @@
 -- key): players get no insert, update or delete rights. They can only list the bucket and read the playlist table.
 -- Only upload music you have the right to share publicly.
 
--- The bucket: public reads, audio files only, 50 MB each (the free plan's upload limit).
+-- The bucket: public reads, audio files only. No size cap of its own: your plan's upload limit applies (50 MB per file
+-- on the Free plan; paid plans can raise it in Storage -> Settings).
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('music', 'music', true, 52428800, array['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg', 'audio/opus', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/webm', 'audio/flac', 'audio/x-flac', 'audio/x-aac'])
+values ('music', 'music', true, null, array['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg', 'audio/opus', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/webm', 'audio/flac', 'audio/x-flac', 'audio/x-aac'])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 -- Optional: a title, artist and position per file, or enabled = false to hide it. Files without a row still play.
