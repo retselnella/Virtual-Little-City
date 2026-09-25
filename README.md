@@ -117,13 +117,17 @@ Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeir
 
 Press **M** for the **World map**, the game's one map: the whole world at once, with every city by its usual name, the island you are on marked **YOU ARE HERE** (and named above the map), how many players are online in each, and, around event time, where the Kaiju is.
 
-Travel between islands is **by sea**. Each city has a card with a **Sail** button and the distance:
+There are two ways to reach another island: **sail** there, or **teleport** instantly.
+
+**Sailing.** Each city has a card with a **Sail** button and the distance:
 
 1. Press **Sail**. The map closes, the route is drawn on the world map, and the left panel and gold marker point you to your speedboat at the **marina pier on the east waterfront** (with the distance and direction, for example "580 m north-east").
-2. At the boat, press **F**, head out to open sea and follow the arrow; the left panel shows the heading and the distance left. The voyage only counts while you are in open sea and roughly on course.
+2. At the boat, press **F**, head out to open sea and follow the arrow; the left panel shows the heading and the distance left. The voyage only counts while you are in open sea and roughly on course. At sea the minimap becomes a **sea chart**: a grid that slides past as you sail, a dashed course line, and your destination island coming into view ahead as the distance shrinks. The world map (**M**) shows your boat moving along the route.
 3. You arrive by boat offshore of the new island, heading for its marina. Press **F** at the pier or a beach to go ashore.
 
-You cannot sail while you have an unfinished contract, while you are wanted, or while you are down. The **GPS** buttons under the map set the gold marker to places on your island: the City Hub, the marina, the nearest metro station, the gun shop (Miami), the lighthouse and more.
+**Teleporting.** Every City Hub has a **teleporter**: a glowing pad on the hub's north forecourt, by the avenue (the map's GPS has a **Teleporter** button). Step onto it and press **E**: the world map opens with a **Teleport** button on each island, and you arrive instantly beside that island's teleporter.
+
+You cannot sail or teleport while you have an unfinished contract, while you are wanted, or while you are down. The **GPS** buttons under the map set the gold marker to places on your island: the City Hub, the marina, the nearest metro station, the gun shop (Miami), the lighthouse and more.
 
 Everyone starts at the **City Hub**, a glass-fronted public office on the corner of the two central avenues. Its forecourt (the mint-green pad with your cyan car parked outside) is where you arrive, respawn and heal, and because every player arrives there too, it is the natural place to meet colleagues and friends.
 
@@ -228,7 +232,7 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 
 ### Music
 
-Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, the playlists (one per folder of the site's music) and their songs to pick from. It keeps playing everywhere (on foot, driving, at sea, in every city), and the button turns green while music plays. Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
+Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, the playlists (one per folder of the site's music) and their songs to pick from. It keeps playing everywhere in the game (on foot, driving, at sea, in every city), and the button turns green while music plays. It pauses when you switch to another browser tab or minimise the window, and carries on when you come back. (While sound plays, your browser shows a speaker icon on the game's tab; that is the browser's own indicator and cannot be hidden by the page.) Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
 
 ## 9. Police and your wanted level
 

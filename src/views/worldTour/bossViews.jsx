@@ -21,6 +21,11 @@ export function WorldAtlas({ city, event, online, selected, course, onSelect }) 
       <rect width="1000" height="440" fill="url(#atlas-grid)" />
       <g fill="#354b52" stroke="#6c8184" strokeWidth="1">{CONTINENTS.map(d => <path key={d} d={d} />)}</g>
       {goal && <path className={course ? 'atlas-sail set' : 'atlas-sail'} d={`M${spot(here).x} ${spot(here).y}L${spot(goal).x} ${spot(goal).y}`} />}
+      {course && goal && (() => {
+        // Your boat along the route, by the share of the crossing already sailed.
+        const t = Math.max(0, Math.min(1, 1 - course.remaining / course.total)), a = spot(here), b = spot(goal), x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+        return <g className="atlas-boat" transform={`translate(${x} ${y})`}><circle r="9" fill="#9fd6ff" stroke="#10303c" strokeWidth="2" /><path d="M-5 1h10l-2 3h-6zM0 -6v6l4 -1z" fill="#10303c" /><text x="12" y="-8" fill="#cfe9ff" fontSize="11" fontWeight="700">{(course.remaining / 1000).toFixed(1)} km to {goal.name}</text></g>;
+      })()}
       {bossCity && bossCity !== here && <path className="atlas-route" d={`M${spot(here).x} ${spot(here).y}L${spot(bossCity).x} ${spot(bossCity).y}`} />}
       {CITIES.map(c => {
         const p = spot(c), mine = c.id === city.id, boss = bossCity?.id === c.id;

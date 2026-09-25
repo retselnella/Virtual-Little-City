@@ -79,6 +79,9 @@ export function generateBlocks(city) {
   Object.defineProperty(blocks, 'island', { value: islandFor(city.id) });
   return blocks;
 }
+// The teleporter: a pad on the City Hub's north forecourt, facing the avenue. Step on it and press E to travel to
+// another island instantly (you arrive on that island's pad).
+export function teleporterAt(blocks) { const hub = blocks.find(b => b.hub); return { x: hub.x + 6, z: hub.z - hub.depth / 2 - 3.4 }; }
 export function freePosition(x, z, blocks, radius = 1) {
   return (blocks.island ? blocks.island.onIsland(x, z, radius) : Math.abs(x) < 440 - radius && Math.abs(z) < 440 - radius) && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
 }
@@ -103,12 +106,16 @@ export function cleanWorldSave(value) {
 export function createSession(city, save = {}, appearance = null, arrival = null) {
   const s = { appearance, city: city.id, seed: city.seed * 7919 + 17, blocks: generateBlocks(city), player: { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(appearance) }, car: vehicle('player', 3, 12, Math.PI, 'player'), traffic: createTraffic(), policeCars: createPatrols(), driving: false, health: 100, weapon: save.weapon === 'fists' || cleanOwned(save.owned).includes(save.weapon) ? save.weapon : 'pistol', owned: cleanOwned(save.owned), mags: fullMagazines(save.owned), shopping: false, heat: 0, quiet: 0, cooldown: 0, reload: 0, down: 0, downReason: '', arrest: 0, aimYaw: Math.PI, aimTime: 0, punchTime: 0, combo: 0, mission: null, enemies: [], shots: [], impacts: [], impactSeq: 0, actions: [], actionSeq: 0, time: 0, cash: save.cash || 0, completed: [...(save.completed || [])], message: 'Welcome to ' + city.name + '! You are at the City Hub. Your car is parked outside.', messageTime: 7 };
   s.pedestrians = createPedestrians(s);
-  Object.assign(s, { boat: createBoat(), boating: false, metro: null, riding: false, train: trainAt(0), course: null, waypoint: null, arrival: null });
+  Object.assign(s, { boat: createBoat(), boating: false, metro: null, riding: false, train: trainAt(0), course: null, waypoint: null, arrival: null, teleporter: teleporterAt(s.blocks), teleporting: false });
   // World boss: the server's event (set by the controller), the kaiju here, hits waiting to be reported, and the ruins.
   Object.assign(s, { bossEvent: null, boss: null, bossHits: { shot: 0, punch: 0 }, bossDeaths: 0, bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
     s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
+  } else if (arrival === 'teleport') {
+    // You step off the pad on the avenue side, facing it and the City Hub.
+    s.player = { ...s.player, x: s.teleporter.x, z: s.teleporter.z - 6, heading: 0 };
+    s.message = `Teleported to ${city.name}! You are at the City Hub teleporter.`;
   }
   return s;
 }
@@ -157,6 +164,9 @@ export function setCourse(s, cityId) {
 }
 export function cancelCourse(s) { s.course = null; }
 const stationNear = s => STATIONS.findIndex(st => distance(s.player, st) < 20);
+export const atTeleporter = s => onFoot(s) && !s.down && !!s.teleporter && distance(s.player, s.teleporter) < 4.5;
+// Why travelling (by sea or teleporter) is not possible right now, or null.
+export const travelBlocked = s => s.mission ? 'Finish or abandon your contract first.' : s.heat > 0 ? 'Lose the police first.' : s.down ? 'Wait until you are back on your feet.' : null;
 // The one thing you can do right here, for the on-screen prompt (and its touch button).
 export function promptFor(s) {
   if (s.down) return null;
@@ -171,6 +181,7 @@ export function promptFor(s) {
   if (stationNear(s) >= 0) return { key: 'E', action: 'interact', text: `Take the metro · ${STATIONS[stationNear(s)].name} station` };
   if (distance(s.player, s.car) < 9) return { key: 'F', action: 'vehicle', text: 'Get in your car' };
   if (atGunShop(s.city, s.player)) return { key: 'E', action: 'interact', text: 'Browse Ocean Drive Arms' };
+  if (atTeleporter(s)) return { key: 'E', action: 'interact', text: 'Teleport to another island' };
   if (distance(s.player, HUB) < 13 && (s.health < 100 || needsAmmo(s))) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
   return null;
 }
@@ -218,6 +229,12 @@ export function interact(s) {
   if (station >= 0) {
     if (s.heat > 0) { notify(s, 'Lose the police before taking the metro.'); return; }
     s.metro = { station }; notify(s, `Waiting at ${STATIONS[station].name} station. The train arrives in ${Math.ceil(arrivalIn(s.worldTime ?? s.time, station))} s.`); return;
+  }
+  // The teleporter: the controller opens the world map to pick an island.
+  if (atTeleporter(s)) {
+    const blocked = travelBlocked(s);
+    if (blocked) { notify(s, `The teleporter is locked. ${blocked}`); return; }
+    s.teleporting = true; return;
   }
   // The gun shop: the controller opens its counter (the game pauses while you browse).
   if (onFoot(s) && atGunShop(s.city, s.player)) {

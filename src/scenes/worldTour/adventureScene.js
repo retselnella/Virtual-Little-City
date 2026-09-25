@@ -34,7 +34,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
   const sky = createSky(scene, { hemisphere, sun });
   let kaiju = null, citySlots = new Map(), ruinsShown = '', hiddenOwners = new Map(), rubble = null, craterMesh = null;
-  let root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
+  let teleporterFx = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
   let guns, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
@@ -46,6 +46,18 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   function material(color) { if (!materials.has(color)) materials.set(color, new THREE.MeshStandardMaterial({ color, roughness: 0.7 })); return materials.get(color); }
   // Materials that light up at night (windows, lamps, neon, car lights); skyWeather.js sets their brightness each frame.
   const glows = [];
+  // The City Hub teleporter: a dark pad with a ring of light that turns, and a shimmering column above it.
+  function buildTeleporter(at, label) {
+    const light = key => { if (!materials.has(key)) materials.set(key, key === 'teleport-beam' ? new THREE.MeshBasicMaterial({ color: '#b9a8ff', transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }) : new THREE.MeshBasicMaterial({ color: '#c9b8ff' })); return materials.get(key); };
+    const group = new THREE.Group(); group.position.set(at.x, 0, at.z); root.add(group);
+    kit.box([6.6, 0.3, 6.6], '#23263a', [0, 0.15, 0], group); kit.box([5.2, 0.05, 5.2], '#3a3360', [0, 0.32, 0], group);
+    const ring = new THREE.Group(); ring.position.y = 0.4; group.add(ring);
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, seg = new THREE.Mesh(unitBox, light('teleport-ring')); seg.scale.set(0.95, 0.12, 0.28); seg.position.set(Math.cos(a) * 2.6, 0, Math.sin(a) * 2.6); seg.rotation.y = Math.PI / 2 - a; ring.add(seg); }
+    const column = new THREE.CylinderGeometry(2.2, 2.4, 9, 28, 1, true); geometries.add(column);
+    const beam = new THREE.Mesh(column, light('teleport-beam')); beam.position.y = 4.9; group.add(beam);
+    label('TELEPORT', at.x, at.z, '#c9b8ff', 10.5, 1.2);
+    teleporterFx = { ring, beam };
+  }
   function glowMaterial(color, strength = 1, emissive = color) {
     const key = `glow-${color}-${emissive}-${strength}`;
     if (!materials.has(key)) { const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, emissive, emissiveIntensity: 0 }); materials.set(key, mat); glows.push({ material: mat, strength }); }
@@ -199,6 +211,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       const mat = new THREE.SpriteMaterial({ map: texture }); materials.set(`label-${text}-${x}-${z}`, mat); const sprite = new THREE.Sprite(mat); sprite.position.set(x, y, z); sprite.scale.set(5.2 * size, 1.3 * size, 1); root.add(sprite);
     }
     const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5);
+    buildTeleporter(session.current.teleporter, label);
     const shop = session.current.blocks.find(b => b.shop); if (shop) label('GUN SHOP', shop.x + 9, shop.z + shop.depth / 2 + 3, '#ff8a7a', 7.5, 1.2); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('MARINA', MARINA.x0 + 20, MARINA.z - 8, '#9fd6ff');
     const lighthouse = islandData.landmarks.lighthouse; label('LIGHTHOUSE', lighthouse.x + 10, lighthouse.z + 10, '#f8d47a', 40, 1.4);
     if (islandData.landmarks.feature) label(islandData.landmarks.feature.name.toUpperCase(), islandData.landmarks.feature.x, islandData.landmarks.feature.z, '#f3eee5', 16, 1.4);
@@ -453,6 +466,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     updateBlood(step);
     updateRemotes(s, paused.current ? 0 : dt);
     updateCar(playerCar, s.car); placeBoat(playerBoat, s.boat, s.time, step); metro.update(s.train);
+    if (teleporterFx) { teleporterFx.ring.rotation.y += step * 0.9; teleporterFx.beam.material.opacity = 0.14 + Math.sin(time / 280) * 0.06; }
     // The destination island rises over the horizon as a voyage nears its end.
     const course = s.boating && s.course?.openSea ? s.course : null; horizon.visible = !!course;
     if (course) { const far = course.remaining + 1400; horizon.position.set(s.boat.x + Math.sin(course.bearing) * far, -2, s.boat.z + Math.cos(course.bearing) * far); horizon.children[0].material = material(THEMES[course.to]?.ground.grass || '#6f9a5c'); }

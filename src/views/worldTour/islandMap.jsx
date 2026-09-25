@@ -59,6 +59,22 @@ export function IslandLayers({ island, hud, online, p, point, k = 1, labels = fa
     {point && <g><path d={`M${p.x} ${p.z}L${point.x} ${point.z}`} stroke="#f8d47a" strokeWidth={4 * k} strokeDasharray={`${12 * k} ${10 * k}`} /><circle cx={point.x} cy={point.z} r={23 * k} fill="#f8d47a" /></g>}
   </>;
 }
+// At sea on a voyage the minimap becomes a sea chart: a grid that slides past as you sail, your course line, and the
+// destination island ahead on your bearing, coming closer as the distance left shrinks.
+export function SeaChart({ p, course, radius, k, color, name }) {
+  const step = radius > 700 ? 500 : 250, dx = Math.sin(course.bearing), dz = Math.cos(course.bearing);
+  const lines = [];
+  for (let x = Math.floor((p.x - radius) / step) * step; x <= p.x + radius; x += step) lines.push(`M${x} ${p.z - radius}V${p.z + radius}`);
+  for (let z = Math.floor((p.z - radius) / step) * step; z <= p.z + radius; z += step) lines.push(`M${p.x - radius} ${z}H${p.x + radius}`);
+  const arrive = { x: p.x + dx * course.remaining, z: p.z + dz * course.remaining }, land = { x: arrive.x + dx * 340, z: arrive.z + dz * 340 };
+  return <g className="sea-chart" aria-hidden="true">
+    <path d={lines.join('')} stroke="#ffffff14" strokeWidth={2 * k} fill="none" />
+    <circle cx={land.x} cy={land.z} r="340" fill={color} opacity=".45" stroke="#f1e2b3" strokeWidth={10 * k} />
+    <path d={`M${p.x} ${p.z}L${arrive.x} ${arrive.z}`} stroke="#9fd6ff" strokeWidth={6 * k} strokeDasharray={`${18 * k} ${12 * k}`} fill="none" />
+    <circle cx={arrive.x} cy={arrive.z} r={20 * k} fill="#9fd6ff" stroke="#10303c" strokeWidth={5 * k} />
+    <text x={land.x} y={land.z} fontSize={46 * k} textAnchor="middle" fill="#fff" stroke="#10303c" strokeWidth={8 * k} paintOrder="stroke" fontWeight="700">{name}</text>
+  </g>;
+}
 export function PlayerArrow({ p, k = 1 }) {
   return <path d="M0 -24L17 18L0 11L-17 18Z" fill="white" stroke="#152b32" strokeWidth="5" transform={`translate(${p.x} ${p.z}) rotate(${180 - p.heading * 180 / Math.PI}) scale(${k})`} />;
 }

@@ -9,6 +9,9 @@ export function createKaijuAudio() {
   };
   const unlock = () => { start(); ctx?.resume?.(); };
   addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
+  // Silent while the game's tab is hidden.
+  const visibility = () => { if (!ctx) return; if (document.hidden) ctx.suspend?.(); else ctx.resume?.(); };
+  document.addEventListener('visibilitychange', visibility);
   function noise(duration) {
     const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * duration)), ctx.sampleRate), data = buffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -41,6 +44,6 @@ export function createKaijuAudio() {
   };
   return {
     play(name, volume = 1) { if (!ctx || volume < 0.02 || ctx.state !== 'running') return; try { sounds[name]?.(Math.min(1, volume)); } catch { /* audio is best-effort */ } },
-    dispose() { removeEventListener('pointerdown', unlock); removeEventListener('keydown', unlock); ctx?.close?.(); ctx = null; },
+    dispose() { removeEventListener('pointerdown', unlock); removeEventListener('keydown', unlock); document.removeEventListener('visibilitychange', visibility); ctx?.close?.(); ctx = null; },
   };
 }

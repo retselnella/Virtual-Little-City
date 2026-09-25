@@ -6,8 +6,8 @@ import { playOrder, stepTrack } from '../models/worldTour/playlist.js';
 // The in-game music player: loads the playlists (one per folder in the Supabase music bucket) and plays them with one
 // <audio> element. You browse any playlist; next/previous and the end of a song move through the playlist that is
 // playing. Browsers only allow sound after the player interacts with the page, so music that was on last time resumes
-// on the first click or key press. Volume, shuffle and the chosen playlist are remembered in this browser. A track that
-// fails to load is skipped.
+// on the first click or key press. Music pauses while the game's tab is hidden. Volume, shuffle and the chosen
+// playlist are remembered in this browser. A track that fails to load is skipped.
 export function useMusicPlayer() {
   const [playlists, setPlaylists] = useState([]), [status, setStatus] = useState('loading'), [problem, setProblem] = useState('');
   const [view, setView] = useState(0), [playing, setPlaying] = useState(false), [now, setNow] = useState({ list: -1, index: -1 }), [prefs, setPrefs] = useState(readMusicPreference);
@@ -47,12 +47,20 @@ export function useMusicPlayer() {
       if (p.on && lists.current.length && el.paused) { order.current = playOrder(lists.current[list].tracks.length, p.shuffle); start(list, order.current[0]); }
     };
     addEventListener('pointerdown', resume); addEventListener('keydown', resume);
+    // Music plays only while you are in the game: switching tab or minimising pauses it (so the browser tab stops
+    // showing sound), and coming back picks up where it left off.
+    let away = false;
+    const visibility = () => {
+      if (document.hidden) { if (!el.paused) { away = true; el.pause(); } }
+      else if (away) { away = false; el.play().catch(() => {}); }
+    };
+    document.addEventListener('visibilitychange', visibility);
     const session = typeof navigator !== 'undefined' ? navigator.mediaSession : null;
     session?.setActionHandler?.('nexttrack', () => step(1)); session?.setActionHandler?.('previoustrack', () => step(-1));
     return () => {
       alive = false; el.pause(); el.removeAttribute('src');
       el.removeEventListener('play', onPlay); el.removeEventListener('pause', onPause); el.removeEventListener('ended', onEnded); el.removeEventListener('error', onError);
-      removeEventListener('pointerdown', resume); removeEventListener('keydown', resume);
+      removeEventListener('pointerdown', resume); removeEventListener('keydown', resume); document.removeEventListener('visibilitychange', visibility);
       session?.setActionHandler?.('nexttrack', null); session?.setActionHandler?.('previoustrack', null);
     };
   }, []);

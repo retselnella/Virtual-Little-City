@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, equip, guidePoint, interact, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, toggleVehicle } from '../models/worldTour/worldAdventure.js';
+import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, equip, atTeleporter, guidePoint, interact, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, toggleVehicle } from '../models/worldTour/worldAdventure.js';
 import { mountAdventure } from '../scenes/worldTour/adventureScene.js';
 import { disposePhysics } from '../models/worldTour/physicsEngine.js';
 
@@ -22,7 +22,7 @@ export function useWorldController(character = null, suspended = false) {
   const [initial] = useState(readWorldSave), [blood, setBlood] = useState(readBloodPreference), session = useRef(null);
   if (!session.current) session.current = sessionFor(CITIES.find(c => c.id === initial.city), initial, blood, character);
   const [hud, setHud] = useState(() => snapshot(session.current)), [panel, setPanel] = useState(null), [ready, setReady] = useState(false), [error, setError] = useState(false), [storage, setStorage] = useState(true);
-  const host = useRef(null), paused = useRef(false), lastSave = useRef('');
+  const host = useRef(null), paused = useRef(false), lastSave = useRef(''), [teleported, setTeleported] = useState(0);
   const { input, clear, touchControl } = useWorldInput(paused, action, setPanel);
   paused.current = !!panel || error || suspended;
   useEffect(() => { if (suspended) clear(); }, [suspended]);
@@ -66,7 +66,7 @@ export function useWorldController(character = null, suspended = false) {
     const s = session.current;
     if (key === 'vehicle') toggleVehicle(s);
     if (key === 'attack') attack(s);
-    if (key === 'interact') { interact(s); if (s.shopping) { s.shopping = false; open('shop'); return; } }
+    if (key === 'interact') { interact(s); if (s.shopping) { s.shopping = false; open('shop'); return; } if (s.teleporting) { s.teleporting = false; open('world'); return; } }
     if (key === 'weapon') equip(s, nextWeapon(s.weapon, s.owned));
     if (key.startsWith('slot')) { const id = WEAPON_ORDER[Number(key.slice(4)) - 1]; if (id && !equip(s, id)) notify(s, `You do not own a ${id === 'smg' ? 'SMG' : id}. The gun shop is in Miami.`); }
     if (key === 'reload') startReload(s);
@@ -77,11 +77,14 @@ export function useWorldController(character = null, suspended = false) {
     const next = !blood; setBlood(next); session.current.blood = next;
     writeBloodPreference(next);
   }
-  // Travel between islands is by sea: when a crossing ends, you arrive offshore of the new island at the helm.
-  function travel(id) {
+  // Travel between islands: by sea (when a crossing ends you arrive offshore at the helm), or instantly from the
+  // teleporter pad at the City Hub (you arrive on the other island's pad).
+  function travel(id, mode = 'boat') {
     const old = session.current;
     if (old.heat > 0 || old.mission || old.down || !CITIES.some(city => city.id === id)) return;
-    session.current = sessionFor(CITIES.find(c => c.id === id), old, old.blood, old.appearance, 'boat'); disposePhysics(old); save(session.current); setHud(snapshot(session.current)); open(null);
+    if (mode === 'teleport' && !atTeleporter(old)) return;
+    if (mode === 'teleport') setTeleported(Date.now());
+    session.current = sessionFor(CITIES.find(c => c.id === id), old, old.blood, old.appearance, mode); disposePhysics(old); save(session.current); setHud(snapshot(session.current)); open(null);
   }
   const [dispatchTitle, dispatchHint] = policeStatus(hud);
   const task = missionTask(hud, current);
@@ -101,5 +104,5 @@ export function useWorldController(character = null, suspended = false) {
   function guide(point) { setWaypoint(session.current, point); setHud(snapshot(session.current)); open(null); }
   const island = islandFor(city.id), playerName = displayName(character), region = island.regionAt(p.x, p.z, city.district), weather = weatherLabel(sky);
   async function claimRewards() { const cash = await boss.claim(); if (cash) { notify(session.current, `Weekly boss rewards claimed: +$${cash.toLocaleString()}.`); save(session.current); setHud(snapshot(session.current)); } }
-  return { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
+  return { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), canTeleport: atTeleporter(hud), teleport: id => travel(id, 'teleport'), teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
 }

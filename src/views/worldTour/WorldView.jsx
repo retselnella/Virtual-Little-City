@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CITIES, CONTRACTS, reachableNear } from '../../models/worldTour/worldAdventure.js';
 import { formatClock } from '../../models/worldTour/worldClock.js';
 import { ExperienceDialog } from '../shared/ExperienceDialog.jsx';
-import { IslandLayers, PlayerArrow } from './islandMap.jsx';
+import { IslandLayers, PlayerArrow, SeaChart } from './islandMap.jsx';
 import { THEMES, MARINA } from '../../models/worldTour/worldIsland.js';
 import { STATIONS, nearestStation } from '../../models/worldTour/metro.js';
 import { voyage } from '../../models/worldTour/worldBoat.js';
@@ -49,21 +49,22 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, canTeleport, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [picked, setPicked] = useState(null);
   const now = boss.clock.current(), bossEvent = boss.event;
   const clock = formatClock(sky.clock), [onlineState, onlineText] = onlineLabel(online);
   const course = hud.course, sailing = hud.boating && course;
   // The minimap follows you, zooming out with speed (and further at sea).
   const speed = Math.abs((hud.driving ? hud.car : hud.boating ? hud.boat : hud.player).speed || 0);
-  const radius = hud.boating ? 420 + Math.min(300, speed * 10) : hud.driving ? 300 + Math.min(260, speed * 8) : 260, k = radius / 460;
+  const radius = sailing && course.openSea ? 900 : hud.boating ? 420 + Math.min(300, speed * 10) : hud.driving ? 300 + Math.min(260, speed * 8) : 260, k = radius / 460;
+  const destination = course && CITIES.find(c => c.id === course.to);
   // The edge arrow points to an off-map objective, or along the sailing bearing when you are at sea.
   const target = sailing ? { x: p.x + Math.sin(course.bearing) * 5000, z: p.z + Math.cos(course.bearing) * 5000 } : point;
   const away = point ? Math.hypot(point.x - p.x, point.z - p.z) : 0, edge = target && Math.hypot(target.x - p.x, target.z - p.z) > radius * 0.86 ? Math.atan2(target.z - p.z, target.x - p.x) : null;
   const openMap = () => open('world');
   const canTravel = !hud.mission && !(hud.heat > 0) && !(hud.down > 0) && ready && !error;
   const places = [
-    { label: 'City Hub', x: 8, z: 12 }, ...(city.id === GUN_SHOP.city ? [{ label: 'Gun shop', ...GUN_SHOP.door }] : []), { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z },
+    { label: 'City Hub', x: 8, z: 12 }, { label: 'Teleporter', ...hud.teleporter }, ...(city.id === GUN_SHOP.city ? [{ label: 'Gun shop', ...GUN_SHOP.door }] : []), { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z },
     { label: `${STATIONS[nearestStation(p.x, p.z)].name} metro station`, ...STATIONS[nearestStation(p.x, p.z)].exit },
     { label: 'Lighthouse', x: island.landmarks.lighthouse.x + 22, z: island.landmarks.lighthouse.z },
     ...(island.landmarks.feature ? [{ label: island.landmarks.feature.name, ...reachableNear(island, { x: island.landmarks.feature.x, z: island.landmarks.feature.z + island.landmarks.feature.radius + 8 }) }] : []),
@@ -126,6 +127,7 @@ export default function WorldView({ controller, onEditCharacter }) {
     <BossBanner boss={boss} city={city} now={now} onOpen={() => open('boss')} onMap={() => openMap()} />
     <BossHits hits={boss.hits} />
     {hud.messageTime > 0 && <div className="adventure-toast" role="status">{hud.message}</div>}
+    {teleported > 0 && <div key={teleported} className="teleport-flash" aria-hidden="true" />}
     {prompt && ready && !error && <button className={'adventure-prompt' + (prompt.key ? '' : ' passive')} disabled={!prompt.action} onClick={() => prompt.action && action(prompt.action)}>{prompt.key && <kbd>{prompt.key}</kbd>}<span>{prompt.text}</span></button>}
     {hud.down > 0 && <div className={'adventure-wasted' + (hud.downReason === 'busted' ? ' busted' : '')}><h2>{hud.downReason === 'busted' ? 'BUSTED' : 'WASTED'}</h2><p>{hud.downReason === 'busted' ? 'Released at the City Hub…' : 'Returning to the City Hub…'}</p></div>}
     {!ready && !error && <div className="adventure-loading"><span className="loading-ring" />Building {city.name}…</div>}
@@ -136,7 +138,9 @@ export default function WorldView({ controller, onEditCharacter }) {
         <div className="radar-dial">
           <svg viewBox={`${p.x - radius} ${p.z - radius} ${radius * 2} ${radius * 2}`} role="img" aria-label="Minimap: the island around you, your car and your destination">
             <IslandLayers island={island} hud={hud} online={online} p={p} point={point} k={k} />
+            {sailing && <SeaChart p={p} course={course} radius={radius} k={k} color={destination.color} name={destination.name} />}
             {edge !== null && <g className="objective-edge" transform={`translate(${p.x + Math.cos(edge) * radius * 0.84} ${p.z + Math.sin(edge) * radius * 0.84}) rotate(${edge * 180 / Math.PI + 90}) scale(${k})`}><polygon points="0,-26 20,14 -20,14" fill={sailing ? '#9fd6ff' : '#f8d47a'} stroke="#152b32" strokeWidth="5" /></g>}
+            {sailing && edge !== null && <text className="radar-course" x={p.x + Math.cos(edge) * radius * 0.62} y={p.z + Math.sin(edge) * radius * 0.62} fontSize={40 * k} textAnchor="middle" fill="#cfe9ff" stroke="#10303c" strokeWidth={8 * k} paintOrder="stroke" fontWeight="700">{destination.name} {(course.remaining / 1000).toFixed(1)} km</text>}
             <PlayerArrow p={p} k={k * 1.5} />
           </svg>
           <span className="radar-north" aria-hidden="true">N</span>
@@ -155,7 +159,8 @@ export default function WorldView({ controller, onEditCharacter }) {
       <WorldAtlas city={city} event={bossEvent} online={online} selected={picked} course={course} onSelect={setPicked} />
       {course ? <p className="travel-course" role="status">Sailing to <b>{course.name}</b>: {hud.boating ? `${(course.remaining / 1000).toFixed(1)} km of open sea left. Keep the arrow ahead.` : `your boat is at the marina on the east waterfront, ${marina.distance} m ${marina.direction}. Follow the gold marker.`}<button onClick={stopSailing}>Cancel</button></p>
         : !canTravel && ready && !error ? <p className="travel-notice">Finish or abandon your contract and lose the police before you sail.</p>
-        : <p className="world-tip">Pick an island and press <b>Sail</b>. Your speedboat waits at the marina pier on the <b>east</b> side of the city ({marina.distance} m {marina.direction}); the gold marker leads you there.</p>}
+        : canTeleport ? <p className="world-tip">You are on the teleporter: pick an island and press <b>Teleport</b> to go there instantly.</p>
+        : <p className="world-tip">Pick an island and press <b>Sail</b>: your speedboat waits at the marina on the <b>east</b> side ({marina.distance} m {marina.direction}). Or <b>teleport</b> instantly from the pad at the City Hub (GPS: Teleporter).</p>}
       <div className="destination-grid">{CITIES.map(c => {
         const here = city.id === c.id, trip = voyage(city, c);
         const bossHere = bossEvent && (bossEvent.phase === 'active' || bossEvent.phase === 'countdown') && bossEvent.city === c.id;
@@ -163,7 +168,10 @@ export default function WorldView({ controller, onEditCharacter }) {
           <small>{c.country}</small><strong>{c.name}</strong>
           <span className="progress">{hud.completed.filter(key => key.startsWith(c.id + ':')).length}/{CONTRACTS.length} contracts{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</span>
           {bossHere && <span className="boss-tag">{BOSS_NAME} {bossEvent.phase === 'active' ? 'attacking now' : 'at 12:00'}</span>}
-          {here ? <span className="here-tag">● You are here</span> : <button disabled={!canTravel || course?.to === c.id} onClick={() => sail(c.id)}>{course?.to === c.id ? 'Course set' : `Sail · ${(trip.total / 1000).toFixed(1)} km`}</button>}
+          {here ? <span className="here-tag">● You are here</span> : <div className="trip-buttons">
+            {canTeleport && <button className="teleport" disabled={!canTravel} onClick={() => teleport(c.id)}>Teleport</button>}
+            <button disabled={!canTravel || course?.to === c.id} onClick={() => sail(c.id)}>{course?.to === c.id ? 'Course set' : `Sail · ${(trip.total / 1000).toFixed(1)} km`}</button>
+          </div>}
         </article>;
       })}</div>
       <div className="gps" role="group" aria-label="GPS: set a destination on this island"><small>GPS</small>{places.map(place => <button key={place.label} onClick={() => guide(place)} disabled={!ready || error}>{place.label}</button>)}{hud.waypoint && <button className="clear" onClick={() => guide(null)}>Clear</button>}</div>

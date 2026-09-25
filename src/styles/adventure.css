@@ -271,7 +271,7 @@
 .atlas-city:focus-visible{outline:none}
 .atlas-city:focus-visible circle{stroke:#f8d47a;stroke-width:2}
 .atlas-here{fill:#ffffff;letter-spacing:1px}
-.atlas-pulse{animation:atlas-pulse 1.6s ease-out infinite;transform-origin:center}
+.atlas-pulse{animation:atlas-pulse 1.6s ease-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes atlas-pulse{from{opacity:.9;transform:scale(.6)}to{opacity:0;transform:scale(2.2)}}
 .atlas-route{fill:none;stroke:#ff8f7f;stroke-width:2;stroke-dasharray:6 6;animation:atlas-route 1s linear infinite}
 @keyframes atlas-route{to{stroke-dashoffset:-12}}
@@ -416,3 +416,12 @@
 .music-playlists button{border:1px solid #ffffff26;background:#ffffff08;color:#dfe7e3;border-radius:999px;padding:6px 12px;font-size:12px}
 .music-playlists button[aria-selected=true]{background:#bfdcd0;border-color:#bfdcd0;color:#1c393d;font-weight:700}
 .music-playlists small{opacity:.65;margin-left:3px}
+/* Teleporter and sailing navigation */
+.world-dialog .destination-grid .trip-buttons{display:flex;gap:6px;margin-top:auto}
+.world-dialog .destination-grid .trip-buttons button{flex:1;margin:0}
+.world-dialog .destination-grid button.teleport{background:#c9b8ff;border-color:#c9b8ff;color:#221a44}
+.teleport-flash{position:absolute;inset:0;z-index:6;pointer-events:none;background:radial-gradient(circle,#e8e0ff 0%,#9d8df1aa 40%,transparent 75%);animation:teleport-flash 1.1s ease-out forwards}
+@keyframes teleport-flash{from{opacity:1}to{opacity:0}}
+.atlas-boat text{paint-order:stroke;stroke:#10303c;stroke-width:3px}
+@media(max-width:760px){.world-dialog .destination-grid .trip-buttons{flex:1}}
+@media(prefers-reduced-motion:reduce){.teleport-flash{animation-duration:.01s}}
