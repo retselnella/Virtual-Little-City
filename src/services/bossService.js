@@ -16,7 +16,8 @@ export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () =
   const rpc = async (name, args) => { const { data, error } = await client.rpc(name, args); if (error) throw error; return data; };
   return {
     mode: 'online', playerId: session.user.id,
-    state: () => rpc('boss_state', test ? { p_test: true } : undefined),
+    // Always name the argument: a call without it is ambiguous if an older copy of the SQL left boss_state() behind.
+    state: () => rpc('boss_state', { p_test: !!test }),
     hit: ({ event, shots, punches, x, z, city, name }) => rpc('boss_hit', { p_event: event, p_shots: shots, p_punches: punches, p_x: x, p_z: z, p_city: city, p_name: name }),
     death: event => rpc('boss_death', { p_event: event }),
     weekly: () => rpc('boss_weekly_state'),
@@ -26,6 +27,7 @@ export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () =
 // A short, fixable explanation of why the event server failed, for the Kaiju panel.
 export function describeBossError(error) {
   const text = String(error?.message || error || ''), code = error?.code ? ` (${error.code})` : '';
+  if (error?.code === 'PGRST203' || /could not choose the best candidate/i.test(text)) return `An older copy of the Kaiju functions is still on the server${code}. In Supabase → SQL Editor, run: drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`;
   if (error?.code === 'PGRST202' || /could not find the function/i.test(text)) return `The Kaiju functions on the server are missing or out of date${code}. In Supabase → SQL Editor, run the whole supabase/world-boss.sql with nothing highlighted.`;
   if (error?.code === '42501' || /permission denied/i.test(text)) return `The server refused the request${code}. Run the whole supabase/world-boss.sql again in the Supabase SQL Editor.`;
   if (/anonymous sign-ins are disabled/i.test(text)) return 'Anonymous sign-ins are off in Supabase (Authentication → Sign In / Providers).';

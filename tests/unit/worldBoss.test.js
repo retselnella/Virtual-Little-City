@@ -211,6 +211,19 @@ test('the Kaiju panel explains server errors the owner can fix', async () => {
   const { describeBossError } = await import('../../src/services/bossService.js');
   assert.match(describeBossError({ code: 'PGRST202', message: 'Could not find the function public.boss_state(p_test) in the schema cache' }), /run the whole supabase\/world-boss.sql/);
   assert.match(describeBossError({ code: '42501', message: 'permission denied for function boss_state' }), /refused/);
+  assert.match(describeBossError({ code: 'PGRST203', message: 'Could not choose the best candidate function between: public.boss_state(), public.boss_state(p_test => boolean).' }), /drop function if exists public\.boss_state\(\)/);
   assert.match(describeBossError(new Error('Anonymous sign-ins are disabled')), /Anonymous sign-ins are off/);
   assert.match(describeBossError({ message: 'boom' }), /Server error: boom/);
+});
+
+test('an older copy of the SQL run after the new one cannot break the game, and re-running the file cleans it up', async () => {
+  const S = await server();
+  // The first release's boss_state() and boss_event_now(), recreated beside the current ones.
+  await S.db.exec(`create function public.boss_event_now() returns public.boss_events language sql as $$ select * from public.boss_event_now(false) $$;
+    create function public.boss_state() returns jsonb language sql as $$ select public.boss_state(false) $$; grant execute on function public.boss_state() to authenticated;`);
+  await assert.rejects(S.as(A, at(12, 5), 'select public.boss_state() as v'), /not unique/, 'an unnamed call is ambiguous');
+  assert.equal((await S.as(A, at(12, 5), 'select public.boss_state(p_test => false) as v')).v.phase, 'active', 'the game names the argument, so it still works');
+  await S.db.exec(readFileSync(new URL('../../supabase/world-boss.sql', import.meta.url), 'utf8'));
+  const left = (await S.db.query(`select p.oid::regprocedure::text as f from pg_proc p where proname in ('boss_state', 'boss_event_now') order by 1`)).rows.map(r => r.f);
+  assert.deepEqual(left, ['boss_event_now(boolean)', 'boss_state(boolean)'], 'running the whole file again removes the old versions');
 });

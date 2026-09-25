@@ -287,6 +287,7 @@ The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Return to 
 | I am stuck | Pause and choose **Return to City Hub**. |
 | It is too dark to see | Night follows Philippine time. Zoom the camera in; street lamps and lit windows help in the city. |
 | I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. To fly, go to the airport; to sail, take the boat from the marina and head for open sea on the course shown. |
+| The Kaiju panel says "an older copy of the Kaiju functions is still on the server" | An old copy of `world-boss.sql` was run after the new one. Run the latest file again (or `drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`). |
 | My Kaiju damage does not count | Get within about 220 metres of it and be in its city. The panel (**B**) shows your hits as the server counts them. |
 | I cannot collect a reward | Stop fully at the marker, and lose all wanted stars first. |
 | I do not see my friend | Check you are both in the same city and both show **Online**. On one computer, use two different browsers. |
