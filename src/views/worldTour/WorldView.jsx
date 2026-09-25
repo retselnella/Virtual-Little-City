@@ -49,7 +49,7 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, canTeleport, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [picked, setPicked] = useState(null);
   const now = boss.clock.current(), bossEvent = boss.event;
   const clock = formatClock(sky.clock), [onlineState, onlineText] = onlineLabel(online);
@@ -158,9 +158,8 @@ export default function WorldView({ controller, onEditCharacter }) {
       <p className="world-here"><i aria-hidden="true" /><span>You are on <b>{city.name}</b> island · {city.country} · {region}</span></p>
       <WorldAtlas city={city} event={bossEvent} online={online} selected={picked} course={course} onSelect={setPicked} />
       {course ? <p className="travel-course" role="status">Sailing to <b>{course.name}</b>: {hud.boating ? `${(course.remaining / 1000).toFixed(1)} km of open sea left. Keep the arrow ahead.` : `your boat is at the marina on the east waterfront, ${marina.distance} m ${marina.direction}. Follow the gold marker.`}<button onClick={stopSailing}>Cancel</button></p>
-        : !canTravel && ready && !error ? <p className="travel-notice">Finish or abandon your contract and lose the police before you sail.</p>
-        : canTeleport ? <p className="world-tip">You are on the teleporter: pick an island and press <b>Teleport</b> to go there instantly.</p>
-        : <p className="world-tip">Pick an island and press <b>Sail</b>: your speedboat waits at the marina on the <b>east</b> side ({marina.distance} m {marina.direction}). Or <b>teleport</b> instantly from the pad at the City Hub (GPS: Teleporter).</p>}
+        : !canTravel && ready && !error ? <p className="travel-notice">Finish or abandon your contract and lose the police before you travel.</p>
+        : <p className="world-tip"><b>Teleport</b> to arrive instantly at that island's City Hub, or <b>Sail</b> there in your speedboat: it waits at the marina on the <b>east</b> side ({marina.distance} m {marina.direction}).</p>}
       <div className="destination-grid">{CITIES.map(c => {
         const here = city.id === c.id, trip = voyage(city, c);
         const bossHere = bossEvent && (bossEvent.phase === 'active' || bossEvent.phase === 'countdown') && bossEvent.city === c.id;
@@ -169,7 +168,7 @@ export default function WorldView({ controller, onEditCharacter }) {
           <span className="progress">{hud.completed.filter(key => key.startsWith(c.id + ':')).length}/{CONTRACTS.length} contracts{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</span>
           {bossHere && <span className="boss-tag">{BOSS_NAME} {bossEvent.phase === 'active' ? 'attacking now' : 'at 12:00'}</span>}
           {here ? <span className="here-tag">● You are here</span> : <div className="trip-buttons">
-            {canTeleport && <button className="teleport" disabled={!canTravel} onClick={() => teleport(c.id)}>Teleport</button>}
+            <button className="teleport" disabled={!canTravel} onClick={() => teleport(c.id)}>Teleport</button>
             <button disabled={!canTravel || course?.to === c.id} onClick={() => sail(c.id)}>{course?.to === c.id ? 'Course set' : `Sail · ${(trip.total / 1000).toFixed(1)} km`}</button>
           </div>}
         </article>;

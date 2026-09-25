@@ -69,8 +69,8 @@ try {
   for (const name of ['Miami', 'Tokyo', 'Manila', 'London', 'Dubai', 'Rio de Janeiro', 'Cape Town']) assert.equal(await page.locator('.world-atlas text', { hasText: name }).count(), 1, name);
   assert.equal(await page.getByRole('tab').count(), 0, 'a single map, no tabs'); assert.equal(await page.locator('.island-map').count(), 0);
   assert.equal(await page.getByRole('button', { name: 'Fly' }).count(), 0, 'no flights');
-  assert.match(await page.locator('.world-tip').innerText(), /marina on the east side[\s\S]*teleport instantly from the pad at the City Hub/);
-  assert.equal(await page.getByRole('button', { name: 'Teleport', exact: true }).count(), 0, 'teleporting only from the pad');
+  assert.match(await page.locator('.world-tip').innerText(), /Teleport[\s\S]*Sail[\s\S]*marina on the east side/);
+  assert.equal(await page.getByRole('button', { name: 'Teleport', exact: true }).count(), 6, 'teleport to any other island from anywhere');
   assert.equal(await page.getByRole('button', { name: 'Teleporter', exact: true }).count(), 1, 'GPS to the teleporter');
   await fits('world map, desktop');
   const tokyoCard = page.getByRole('article', { name: 'Japan Tokyo' });

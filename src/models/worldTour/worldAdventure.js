@@ -79,8 +79,8 @@ export function generateBlocks(city) {
   Object.defineProperty(blocks, 'island', { value: islandFor(city.id) });
   return blocks;
 }
-// The teleporter: a pad on the City Hub's north forecourt, facing the avenue. Step on it and press E to travel to
-// another island instantly (you arrive on that island's pad).
+// The teleporter: a pad on the City Hub's north forecourt, facing the avenue. Teleporting (from the world map, or E on
+// the pad) takes you to another island instantly; you arrive beside that island's pad.
 export function teleporterAt(blocks) { const hub = blocks.find(b => b.hub); return { x: hub.x + 6, z: hub.z - hub.depth / 2 - 3.4 }; }
 export function freePosition(x, z, blocks, radius = 1) {
   return (blocks.island ? blocks.island.onIsland(x, z, radius) : Math.abs(x) < 440 - radius && Math.abs(z) < 440 - radius) && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);

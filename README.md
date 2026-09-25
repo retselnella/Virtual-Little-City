@@ -117,7 +117,7 @@ Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeir
 
 Press **M** for the **World map**, the game's one map: the whole world at once, with every city by its usual name, the island you are on marked **YOU ARE HERE** (and named above the map), how many players are online in each, and, around event time, where the Kaiju is.
 
-There are two ways to reach another island: **sail** there, or **teleport** instantly.
+There are two ways to reach another island: **teleport** there instantly, or **sail** there.
 
 **Sailing.** Each city has a card with a **Sail** button and the distance:
 
@@ -125,7 +125,7 @@ There are two ways to reach another island: **sail** there, or **teleport** inst
 2. At the boat, press **F**, head out to open sea and follow the arrow; the left panel shows the heading and the distance left. The voyage only counts while you are in open sea and roughly on course. At sea the minimap becomes a **sea chart**: a grid that slides past as you sail, a dashed course line, and your destination island coming into view ahead as the distance shrinks. The world map (**M**) shows your boat moving along the route.
 3. You arrive by boat offshore of the new island, heading for its marina. Press **F** at the pier or a beach to go ashore.
 
-**Teleporting.** Every City Hub has a **teleporter**: a glowing pad on the hub's north forecourt, by the avenue (the map's GPS has a **Teleporter** button). Step onto it and press **E**: the world map opens with a **Teleport** button on each island, and you arrive instantly beside that island's teleporter.
+**Teleporting.** Every island card on the world map also has a **Teleport** button: press it from anywhere and you arrive instantly beside that island's **teleporter**, a glowing pad on the City Hub's north forecourt by the avenue. Stepping onto a pad and pressing **E** opens the map too (GPS: **Teleporter**).
 
 You cannot sail or teleport while you have an unfinished contract, while you are wanted, or while you are down. The **GPS** buttons under the map set the gold marker to places on your island: the City Hub, the marina, the nearest metro station, the gun shop (Miami), the lighthouse and more.
 
