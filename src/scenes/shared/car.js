@@ -20,11 +20,18 @@ export function createCar(scene, kit, lighting, options = {}) {
   headlights.position.set(0, 1, 1.3); headlights.target.position.set(0, -0.4, 12);
   car.add(headlights, headlights.target); lighting.light(headlights, 120);
   }
+  // Each wheel is one assembly: the group steers and rides the suspension, and its `spin` group turns the tyre, rim and
+  // wheel bolts together about the axle (so nothing separates or wobbles when you steer at speed).
   const wheels = [];
   for (const x of [-0.73, 0.73]) for (const z of [-0.72, 0.72]) {
-    const wheel = cylinder(0.34, 0.34, 0.2, '#484652', [x, 0.33, z], car, 12);
-    wheel.rotation.z = Math.PI / 2; wheels.push(wheel);
-    cylinder(0.17, 0.17, 0.215, '#d9c9b1', [x, 0.33, z], car, 12).rotation.z = Math.PI / 2;
+    const wheel = new THREE.Group(); wheel.position.set(x, 0.33, z); car.add(wheel);
+    const spin = new THREE.Group(); wheel.add(spin); wheel.spin = spin;
+    cylinder(0.34, 0.34, 0.2, '#2e2d33', [0, 0, 0], spin, 16).rotation.z = Math.PI / 2; // tyre
+    cylinder(0.2, 0.2, 0.215, '#c9ccd1', [0, 0, 0], spin, 16).rotation.z = Math.PI / 2; // rim
+    const side = Math.sign(x);
+    for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; box([0.03, 0.06, 0.06], '#6b6f76', [side * 0.11, Math.sin(a) * 0.1, Math.cos(a) * 0.1], spin); } // bolts
+    box([0.03, 0.26, 0.05], '#8d9197', [side * 0.11, 0, 0], spin); // spoke, so you can see it turn
+    wheels.push(wheel);
   }
   return { car, wheels };
 }

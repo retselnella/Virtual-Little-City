@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CITIES, CONTRACTS, reachableNear } from '../../models/worldTour/worldAdventure.js';
 import { formatClock } from '../../models/worldTour/worldClock.js';
 import { ExperienceDialog } from '../shared/ExperienceDialog.jsx';
-import { IslandLayers, PlayerArrow, SeaChart } from './islandMap.jsx';
+import { IslandLayers, PlayerArrow, SeaChart, mapView } from './islandMap.jsx';
 import { THEMES, MARINA } from '../../models/worldTour/worldIsland.js';
 import { STATIONS, nearestStation } from '../../models/worldTour/metro.js';
 import { voyage } from '../../models/worldTour/worldBoat.js';
@@ -49,7 +49,7 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, bigMap, setBigMap, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [picked, setPicked] = useState(null);
   const now = boss.clock.current(), bossEvent = boss.event;
   const clock = formatClock(sky.clock), [onlineState, onlineText] = onlineLabel(online);
@@ -58,6 +58,10 @@ export default function WorldView({ controller, onEditCharacter }) {
   const speed = Math.abs((hud.driving ? hud.car : hud.boating ? hud.boat : hud.player).speed || 0);
   const radius = sailing && course.openSea ? 900 : hud.boating ? 420 + Math.min(300, speed * 10) : hud.driving ? 300 + Math.min(260, speed * 8) : 260, k = radius / 460;
   const destination = course && CITIES.find(c => c.id === course.to);
+  // The expanded minimap shows the whole island (and you, even out at sea), with place names.
+  const coast = mapView(island), whole = { x: Math.min(coast.x, p.x - 150), z: Math.min(coast.z, p.z - 150) };
+  whole.width = Math.max(coast.x + coast.width, p.x + 150) - whole.x; whole.height = Math.max(coast.z + coast.height, p.z + 150) - whole.z;
+  const bigK = whole.width / 700;
   // The edge arrow points to an off-map objective, or along the sailing bearing when you are at sea.
   const target = sailing ? { x: p.x + Math.sin(course.bearing) * 5000, z: p.z + Math.cos(course.bearing) * 5000 } : point;
   const away = point ? Math.hypot(point.x - p.x, point.z - p.z) : 0, edge = target && Math.hypot(target.x - p.x, target.z - p.z) > radius * 0.86 ? Math.atan2(target.z - p.z, target.x - p.x) : null;
@@ -134,8 +138,16 @@ export default function WorldView({ controller, onEditCharacter }) {
     {error && <div className="adventure-loading"><strong>The city needs WebGL.</strong><p>Enable hardware acceleration and reload to play.</p><button onClick={() => location.reload()}>Reload</button></div>}
     {!hud.driving && !hud.boating && !hud.riding && <WeaponBar hud={hud} onEquip={equipWeapon} />}
     <div className="adventure-bottom">
-      <section className="adventure-radar" aria-label="Island minimap">
-        <div className="radar-dial">
+      <section className={'adventure-radar' + (bigMap ? ' expanded' : '')} aria-label="Island minimap">
+        {bigMap ? <div className="radar-dial whole" role="button" tabIndex="0" aria-label="Shrink the island map" onClick={() => setBigMap(false)} onKeyDown={e => { if (e.key === 'Enter') setBigMap(false); }}>
+          <svg viewBox={`${whole.x} ${whole.z} ${whole.width} ${whole.height}`} role="img" aria-label={`Map of ${city.name} island. You are in ${region}.`}>
+            <IslandLayers island={island} hud={hud} online={online} p={p} point={point} k={bigK} labels district={city.district} />
+            {sailing && <SeaChart p={p} course={course} radius={Math.max(whole.width, whole.height) / 2} k={bigK} color={destination.color} name={destination.name} />}
+            <PlayerArrow p={p} k={bigK * 1.6} />
+            <text x={p.x} y={p.z - 60 * bigK} fontSize={34 * bigK} textAnchor="middle" fill="#fff" stroke="#10303c" strokeWidth={7 * bigK} paintOrder="stroke" fontWeight="700">YOU</text>
+          </svg>
+          <span className="radar-north" aria-hidden="true">N</span>
+        </div> : <div className="radar-dial" role="button" tabIndex="0" aria-label="Expand the minimap to the whole island" title="Click to see the whole island" onClick={() => setBigMap(true)} onKeyDown={e => { if (e.key === 'Enter') setBigMap(true); }}>
           <svg viewBox={`${p.x - radius} ${p.z - radius} ${radius * 2} ${radius * 2}`} role="img" aria-label="Minimap: the island around you, your car and your destination">
             <IslandLayers island={island} hud={hud} online={online} p={p} point={point} k={k} />
             {sailing && <SeaChart p={p} course={course} radius={radius} k={k} color={destination.color} name={destination.name} />}
@@ -144,8 +156,9 @@ export default function WorldView({ controller, onEditCharacter }) {
             <PlayerArrow p={p} k={k * 1.5} />
           </svg>
           <span className="radar-north" aria-hidden="true">N</span>
-        </div>
-        <footer><span><i /> {hud.driving ? 'IN VEHICLE' : hud.boating ? 'AT SEA' : hud.riding ? 'ON THE METRO' : 'ON FOOT'} · {region}</span><button onClick={() => openMap()}>Map ↗</button></footer>
+          <span className="radar-expand" aria-hidden="true">⤢</span>
+        </div>}
+        <footer><span><i /> {hud.driving ? 'IN VEHICLE' : hud.boating ? 'AT SEA' : hud.riding ? 'ON THE METRO' : 'ON FOOT'} · {region}</span><button onClick={() => setBigMap(!bigMap)} aria-pressed={bigMap}>{bigMap ? 'Shrink' : 'Island'} <kbd>V</kbd></button><button onClick={() => openMap()}>World ↗</button></footer>
       </section>
       <div className="adventure-hints"><span><kbd>W A S D</kbd> {hud.driving || hud.boating ? 'Drive' : 'Move'}</span><span><kbd>F</kbd> {hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'}</span><span><kbd>J</kbd> Attack</span><span><kbd>E</kbd> Interact · metro</span><span><kbd>M</kbd> Map</span><small>Drag to look · Scroll to zoom</small></div>
       <div className="adventure-actions"><button disabled={!ready || error} onClick={() => action('vehicle')}>{hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'} <kbd>F</kbd></button><button disabled={!ready || error || hud.driving || hud.boating || hud.riding} {...touchControl('attack')}>Attack <kbd>J</kbd></button><button disabled={!ready || error} onClick={() => action('interact')}>Interact <kbd>E</kbd></button><button onClick={() => action('weapon')}>Switch weapon <kbd>Q</kbd></button><button onClick={() => action('reload')}>Reload <kbd>R</kbd></button></div>

@@ -425,3 +425,13 @@
 .atlas-boat text{paint-order:stroke;stroke:#10303c;stroke-width:3px}
 @media(max-width:760px){.world-dialog .destination-grid .trip-buttons{flex:1}}
 @media(prefers-reduced-motion:reduce){.teleport-flash{animation-duration:.01s}}
+/* Expandable minimap: click it (or V) to see the whole island */
+.radar-dial[role=button]{cursor:pointer}
+.radar-expand{position:absolute;right:9px;bottom:9px;font-size:12px;line-height:1;padding:3px 5px;border-radius:6px;background:#101d26dd;color:#cfe0dc;pointer-events:none}
+.adventure-radar footer button+button{margin-left:4px}
+.adventure-radar footer kbd{font-size:8px;padding:0 4px;margin-left:3px}
+.adventure-radar.expanded{position:absolute;left:24px;bottom:24px;z-index:5;width:min(620px,calc(100vw - 48px))}
+.adventure-radar.expanded .radar-dial{aspect-ratio:auto;border-radius:14px;max-height:min(66svh,620px)}
+.adventure-radar.expanded .radar-dial:after{border-radius:14px}
+.adventure-radar.expanded .radar-dial svg{display:block;width:100%;height:auto;max-height:min(66svh,620px)}
+@media(max-width:760px){.adventure-radar.expanded{left:10px;right:10px;bottom:10px;width:auto}.adventure-radar footer kbd{display:none}}

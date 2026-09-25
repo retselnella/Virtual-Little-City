@@ -88,7 +88,7 @@ test('vehicle collisions exchange momentum, lose energy and damage both cars wit
 });
 
 test('stopped traffic yields without jumping, then drives around a parked car', () => {
-  const s = quietSession(); s.driving = false;
+  const s = quietSession(); s.driving = false; s.worldTime = 0; // north–south lights stay green: this is about overtaking
   const car = vehicle('traffic', 4, -60, 0); car.route = [{ x: 4, z: 200 }]; car.loop = false; s.traffic = [car];
   Object.assign(s.car, { x: 4, z: -20, heading: 0 }); s.player.x = 300; s.player.z = 300;
   let previous = { x: car.x, z: car.z }, closest = Infinity, passed = false;

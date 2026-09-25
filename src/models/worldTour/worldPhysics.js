@@ -62,11 +62,13 @@ function laneLoop(nodes, offset = 4) {
     return { x: node.x + (r1.x + r2.x) * offset, z: node.z + (r1.z + r2.z) * offset };
   });
 }
-export function createTraffic(count = 18) {
+// Busy streets: 30 cars on block loops. The first 18 cover every other row of blocks; the rest join the same loops
+// from the opposite corner, so no two cars start on top of each other.
+export function createTraffic(count = 30) {
   return Array.from({ length: count }, (_, i) => {
     const col = i % 6, row = Math.floor(i / 6) * 2 % 6, x = ROAD_GRID[col], z = ROAD_GRID[row];
     const route = laneLoop([{ x, z }, { x, z: z + 120 }, { x: x + 120, z: z + 120 }, { x: x + 120, z }]);
-    const start = i % 4, car = vehicle('traffic-' + i, route[start].x, route[start].z);
+    const start = ((i % 18) % 4 + (i >= 18 ? 2 : 0)) % 4, car = vehicle('traffic-' + i, route[start].x, route[start].z);
     car.route = route; car.waypoint = (start + 1) % 4; car.loop = true;
     car.heading = Math.atan2(route[car.waypoint].x - car.x, route[car.waypoint].z - car.z);
     return car;
@@ -120,9 +122,13 @@ export function steerVehicle(car, cars, hazards, dt, desiredSpeed = 13) {
       if (limit < speed) { speed = limit; blocker = other; }
     }
   }
+  // Traffic lights (car.stopAt, set by the simulation): brake to a stop at the line. Cars waiting at a red light, and
+  // the queue behind them, are "holding": nobody overtakes a car that is only waiting for green.
+  if (car.stopAt !== null && car.stopAt !== undefined) { const limit = Math.sqrt(8 * Math.max(0, car.stopAt - 0.5)); if (limit < speed) { speed = limit; blocker = null; } }
+  car.holding = (car.stopAt !== null && car.stopAt !== undefined && speed < wanted) || !!blocker?.holding;
   // Waiting behind something that is not moving (a parked car, a stalled head-on car, someone standing in the road):
   // after a few seconds, pass it on the left instead of waiting forever.
-  const stationary = blocker && Math.hypot(blocker.vx || 0, blocker.vz || 0) < 0.5;
+  const stationary = blocker && !blocker.holding && Math.hypot(blocker.vx || 0, blocker.vz || 0) < 0.5;
   car.waiting = stationary && speed < 0.5 && wanted > 3 ? (car.waiting || 0) + dt : 0;
   if (car.waiting > 4) {
     const lx = Math.cos(car.heading), lz = -Math.sin(car.heading), reach = (blocker.radius || 0.8) + 1;
@@ -130,7 +136,7 @@ export function steerVehicle(car, cars, hazards, dt, desiredSpeed = 13) {
     car.detourAround = blocker; car.waiting = 0;
   }
   // A car that wants to move, is not yielding, yet barely moves is wedged against something.
-  car.stuck = wanted > 3 && speed > wanted - 0.5 && moving < 1.2 ? (car.stuck || 0) + dt : 0;
+  car.stuck = wanted > 3 && speed > wanted - 0.5 && moving < 1.2 && !car.holding ? (car.stuck || 0) + dt : 0;
   if (car.stuck > 1.6) { car.stuck = 0; car.reverse = 1.1; }
   driveToward(car, speed, desiredHeading, dt);
 }

@@ -138,7 +138,8 @@ test('police chase a fleeing car directly, search the last known position and re
 
 test('traffic loops use opposite lanes, keep flowing, and wedged cars reverse out', () => {
   const traffic = createTraffic();
-  assert.equal(traffic.length, 18);
+  assert.equal(traffic.length, 30);
+  assert.equal(new Set(traffic.map(c => `${Math.round(c.x)},${Math.round(c.z)}`)).size, 30, 'no two cars start in the same place');
   const s = createSession(CITIES[0]); s.pedestrians = []; s.player.x = 430; s.player.z = 430;
   const travelled = s.traffic.map(() => 0);
   for (let i = 0; i < 1200; i++) {

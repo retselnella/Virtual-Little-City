@@ -8,6 +8,7 @@ import { ARRIVAL, createBoat, landingSpot, stepBoat, stepVoyage, voyage } from '
 import { STATIONS, arrivalIn, trainAt } from './metro.js';
 import { destructionAt, kaijuHazards, kaijuInReach, kaijuPose, standingBlocks } from './worldBoss.js';
 import { sceneryLayout } from './worldLayout.js';
+import { stopLineAhead } from './trafficLights.js';
 import { GUN_SHOP, WEAPONS, atGunShop, cleanOwned, damageAt, fullMagazines, weaponOf } from './weapons.js';
 
 export const CITIES = [
@@ -492,7 +493,11 @@ function stepSimulation(s, input, dt, yaw) {
   for (const car of cars) {
     car.hitCooldown = Math.max(0, car.hitCooldown - dt); car.impact *= Math.exp(-7 * dt);
     if (car === s.car) driveVehicle(car, s.driving && !down ? input : { park: true }, dt);
-    else steerVehicle(car, cars, walkers, dt, car.state === 'responding' ? (car.chasing ? Math.min(42, 30 + s.heat * 4) : 26 + s.heat * 2) : 13);
+    else {
+      // Traffic, and patrol cars that are not on a call, stop at red lights.
+      car.stopAt = car.kind === 'traffic' || car.state === 'patrol' ? stopLineAhead(car, s.worldTime ?? s.time) : null;
+      steerVehicle(car, cars, walkers, dt, car.state === 'responding' ? (car.chasing ? Math.min(42, 30 + s.heat * 4) : 26 + s.heat * 2) : 13);
+    }
   }
   let arresting = false;
   for (const e of s.enemies) {
