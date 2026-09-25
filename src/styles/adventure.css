@@ -307,3 +307,90 @@
 .gun-list button:disabled{background:none;color:#aab3ad;cursor:default}
 @media(max-width:760px){.weapon-bar{bottom:204px;left:auto;right:14px;transform:none;padding:3px;gap:2px}.weapon-bar button{padding:5px 7px;font-size:9px}.weapon-bar button span{display:none}.gun-list{grid-template-columns:1fr}}
 @media(max-height:570px){.weapon-bar{bottom:118px}}
+
+/* Dialogs sized to fit the screen without scrolling (the dialog still scrolls as a last resort on very short screens). */
+.adventure-dialog{width:min(720px,calc(100vw - 24px));padding:24px 30px 26px;max-height:calc(100svh - 24px)}
+.adventure-dialog h2{font-size:30px;margin:8px 0 12px}
+.adventure-dialog.world-dialog,.adventure-dialog.contracts-dialog,.adventure-dialog.help-dialog{width:min(1040px,calc(100vw - 24px))}
+.adventure-dialog.shop-dialog{width:min(860px,calc(100vw - 24px))}
+.adventure-dialog.boss-dialog{width:min(760px,calc(100vw - 24px))}
+/* World map */
+.world-here{display:flex;align-items:center;gap:8px;margin:0;font-size:13px!important;color:#dfe7e3!important}
+.world-here i{width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--city-accent) 55%,transparent);flex-shrink:0}
+.world-dialog .atlas{margin:10px 0}
+.world-dialog .atlas svg{height:clamp(130px,30svh,300px);max-height:none}
+.world-tip,.world-dialog .travel-course,.world-dialog .travel-notice{margin:0 0 10px;font-size:12px!important;line-height:1.5!important}
+.world-tip{color:#c9d6d4!important}
+.atlas-sail{fill:none;stroke:#9fd6ff;stroke-width:2;stroke-dasharray:4 7;opacity:.55}
+.atlas-sail.set{opacity:1;stroke-width:2.5;animation:atlas-route 1s linear infinite}
+.world-dialog .destination-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.world-dialog .destination-grid article{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid #ffffff20;border-radius:10px;background:#ffffff04;min-width:0}
+.world-dialog .destination-grid article.selected{border-color:var(--destination-color);background:#ffffff0a}
+.world-dialog .destination-grid article.picked:not(.selected){border-color:#9fd6ff80}
+.world-dialog .destination-grid small{font-size:8px;letter-spacing:1.3px;text-transform:uppercase;color:var(--destination-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.world-dialog .destination-grid strong{display:block;margin:0;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.world-dialog .destination-grid .progress{font-size:10px;color:#8ea4a9}
+.world-dialog .destination-grid .here-tag{margin-top:auto;padding-top:5px;font-size:11px;font-weight:700;color:var(--destination-color)}
+.world-dialog .destination-grid button{margin-top:auto;border:1px solid #bcd5c5;background:#bfdcd0;color:#1c393d;border-radius:7px;padding:7px 8px;font-size:11px;font-weight:700;text-align:center}
+.world-dialog .destination-grid button:disabled{opacity:.5;cursor:default}
+.world-dialog .gps{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px}
+.world-dialog .gps small{margin:0 4px 0 0}
+.world-dialog .gps button{padding:5px 10px;font-size:11px}
+/* Contracts */
+.contracts-dialog>p{margin:0 0 12px}
+.contracts-dialog .world-contracts{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+.contracts-dialog .world-contracts article{display:flex;flex-direction:column;padding:14px 16px}
+.contracts-dialog .world-contracts article.done{opacity:.7}
+.contracts-dialog .world-contracts h3{font-size:16px;margin:6px 0 4px}
+.contracts-dialog .world-contracts p{margin:0 0 10px;font-size:11.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;flex:1}
+.contracts-dialog .world-contracts button{align-self:flex-start;padding:8px 14px}
+.contracts-footer{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
+.contracts-footer .adventure-secondary{margin:0}
+.contracts-footer small{font-size:10px;color:#90a7ac}
+/* Pause menu */
+.help-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px}
+.help-layout h3{margin:0 0 10px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#afcfcb}
+.help-dialog .adventure-help{gap:8px;margin:0}
+.help-dialog .adventure-help>div{gap:14px;font-size:12px}
+.help-dialog .adventure-help kbd{min-width:112px;text-align:center}
+.help-tips{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.help-tips li{font-size:12px;line-height:1.5;color:#b8c9cb}
+.help-tips b{color:#f3eee5}
+.help-dialog .adventure-menu-actions{margin-top:20px}
+@media(max-width:1000px){.world-dialog .destination-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.contracts-dialog .world-contracts{grid-template-columns:repeat(2,minmax(0,1fr))}.contracts-dialog .world-contracts p{-webkit-line-clamp:2}}
+@media(max-width:760px){
+  .adventure-dialog{padding:18px 16px 20px;max-height:calc(100svh - 16px)}
+  .adventure-dialog h2{font-size:24px;margin:6px 40px 10px 0}
+  .world-here{font-size:12px!important}
+  .world-dialog .atlas svg{height:auto}
+  .world-dialog .destination-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .world-dialog .destination-grid article{flex-direction:row;flex-wrap:wrap;align-items:center;padding:7px 9px;gap:2px 6px}
+  .world-dialog .destination-grid small,.world-dialog .destination-grid .progress{display:none}
+  .world-dialog .destination-grid strong{font-size:13px;flex:1 1 100%}
+  .world-dialog .destination-grid button,.world-dialog .destination-grid .here-tag{flex:1;margin:0;padding:5px 6px;font-size:10px}
+  .world-tip,.world-dialog .travel-course,.world-dialog .travel-notice{font-size:11px!important}
+  .world-dialog .gps{gap:4px;margin-top:8px}.world-dialog .gps button{padding:4px 8px;font-size:10px}
+  .contracts-dialog>p{font-size:11px!important;line-height:1.5!important}
+  .contracts-dialog .world-contracts{grid-template-columns:1fr;gap:6px}
+  .contracts-dialog .world-contracts article{display:grid;grid-template-columns:1fr auto;align-items:center;padding:9px 12px;gap:0 10px}
+  .contracts-dialog .world-contracts article>div{grid-column:1}
+  .contracts-dialog .world-contracts h3{grid-column:1;font-size:14px;margin:2px 0 0}
+  .contracts-dialog .world-contracts p{display:none}
+  .contracts-dialog .world-contracts button{grid-column:2;grid-row:1/span 2;align-self:center;padding:8px 12px;font-size:11px}
+  .help-layout{grid-template-columns:1fr;gap:14px}
+  .help-dialog .adventure-help{grid-template-columns:1fr 1fr;gap:6px 10px}
+  .help-dialog .adventure-help>div{flex-direction:column;align-items:flex-start;gap:3px;font-size:10px}
+  .help-dialog .adventure-help kbd{min-width:0;padding:3px 7px;font-size:10px}
+  .help-tips{gap:6px}.help-tips li{font-size:11px;line-height:1.4}
+  .help-dialog .adventure-menu-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px}
+  .help-dialog .adventure-menu-actions button{padding:10px 8px;font-size:11px}
+}
+@media(max-width:760px){
+  .gun-shop>p{font-size:11px!important;line-height:1.5!important;margin:0}
+  .gun-list{grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+  .gun-list article{padding:10px;gap:5px}
+  .gun-list h3{font-size:13px}.gun-list header{flex-direction:column;gap:0}.gun-list header b{font-size:12px}
+  .gun-list p{display:none}
+  .gun-list dl div{grid-template-columns:52px 1fr;font-size:8px;gap:5px}
+  .gun-list button{padding:7px 4px;font-size:10px}
+}

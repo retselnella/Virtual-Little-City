@@ -16,7 +16,7 @@ export default function CharacterCreator({ controller }) {
   const { host, failed } = useCharacterPreview(draft);
   const kind = KINDS[draft.kind] || KINDS.human, robot = draft.kind === 'robot';
   return <ExperienceDialog title={creating ? 'Who are you in the city?' : 'Update your look'} className="adventure-dialog creator-dialog" onClose={creating ? undefined : cancel}>
-    <p>{creating ? 'Create your character before your first flight. You can change your look any time from the pause menu.' : 'Changes apply as soon as you save. Your progress, cash and contracts stay as they are.'}</p>
+    <p>{creating ? 'Create your character before you set off. You can change your look any time from the pause menu.' : 'Changes apply as soon as you save. Your progress, cash and contracts stay as they are.'}</p>
     <div className="creator">
       <div className="creator-stage">
         <div className="creator-preview" ref={host} />

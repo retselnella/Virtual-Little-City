@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, equip, guidePoint, interact, nearAirport, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, toggleVehicle } from '../models/worldTour/worldAdventure.js';
+import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, equip, guidePoint, interact, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, toggleVehicle } from '../models/worldTour/worldAdventure.js';
 import { mountAdventure } from '../scenes/worldTour/adventureScene.js';
 import { disposePhysics } from '../models/worldTour/physicsEngine.js';
 
@@ -54,7 +54,7 @@ export function useWorldController(character = null, suspended = false) {
   useEffect(() => {
     document.title = 'Little City: World Tour';
     let dispose;
-    try { dispose = mountAdventure(host.current, session, input, paused, s => { if (s.arrival) { travel(s.arrival, 'boat'); return; } setHud(snapshot(s)); save(s); setReady(true); }, () => setError(true), online.roster, environment, boss.clock); }
+    try { dispose = mountAdventure(host.current, session, input, paused, s => { if (s.arrival) { travel(s.arrival); return; } setHud(snapshot(s)); save(s); setReady(true); }, () => setError(true), online.roster, environment, boss.clock); }
     catch (e) { console.error('World scene could not start', e); setError(true); }
     // The Rapier world lives in WebAssembly memory, so it is freed explicitly (it is rebuilt if the scene remounts).
     return () => { dispose?.(); disposePhysics(session.current); };
@@ -75,12 +75,11 @@ export function useWorldController(character = null, suspended = false) {
     const next = !blood; setBlood(next); session.current.blood = next;
     writeBloodPreference(next);
   }
-  // Travel between islands: by boat when a sea crossing ends, or by air from the airport terminal.
-  function travel(id, mode = 'flight') {
+  // Travel between islands is by sea: when a crossing ends, you arrive offshore of the new island at the helm.
+  function travel(id) {
     const old = session.current;
     if (old.heat > 0 || old.mission || old.down || !CITIES.some(city => city.id === id)) return;
-    if (mode === 'flight' && !nearAirport(old)) { notify(old, 'Flights leave from the airport terminal on the west side of the city.'); setHud(snapshot(old)); return; }
-    session.current = sessionFor(CITIES.find(c => c.id === id), old, old.blood, old.appearance, mode); disposePhysics(old); save(session.current); setHud(snapshot(session.current)); open(null);
+    session.current = sessionFor(CITIES.find(c => c.id === id), old, old.blood, old.appearance, 'boat'); disposePhysics(old); save(session.current); setHud(snapshot(session.current)); open(null);
   }
   const [dispatchTitle, dispatchHint] = policeStatus(hud);
   const task = missionTask(hud, current);
@@ -100,5 +99,5 @@ export function useWorldController(character = null, suspended = false) {
   function guide(point) { setWaypoint(session.current, point); setHud(snapshot(session.current)); open(null); }
   const island = islandFor(city.id), playerName = displayName(character), region = island.regionAt(p.x, p.z, city.district), weather = weatherLabel(sky);
   async function claimRewards() { const cash = await boss.claim(); if (cash) { notify(session.current, `Weekly boss rewards claimed: +$${cash.toLocaleString()}.`); save(session.current); setHud(snapshot(session.current)); } }
-  return { boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), canFly: nearAirport(hud), sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
+  return { boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
 }

@@ -24,6 +24,8 @@ try {
   const button = name => page.getByRole('button', { name, exact: true });
   const close = () => button('Close dialog').click();
   const pause = () => button('Controls and pause menu').click();
+  // An open dialog shows everything without scrolling.
+  const fits = async label => { const d = await page.locator('dialog[open]').evaluate(el => [el.scrollHeight, el.clientHeight]); assert.ok(d[0] <= d[1] + 1, `${label} fits without scrolling (${d})`); };
   // First launch: the character creator comes before the game.
   await page.getByRole('heading', { name: 'Who are you in the city?' }).waitFor();
   assert.equal(await page.locator('.adventure-canvas').count(), 0, 'the game waits for the character');
@@ -59,24 +61,28 @@ try {
   assert.notEqual(await playerMarker.getAttribute('transform'), before, 'World Tour movement still works');
   await pause(); await button('Blood effects: On').click();
   assert.equal(await button('Blood effects: Off').count(), 1); await close();
-  // M opens the island map; travel is on the second tab. Flights leave only from the airport; sailing sets a course.
-  // M opens the world map: the whole world, existing city names, and where you are.
+  // M opens the one map: the whole world, existing city names, and the island you are on. Travel is by sea only:
+  // picking an island points you to your boat at the marina on the east waterfront.
   await page.keyboard.press('KeyM');
   assert.match(await page.locator('.world-atlas svg').getAttribute('aria-label'), /World map\. You are in Miami/);
+  assert.match(await page.locator('.world-here').innerText(), /You are on Miami island/);
   for (const name of ['Miami', 'Tokyo', 'Manila', 'London', 'Dubai', 'Rio de Janeiro', 'Cape Town']) assert.equal(await page.locator('.world-atlas text', { hasText: name }).count(), 1, name);
-  await page.getByRole('tab', { name: 'Miami map' }).click();
-  assert.match(await page.locator('.island-map > svg').getAttribute('aria-label'), /Map of Miami/);
-  await page.getByRole('tab', { name: 'World map' }).click();
+  assert.equal(await page.getByRole('tab').count(), 0, 'a single map, no tabs'); assert.equal(await page.locator('.island-map').count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Fly' }).count(), 0, 'no flights');
+  assert.match(await page.locator('.world-tip').innerText(), /marina pier on the east/);
+  await fits('world map, desktop');
   const tokyoCard = page.getByRole('article', { name: 'Japan Tokyo' });
-  assert.equal(await tokyoCard.getByRole('button', { name: 'Fly' }).isDisabled(), true, 'flights only from the airport');
   await tokyoCard.getByRole('button', { name: /^Sail/ }).click();
   await page.locator('.adventure-objective', { hasText: 'SEA VOYAGE' }).waitFor();
   assert.match(await page.locator('.adventure-objective h2').innerText(), /marina/);
+  assert.match(await page.locator('.adventure-objective p').innerText(), /east waterfront, \d+ m (east|north-east|south-east)/);
+  await page.keyboard.press('KeyL'); await fits('contracts, desktop'); await close();
+  await pause(); await fits('pause menu, desktop'); await close();
   // The current island is saved: switch the save to Tokyo and reload.
   await page.evaluate(() => { const save = JSON.parse(localStorage.getItem('little-city-world-v1')); localStorage.setItem('little-city-world-v1', JSON.stringify({ ...save, city: 'tokyo' })); });
   await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !document.querySelector('.adventure-loading'));
   assert.match(await page.locator('.adventure-location h1').innerText(), /Tokyo/);
-  await page.keyboard.press('KeyL'); await page.getByRole('button', { name: 'Accept contract' }).first().click();
+  await page.keyboard.press('KeyL'); await page.getByRole('button', { name: /^Accept/ }).first().click();
   await page.keyboard.press('KeyM'); assert.equal(await page.getByRole('article', { name: 'Philippines Manila' }).getByRole('button', { name: /^Sail/ }).isDisabled(), true); await close();
   await page.keyboard.press('KeyL'); await button('Abandon current contract').click();
   // The world boss panel: event status, live ranking and the weekly board.
@@ -88,6 +94,14 @@ try {
     await page.setViewportSize({ width, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   }
+  // On a phone too, the pause menu, map and contracts fit without scrolling.
+  await page.setViewportSize({ width: 390, height: 844 }); await fits('pause menu, phone'); await close();
+  await page.keyboard.press('KeyM'); await fits('world map, phone'); await page.screenshot({ path: 'test-results/map-phone.png' }); await close();
+  await page.keyboard.press('KeyL'); await fits('contracts, phone'); await page.screenshot({ path: 'test-results/contracts-phone.png' }); await close();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  for (const [key, label] of [['KeyM', 'world map'], ['KeyL', 'contracts']]) { await page.keyboard.press(key); await fits(`${label}, 1280x720`); await page.screenshot({ path: `test-results/${key}-720.png` }); await close(); }
+  await pause(); await fits('pause menu, 1280x720'); await page.screenshot({ path: 'test-results/pause-720.png' });
+  await page.setViewportSize({ width: 320, height: 844 });
   // Editing mid-game pauses play and reopens the creator with the current look. The original neighborhood is gone.
   assert.equal(await button('Original neighborhood').count(), 0);
   await button('Edit character').click();
@@ -121,7 +135,7 @@ try {
   await friend.close();
   await page.locator('.adventure-online', { hasText: 'Local · 0 other tabs' }).waitFor({ timeout: 10000 });
   assert.deepEqual(errors, []); assert.deepEqual(violations, []); assert.deepEqual(external, [], 'no third-party requests');
-  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, island map, world map with location, world boss panel, sailing course, airport-only flights, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
+  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sea-only travel to the east marina, dialogs that fit without scrolling, world boss panel, sailing course, airport-only flights, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.httpServer.close(resolve));

@@ -3,7 +3,7 @@ import { stepPhysics, castShot } from './physicsEngine.js';
 import { updatePolice } from './worldPolice.js';
 import { createPedestrians, stepPedestrians } from './worldPedestrians.js';
 import { playerLook } from './characterProfile.js';
-import { AIRPORT, MARINA, SEA_LIMIT, islandFor } from './worldIsland.js';
+import { MARINA, SEA_LIMIT, islandFor } from './worldIsland.js';
 import { ARRIVAL, createBoat, landingSpot, stepBoat, stepVoyage, voyage } from './worldBoat.js';
 import { STATIONS, arrivalIn, trainAt } from './metro.js';
 import { destructionAt, kaijuHazards, kaijuInReach, kaijuPose, standingBlocks } from './worldBoss.js';
@@ -109,7 +109,7 @@ export function createSession(city, save = {}, appearance = null, arrival = null
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
     s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
-  } else if (arrival === 'flight') s.message = `Welcome to ${city.name}! Your flight has landed; the airport shuttle dropped you at the City Hub.`;
+  }
   return s;
 }
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -156,7 +156,6 @@ export function setCourse(s, cityId) {
   return true;
 }
 export function cancelCourse(s) { s.course = null; }
-export const nearAirport = s => (onFoot(s) || s.driving) && distance(actor(s), AIRPORT) < 70;
 const stationNear = s => STATIONS.findIndex(st => distance(s.player, st) < 20);
 // The one thing you can do right here, for the on-screen prompt (and its touch button).
 export function promptFor(s) {
@@ -167,7 +166,6 @@ export function promptFor(s) {
   const at = actor(s), point = objectivePoint(s);
   if (point && !CONTRACTS.find(m => m.id === s.mission.id).auto && distance(at, point) < 12) return { key: 'E', action: 'interact', text: s.mission.stage === 0 ? (s.mission.id === 'crew' || s.mission.id === 'bounty' ? 'Clear the area first' : 'Collect') : 'Deliver' };
   if (s.boating) return landingSpot(s.boat, islandFor(s.city), (x, z) => freePosition(x, z, s.blocks, 1)) && Math.abs(s.boat.speed) < 3 ? { key: 'F', action: 'vehicle', text: 'Go ashore' } : null;
-  if (nearAirport(s)) return { key: 'M', action: 'map', text: 'Fly to another island' };
   if (s.driving) return null;
   if (distance(s.player, s.boat) < 15) return { key: 'F', action: 'vehicle', text: 'Take the boat' };
   if (stationNear(s) >= 0) return { key: 'E', action: 'interact', text: `Take the metro · ${STATIONS[stationNear(s)].name} station` };

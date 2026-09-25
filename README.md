@@ -1,6 +1,6 @@
 # Little City: World Tour
 
-An open-world action game that runs in your web browser. Sail or fly between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, play as a human, a wolf, a hulking brute or a robot, buy guns at the gun shop in Miami, fight, escape the police, race the ring road, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
+An open-world action game that runs in your web browser. Sail between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, play as a human, a wolf, a hulking brute or a robot, buy guns at the gun shop in Miami, fight, escape the police, race the ring road, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
 
 **Contents**
 
@@ -69,7 +69,7 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **1 – 5** | Fists, pistol, SMG, shotgun, assault rifle (the ones you own) | | |
 | **R** | Reload the pistol | | |
 | **E** | Collect, deliver, heal at the City Hub, take the metro at a station, or browse the gun shop | | |
-| **M** | World map, island map and travel | World map, island map and travel | World map, island map and travel |
+| **M** | World map and sailing | World map and sailing | World map and sailing |
 | **L** | Contract board | Contract board | Contract board |
 | **B** | Kaiju event and rankings | Kaiju event and rankings | Kaiju event and rankings |
 | **Esc** | Pause menu and controls | Pause menu | Pause menu |
@@ -94,7 +94,7 @@ Opening any menu pauses the game.
 - **Weapon bar** (above the controls): fists and every gun you own, with rounds left. Click one or press its number.
 - **Kaiju banner** (under the sky chip, from an hour before the event): the countdown, then the Kaiju's health, the time left, and your damage and rank. See [Kaiju: the world boss](#8-kaiju-the-world-boss).
 - **Police panel** (while wanted): what the police are doing, such as dispatching, en route, searching your last known location, on scene, or trying to arrest you.
-- **Minimap** (bottom left): a round map centred on you, with north up. It zooms out as you drive faster, and a gold arrow on its edge points to an objective that is off the map. **Map ↗** opens the full island map.
+- **Minimap** (bottom left): a round map centred on you, with north up. It zooms out as you drive faster, and a gold arrow on its edge points to an objective that is off the map. **Map ↗** opens the world map.
   - white arrow: you
   - cyan dot: your car
   - green dot: the City Hub forecourt (spawn); the hub building is the mint block beside it
@@ -114,12 +114,15 @@ Opening any menu pauses the game.
 
 Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeiro and Cape Town**. Each is a large district with its own skyline, colours, traffic, pedestrians and waterfront, on its own island.
 
-Press **M** for the **World map**: the whole world at once, with every city by its usual name, a pulsing **YOU ARE HERE** marker on your city, how many players are online in each, and, around event time, where the Kaiju is. Below the map, each city has a card with two ways to get there:
+Press **M** for the **World map**, the game's one map: the whole world at once, with every city by its usual name, the island you are on marked **YOU ARE HERE** (and named above the map), how many players are online in each, and, around event time, where the Kaiju is.
 
-- **Sail**: sets a course for that city. Take your boat from the marina, head out to open sea, and follow the course; the left panel shows the heading and the distance left. The voyage only counts while you are in open sea and roughly on course. When you arrive, you come in by boat offshore of the new island, heading for its marina.
-- **Fly**: instant, but only from the **airport** (walk or drive to it; the **Airport** GPS chip shows the way, and a prompt appears when you are there).
+Travel between islands is **by sea**. Each city has a card with a **Sail** button and the distance:
 
-You cannot travel while you have an unfinished contract, while you are wanted, or while you are down. The map's second tab, named after your city (for example **Miami map**), is the full map of the island you are on, with GPS buttons for the marina, airport, metro and City Hub.
+1. Press **Sail**. The map closes, the route is drawn on the world map, and the left panel and gold marker point you to your speedboat at the **marina pier on the east waterfront** (with the distance and direction, for example "580 m north-east").
+2. At the boat, press **F**, head out to open sea and follow the arrow; the left panel shows the heading and the distance left. The voyage only counts while you are in open sea and roughly on course.
+3. You arrive by boat offshore of the new island, heading for its marina. Press **F** at the pier or a beach to go ashore.
+
+You cannot sail while you have an unfinished contract, while you are wanted, or while you are down. The **GPS** buttons under the map set the gold marker to places on your island: the City Hub, the marina, the nearest metro station, the gun shop (Miami), the lighthouse and more.
 
 Everyone starts at the **City Hub**, a glass-fronted public office on the corner of the two central avenues. Its forecourt (the mint-green pad with your cyan car parked outside) is where you arrive, respawn and heal, and because every player arrives there too, it is the natural place to meet colleagues and friends.
 
@@ -141,7 +144,7 @@ On every island you will also find:
 
 - the **Ring road**, which leaves the city and loops round the island, lit by street lamps at night, with side streets through a **suburb** of houses
 - **beaches** round the coast, a **lighthouse** on its cape, a **campsite**, forests with rocks, logs, bushes, flowers and long grass, fields, lakes and hills
-- the **marina** on the east waterfront, where your boat is moored, and the **airport** on the west side of the city
+- the **marina** on the east waterfront, where your boat is moored, and an airport on the west side of the city (scenery only: travel is by sea)
 
 Hills and gentle slopes can be walked and driven over; volcano cones, cliffs and mesa walls are too steep. Trees, rocks, logs, houses and fences are solid, and the sea and lakes stop you at the shore. When trees come between you and the camera, they are hidden so you can always see yourself. Press **M** and open the island tab for the full map with place names.
 
@@ -180,7 +183,7 @@ Each city has six contracts, 42 in total:
 
 ## 7. Fighting
 
-- **Guns**: everyone has a pistol. More are sold at **Ocean Drive Arms**, the gun shop in Miami (the red storefront across the avenue from the City Hub; the island map's GPS has a **Gun shop** button). Walk to its door and press **E**. Guns you buy are yours for good, in every city. Ammunition is free: each gun reloads automatically when empty, or press **R**.
+- **Guns**: everyone has a pistol. More are sold at **Ocean Drive Arms**, the gun shop in Miami (the red storefront across the avenue from the City Hub; the map's GPS has a **Gun shop** button). Walk to its door and press **E**. Guns you buy are yours for good, in every city. Ammunition is free: each gun reloads automatically when empty, or press **R**.
 
   | Gun | Price | Magazine | Range | Notes |
   | --- | --- | --- | --- | --- |
@@ -201,7 +204,7 @@ Each city has six contracts, 42 in total:
 
 Every day at **12:00 Philippine time**, a giant Kaiju, taller than the city's towers, rises from the sea off one of the seven cities and attacks it for **one hour**. The cities take turns, one per day. It has **1,000,000,000 HP** shared by every player in the world.
 
-- **Before**: an hour ahead, a banner announces where it will appear, with a countdown. Sail or fly there in time. The World map marks the city.
+- **Before**: an hour ahead, a banner announces where it will appear, with a countdown. Sail there in time. The World map marks the city.
 - **The fight**: it wades ashore and stomps through the streets. Shoot or punch it (**J**) from up to about 220 metres. Any gun works; the server counts each gunshot the same and caps how many count per second, so a faster gun does not deal more boss damage. It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
 - **Destruction**: buildings, trees and lamp posts it hits collapse into rubble and craters. The damage stays for the whole hour and the city is restored when the event ends.
 - **The end**: when its HP reaches zero it is **defeated**. If time runs out first, it **retreats**. Either way, the next day's event is prepared.
@@ -261,7 +264,7 @@ The status under the city name shows your connection:
 Things to know:
 
 - Other players are visible, including when they drive, sail or ride the metro, but pass through you, and you cannot fight each other. Traffic, pedestrians, police, contracts and money are your own, so the person another player hits exists only in their game: you see the attack and the blood, not the victim.
-- You only see players in **your current city**. Sail or fly to the same city to meet. The Kaiju is shared by everyone in the world.
+- You only see players in **your current city**. Sail to the same city to meet. The Kaiju is shared by everyone in the world.
 - To test on one computer, open the game in two tabs or two browsers. Each tab is a separate player.
 
 ## 13. Saves and settings
@@ -286,7 +289,7 @@ The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Return to 
 | Keys stop responding | Click the game once. Menus and switching tabs pause the game and release held keys. |
 | I am stuck | Pause and choose **Return to City Hub**. |
 | It is too dark to see | Night follows Philippine time. Zoom the camera in; street lamps and lit windows help in the city. |
-| I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. To fly, go to the airport; to sail, take the boat from the marina and head for open sea on the course shown. |
+| I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. Then press Sail on the map, take the boat from the marina on the east waterfront and head for open sea on the course shown. |
 | The Kaiju panel says "an older copy of the Kaiju functions is still on the server" | An old copy of `world-boss.sql` was run after the new one. Run the latest file again (or `drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`). |
 | My Kaiju damage does not count | Get within about 220 metres of it and be in its city. The panel (**B**) shows your hits as the server counts them. |
 | I cannot collect a reward | Stop fully at the marker, and lose all wanted stars first. |

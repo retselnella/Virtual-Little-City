@@ -11,21 +11,24 @@ export const cityName = id => CITIES.find(c => c.id === id)?.name || id;
 export function clockText(ms) { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60; return (h ? `${h}:${String(m).padStart(2, '0')}` : `${m}`) + `:${String(sec).padStart(2, '0')}`; }
 const fighting = ev => ev && (ev.phase === 'active' || ev.phase === 'countdown');
 
-export function WorldAtlas({ city, event, online, selected, onSelect }) {
+// `course` (a sea voyage in progress) and `selected` (the island you are pointing at) draw the sailing route from here.
+export function WorldAtlas({ city, event, online, selected, course, onSelect }) {
   const here = CITIES.find(c => c.id === city.id), bossCity = fighting(event) ? CITIES.find(c => c.id === event.city) : null;
+  const goal = CITIES.find(c => c.id === (course?.to || selected) && c.id !== city.id);
   return <div className="atlas world-atlas">
     <svg viewBox="0 0 1000 440" role="img" aria-label={`World map. You are in ${here.name}.${bossCity ? ` ${BOSS_NAME} ${event.phase === 'active' ? 'is attacking' : 'will appear in'} ${bossCity.name}.` : ''}`}>
       <defs><pattern id="atlas-grid" width="50" height="44" patternUnits="userSpaceOnUse"><path d="M50 0H0V44" fill="none" stroke="#ffffff0b" /></pattern></defs>
       <rect width="1000" height="440" fill="url(#atlas-grid)" />
       <g fill="#354b52" stroke="#6c8184" strokeWidth="1">{CONTINENTS.map(d => <path key={d} d={d} />)}</g>
+      {goal && <path className={course ? 'atlas-sail set' : 'atlas-sail'} d={`M${spot(here).x} ${spot(here).y}L${spot(goal).x} ${spot(goal).y}`} />}
       {bossCity && bossCity !== here && <path className="atlas-route" d={`M${spot(here).x} ${spot(here).y}L${spot(bossCity).x} ${spot(bossCity).y}`} />}
       {CITIES.map(c => {
         const p = spot(c), mine = c.id === city.id, boss = bossCity?.id === c.id;
         return <g key={c.id} transform={`translate(${p.x} ${p.y})`} className={'atlas-city' + (mine ? ' here' : '') + (selected === c.id ? ' selected' : '')} onClick={() => onSelect?.(c.id)} role="button" tabIndex="0" aria-label={`${c.name}${mine ? ', you are here' : ''}${boss ? `, ${BOSS_NAME}` : ''}`} onKeyDown={e => { if (e.key === 'Enter') onSelect?.(c.id); }}>
-          {mine && <circle className="atlas-pulse" r="14" fill="none" stroke="#fff" strokeWidth="2" />}
+          {mine && <><circle className="atlas-pulse" r="14" fill="none" stroke="#fff" strokeWidth="2" /><circle r="20" fill="none" stroke={c.color} strokeWidth="1.5" strokeDasharray="3 3" /></>}
           <circle r={mine ? 11 : 7} fill={c.color} opacity=".3" /><circle r={mine ? 5 : 4} fill={mine ? '#fff' : c.color} />
           <text x="10" y="-10" fill="#f3ece1" fontSize="13" fontWeight={mine ? 700 : 400}>{c.name}</text>
-          {mine && <text x="10" y="8" className="atlas-here" fontSize="10">YOU ARE HERE{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</text>}
+          {mine && <text x="10" y="8" className="atlas-here" fontSize="11" fontWeight="700">YOU ARE HERE{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</text>}
           {!mine && online.counts[c.id] ? <text x="10" y="8" fill="#9fb6ba" fontSize="10">{online.counts[c.id]} online</text> : null}
           {boss && <g transform="translate(0 26)" className="atlas-boss"><circle r="11" fill="#ff5a4e" /><path d="M-6 3l3-9 3 5 3-5 3 9z" fill="#2a1512" /><text x="15" y="4" fill="#ffb3a8" fontSize="11" fontWeight="700">{BOSS_NAME} · {event.phase === 'active' ? `${(event.hp / event.maxHp * 100).toFixed(1)}% HP` : '12:00 PH time'}</text></g>}
         </g>;
