@@ -42,11 +42,13 @@ test('unavailable, corrupt and oversized storage fail without breaking play', ()
 test('the production policy allows only this origin plus WebAssembly compilation for Rapier', () => {
   assert(CONTENT_SECURITY_POLICY.includes("script-src 'self' 'wasm-unsafe-eval'"));
   assert(!CONTENT_SECURITY_POLICY.includes("'unsafe-eval'"));
-  // The only remote hosts are Supabase Realtime's, and only for connections (never scripts, styles or frames).
+  // The only remote hosts are Supabase's: connections (Realtime, sign-in) and audio from its Storage (the music
+  // playlist); never scripts, styles or frames.
   const directives = Object.fromEntries(CONTENT_SECURITY_POLICY.split('; ').map(d => [d.split(' ')[0], d.split(' ').slice(1)]));
+  const allowed = { 'connect-src': ['https://*.supabase.co', 'wss://*.supabase.co'], 'media-src': ['https://*.supabase.co'] };
   for (const [name, sources] of Object.entries(directives)) {
     const remote = sources.filter(source => /^(https?|wss?):/.test(source));
-    assert.deepEqual(remote, name === 'connect-src' ? ['https://*.supabase.co', 'wss://*.supabase.co'] : [], name);
+    assert.deepEqual(remote, allowed[name] || [], name);
   }
   assert.match(PREVIEW_HEADERS['Permissions-Policy'], /geolocation=\(\)/);
 });

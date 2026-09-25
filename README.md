@@ -72,6 +72,7 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **M** | World map and sailing | World map and sailing | World map and sailing |
 | **L** | Contract board | Contract board | Contract board |
 | **B** | Kaiju event and rankings | Kaiju event and rankings | Kaiju event and rankings |
+| **N** | Music player and playlist | Music player and playlist | Music player and playlist |
 | **Esc** | Pause menu and controls | Pause menu | Pause menu |
 | **Mouse drag / scroll** | Turn and zoom the camera | Turn and zoom the camera | Turn and zoom the camera |
 
@@ -225,6 +226,10 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 
 **Fair play**: the server decides everything that matters. Your game only reports *how many* shots and punches landed. The server checks each batch against the weapons' fire rates, the time since your last report, and your distance from where the Kaiju is at that moment (it computes the Kaiju's path itself), then applies the damage per hit. The server also owns the schedule, HP, defeat, deaths, rankings and rewards, and the destruction follows from the event's server-issued seed, so it is the same for everyone.
 
+### Music
+
+Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, and the playlist to pick a track from. It keeps playing everywhere (on foot, driving, at sea, in every city), and the button turns green while music plays. Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
+
 ## 9. Police and your wanted level
 
 Attacking anyone, or hitting people with your car, gives you **wanted stars**. Hurting bystanders or police adds more. Fighting gang members stays at one star.
@@ -348,6 +353,21 @@ The repository includes `vercel.json`, so Vercel needs no extra settings. It ins
 For testing, add `?clock=HH:MM` (Philippine time, 24-hour) and/or `?weather=clear|cloudy|rain|storm` to the address, for example `/?clock=21:30&weather=rain`. The clock then runs on from that time. This only changes what that browser shows; everyone else keeps the shared live sky.
 
 Without Supabase, the Kaiju event runs in the same browser (all tabs share it), and the preview clock moves it too: `/?clock=11:58` shows the countdown and `/?clock=12:05` the fight. With Supabase configured, the event always follows the server's clock.
+
+### Music playlist
+
+The in-game radio plays the audio files in your Supabase project's Storage. Set it up once:
+
+1. **SQL Editor → New query**: paste the whole of [`supabase/music.sql`](supabase/music.sql) and click **Run** (nothing highlighted). It creates a public bucket named **music** (audio files only, up to 50 MB each) and lets players list it and read the playlist; only you can add or change files.
+2. **Storage → music → Upload files**: select the songs from your folder (mp3, m4a, aac, ogg, opus, wav, webm or flac) and upload them to the top of the bucket, not into a subfolder.
+3. **Reload the game** and press **N**. Every file plays in file-name order, titled from its name: `01 - Artist - Title.mp3` shows as **Title** by **Artist**; `My Song.mp3` shows as **My Song**. Rename files before uploading to set the order and titles.
+
+To remove a song, delete the file in the bucket. Optional extras:
+
+- **Custom titles, order or hiding**: add rows to the `music_tracks` table (Table Editor): `path` is the file's exact name in the bucket, plus `title`, `artist`, `position` (lower plays first), and `enabled` (untick to hide the file). Songs with a row play first, the rest follow by name.
+- **Upload a whole folder from your computer** with `node scripts/upload-music.mjs "C:\path\to\your music"` (add `--sync` to hide songs no longer in the folder). It needs `SUPABASE_URL` and your **secret** key in `SUPABASE_SECRET_KEY`, set in that terminal only (Command Prompt: `set SUPABASE_SECRET_KEY=sb_secret_...`; PowerShell: `$env:SUPABASE_SECRET_KEY="sb_secret_..."`). Never put the secret key in `.env` files or Vercel.
+
+Files in a public bucket can be downloaded by anyone who has their link, so only upload music you have the right to share. Without Supabase, the music panel explains that the playlist needs it.
 
 ### Testing the Kaiju event online
 

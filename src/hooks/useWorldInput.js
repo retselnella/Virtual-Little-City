@@ -12,12 +12,13 @@ export function useWorldInput(paused, action, setPanel) {
     function down(e) {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || paused.current) return;
       if (['BUTTON', 'A'].includes(e.target.tagName) && ['Space', 'Enter'].includes(e.code)) return;
-      if (mapping[e.code] || ['KeyF', 'KeyE', 'KeyQ', 'KeyR', 'KeyM', 'KeyL', 'KeyB', 'Escape'].includes(e.code)) e.preventDefault();
+      if (mapping[e.code] || ['KeyF', 'KeyE', 'KeyQ', 'KeyR', 'KeyM', 'KeyL', 'KeyB', 'KeyN', 'Escape'].includes(e.code)) e.preventDefault();
       held.current.add(e.code); update(); if (e.repeat) return;
       const key = { KeyF: 'vehicle', KeyE: 'interact', KeyQ: 'weapon', KeyR: 'reload', KeyJ: 'attack', Digit1: 'slot1', Digit2: 'slot2', Digit3: 'slot3', Digit4: 'slot4', Digit5: 'slot5' }[e.code]; if (key) actions.current(key);
       if (e.code === 'KeyM') { clear(); setPanel('world'); }
       if (e.code === 'KeyL') { clear(); setPanel('contracts'); }
       if (e.code === 'KeyB') { clear(); setPanel('boss'); }
+      if (e.code === 'KeyN') { clear(); setPanel('music'); }
       if (e.code === 'Escape') { clear(); setPanel('help'); }
     }
     function up(e) { held.current.delete(e.code); update(); }

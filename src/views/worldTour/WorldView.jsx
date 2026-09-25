@@ -9,6 +9,7 @@ import { voyage } from '../../models/worldTour/worldBoat.js';
 import { BOSS_NAME } from '../../models/worldTour/bossRules.js';
 import { BossBanner, BossHits, BossPanel, WorldAtlas } from './bossViews.jsx';
 import { ShopPanel, WeaponBar } from './weaponViews.jsx';
+import { MusicPanel } from './musicViews.jsx';
 import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
 // Connection chip: who else is here, and whether this is the shared online world or the same-browser fallback.
 function onlineLabel({ status, peers }) {
@@ -34,7 +35,7 @@ function SkyIcon({ sky }) {
 
 // The pause menu: controls, and the few things worth knowing.
 const CONTROLS = [['W A S D', 'Move, drive or steer the boat'], ['Shift / Space', 'Sprint / jump (Space: handbrake)'], ['F', 'Get in or out of your car or boat'], ['J', 'Shoot or punch (hold to keep going)'],
-  ['Q · 1–5 · R', 'Switch weapon · pick one · reload'], ['E', 'Pick up, deliver, metro, gun shop, heal'], ['M · L · B', 'World map · contracts · Kaiju'], ['Drag · scroll', 'Look around · zoom']];
+  ['Q · 1–5 · R', 'Switch weapon · pick one · reload'], ['E', 'Pick up, deliver, metro, gun shop, heal'], ['M · L · B · N', 'Map · contracts · Kaiju · music'], ['Drag · scroll', 'Look around · zoom']];
 const TIPS = [
   ['Other islands.', 'Open the map (M), pick an island and press Sail. Your speedboat waits at the marina on the east waterfront; follow the gold marker to it.'],
   ['Police.', 'Attacks bring wanted stars. At one star officers try to arrest you; at two they shoot. Stop attacking and stay out of sight to lose them.'],
@@ -48,7 +49,7 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { boss, claimRewards, online, playerName, sky, weather, region, island, prompt, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [picked, setPicked] = useState(null);
   const now = boss.clock.current(), bossEvent = boss.event;
   const clock = formatClock(sky.clock), [onlineState, onlineText] = onlineLabel(online);
@@ -90,6 +91,7 @@ export default function WorldView({ controller, onEditCharacter }) {
         <button onClick={() => openMap()}>◎ <span>Map</span><kbd>M</kbd></button>
         <button onClick={() => open('contracts')}>◇ <span>Contracts</span><kbd>L</kbd></button>
         <button onClick={() => open('boss')} className={bossEvent?.phase === 'active' ? 'boss-live' : ''}>✸ <span>{BOSS_NAME}</span><kbd>B</kbd></button>
+        <button onClick={() => open('music')} className={music.playing ? 'music-live' : ''} title={music.track ? `${music.track.title}${music.track.artist ? ` · ${music.track.artist}` : ''}` : 'Music'}>♫ <span>Music</span><kbd>N</kbd></button>
         <button onClick={() => open('help')} aria-label="Controls and pause menu">Ⅱ</button>
       </nav>
     </header>
@@ -146,6 +148,7 @@ export default function WorldView({ controller, onEditCharacter }) {
     </div>
     <div className="adventure-touch" aria-label="Touch movement controls">{[['forward', '↑'], ['left', '←'], ['backward', '↓'], ['right', '→'], ['run', 'Run'], ['brake', hud.driving ? 'Brake' : 'Jump']].map(([key, title]) => <button key={key} className={'control-' + key} aria-label={key} {...touchControl(key)}>{title}</button>)}</div>
     {panel === 'shop' && <ExperienceDialog title={`${GUN_SHOP.name}.`} className="adventure-dialog shop-dialog" onClose={() => open(null)}><ShopPanel hud={hud} onBuy={buy} onEquip={equipWeapon} /></ExperienceDialog>}
+    {panel === 'music' && <ExperienceDialog title="Music." className="adventure-dialog music-dialog" onClose={() => open(null)}><MusicPanel music={music} /></ExperienceDialog>}
     {panel === 'boss' && <ExperienceDialog title={`${BOSS_NAME}: the world boss.`} className="adventure-dialog boss-dialog" onClose={() => open(null)}><BossPanel boss={boss} city={city} now={now} onClaim={claimRewards} /></ExperienceDialog>}
     {panel === 'world' && <ExperienceDialog title="The world." className="adventure-dialog world-dialog" onClose={() => open(null)}>
       <p className="world-here"><i aria-hidden="true" /><span>You are on <b>{city.name}</b> island · {city.country} · {region}</span></p>

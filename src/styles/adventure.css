@@ -394,3 +394,21 @@
   .gun-list dl div{grid-template-columns:52px 1fr;font-size:8px;gap:5px}
   .gun-list button{padding:7px 4px;font-size:10px}
 }
+
+/* Music */
+.adventure-dialog.music-dialog{width:min(620px,calc(100vw - 24px))}
+.music-now{display:grid;gap:2px;padding:14px 16px;border-radius:12px;background:#ffffff08;border:1px solid #ffffff1c}
+.music-now small{font-size:9px;letter-spacing:2px;color:#86edcb}
+.music-now strong{font-size:18px;color:#fff1e3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music-now span{font-size:12px;color:#aabcc1}
+.music-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0}
+.music-controls button{min-width:40px;height:40px;border-radius:999px;border:1px solid #ffffff30;background:#ffffff08;color:#e7efee;font-size:14px}
+.music-controls .music-play{min-width:52px;height:52px;background:#bfdcd0;color:#1c393d;border-color:#bfdcd0;font-size:16px}
+.music-controls .music-shuffle{padding:0 14px;font-size:12px}.music-controls .music-shuffle[aria-pressed=true]{border-color:#86edcb;color:#86edcb}
+.music-volume{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:11px;color:#aabcc1}.music-volume input{width:120px;accent-color:#86edcb}
+.music-list{list-style:none;margin:0;padding:0;display:grid;gap:3px;max-height:min(40svh,330px);overflow-y:auto}
+.music-list button{width:100%;display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1px solid transparent;background:none;color:#dfe7e3;text-align:left;font-size:12px}
+.music-list button:hover{background:#ffffff0a}.music-list button[aria-current=true]{border-color:#86edcb55;background:#86edcb12;color:#fff}
+.music-list b{color:#86edcb;font-size:11px;text-align:center}.music-list span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.music-list small{color:#8ea4a9;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.adventure-header nav button.music-live{color:#86edcb}
+@media(max-width:760px){.music-volume{margin-left:0;flex:1 1 100%}.music-volume input{flex:1}.music-list{max-height:34svh}.music-list small{display:none}}

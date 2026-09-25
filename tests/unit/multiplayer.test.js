@@ -130,6 +130,8 @@ test('the build policy names only the configured Supabase project; the SQL polic
   assert.deepEqual(realtimeOrigins('http://abc.supabase.co'), []); assert.deepEqual(realtimeOrigins(''), []);
   assert.match(contentSecurityPolicy([]), /connect-src 'self';/);
   assert.match(contentSecurityPolicy(realtimeOrigins('https://abc.supabase.co')), /connect-src 'self' https:\/\/abc\.supabase\.co wss:\/\/abc\.supabase\.co;/);
+  assert.match(contentSecurityPolicy(realtimeOrigins('https://abc.supabase.co')), /media-src 'self' https:\/\/abc\.supabase\.co;/, 'music streams only from the project');
+  assert.match(contentSecurityPolicy([]), /media-src 'self';/);
   const sql = readFileSync(new URL('../../supabase/realtime-policies.sql', import.meta.url), 'utf8');
   const topic = new RegExp(sql.match(/realtime\.topic\(\) ~ '([^']+)'/)[1]);
   for (const city of CITIES) assert.ok(topic.test(cityChannel(city.id)), city.id);
