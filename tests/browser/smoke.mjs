@@ -137,7 +137,7 @@ try {
   await friend.close();
   await page.locator('.adventure-online', { hasText: 'Local · 0 other tabs' }).waitFor({ timeout: 10000 });
   assert.deepEqual(errors, []); assert.deepEqual(violations, []); assert.deepEqual(external, [], 'no third-party requests');
-  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sailing from the east marina or the City Hub teleporter, dialogs that fit without scrolling, world boss panel, sailing course, airport-only flights, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
+  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sailing from the east marina or the City Hub teleporter, dialogs that fit without scrolling, world boss panel, sailing course, teleport from any island, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.httpServer.close(resolve));
