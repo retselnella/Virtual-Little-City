@@ -1,4 +1,5 @@
 import { length, roadRoute, fits, random, patrolRoute, ROAD_GRID } from './worldPhysics.js';
+import { FADE_RATE, escapeTime, unitsFor } from './wanted.js';
 
 // Units that are part of the current incident (lights on, can observe the suspect).
 export const ACTIVE_UNIT = ['responding', 'onscene', 'regroup'];
@@ -8,14 +9,19 @@ export function updatePolice(s, player, dt, clearSight) {
   const cars = s.policeCars;
   if (s.heat > 0) {
     // Dispatch knows where the crime was reported; later units only know the last place the suspect was seen.
-    if (!s.incident) { s.incident = true; s.dispatchDelay = 3; s.unseen = 0; s.lastSeen ||= { x: player.x, z: player.z }; }
+    if (!s.incident) { s.incident = true; s.dispatchDelay = 3; s.unseen = 0; s.lostFor = 0; s.searched = false; s.lastSeen ||= { x: player.x, z: player.z }; }
     s.dispatchDelay -= dt;
-    const observed = cars.some(c => ACTIVE_UNIT.includes(c.state) && length(c, player) < 60 && clearSight(c, player, s.blocks)) || s.enemies.some(e => e.kind === 'police' && e.health > 0 && !e.returning && length(e, player) < 45 && clearSight(e, player, s.blocks));
+    const observed = !!s.heliSpotted || cars.some(c => ACTIVE_UNIT.includes(c.state) && length(c, player) < 60 && clearSight(c, player, s.blocks)) || s.enemies.some(e => e.kind === 'police' && e.health > 0 && !e.returning && length(e, player) < 45 && clearSight(e, player, s.blocks));
     s.unseen = observed ? 0 : (s.unseen || 0) + dt;
     if (observed) s.lastSeen = { x: player.x, z: player.z };
-    if (s.quiet > 12 && s.unseen > 8) s.heat = Math.max(0, s.heat - dt * 0.14);
+    // You have only got away once the police have been looking: after a unit has seen you or reached the scene.
+    if (!s.searched && (observed || cars.some(c => ACTIVE_UNIT.includes(c.state) && s.lastSeen && length(c, s.lastSeen) < 45) || (s.helicopters || []).some(h => s.lastSeen && length(h, s.lastSeen) < 60))) s.searched = true;
+    s.lostFor = observed || !s.searched ? 0 : (s.lostFor || 0) + dt;
+    // Got away: out of sight of every unit (and not attacking) long enough for the level. The search goes on while the
+    // stars fade; once they reach zero everyone stands down.
+    if (s.quiet > 12 && s.lostFor > escapeTime(s.heat)) s.heat = Math.max(0, s.heat - dt * FADE_RATE);
     const active = cars.filter(c => ACTIVE_UNIT.includes(c.state));
-    if (s.heat > 0 && s.dispatchDelay <= 0 && active.length < Math.ceil(s.heat)) {
+    if (s.heat > 0 && s.dispatchDelay <= 0 && active.length < unitsFor(s.heat)) {
       const goal = s.unseen < 4 ? player : s.lastSeen;
       const unit = cars.filter(c => c.state === 'patrol').sort((a, b) => length(a, goal) - length(b, goal))[0];
       if (unit) {
@@ -25,7 +31,7 @@ export function updatePolice(s, player, dt, clearSight) {
       s.dispatchDelay = 4;
     }
   }
-  if (!s.heat && s.incident) { s.incident = false; s.lastSeen = null; s.message = 'You lost the police. Patrols are standing down.'; s.messageTime = 5; }
+  if (!s.heat && s.incident) { s.incident = false; s.lastSeen = null; s.kills = 0; s.message = 'You got away! The police are standing down and the helicopters are heading home.'; s.messageTime = 6; }
   for (const car of cars) {
     car.replan -= dt;
     if (!s.heat && ACTIVE_UNIT.includes(car.state)) {

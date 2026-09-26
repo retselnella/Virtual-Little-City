@@ -55,6 +55,7 @@ export function IslandLayers({ island, hud, online, p, point, k = 1, labels = fa
     {hud.heat > 0 && hud.unseen > 4 && hud.lastSeen && <circle cx={hud.lastSeen.x} cy={hud.lastSeen.z} r="70" fill="#88aaff1c" stroke="#88aaff70" strokeWidth={4 * k} strokeDasharray="10 8" />}
     {hud.policeCars.map(c => <rect key={c.id} x={c.x - 12 * k} y={c.z - 12 * k} width={24 * k} height={24 * k} rx={5 * k} fill={ACTIVE_UNIT.includes(c.state) ? (Math.floor(hud.time * 4) % 2 ? '#ff6d82' : '#6d9dff') : '#5d7597'} />)}
     {online.peers.map(peer => <circle key={peer.id} className="remote-player" cx={peer.x} cy={peer.z} r={15 * k} fill="#f8f1a8" stroke="#152b32" strokeWidth={5 * k}><title>{peer.name}</title></circle>)}
+    {(hud.helicopters || []).map(h => <path key={h.id} d={`M${h.x} ${h.z - 16 * k}L${h.x + 16 * k} ${h.z}L${h.x} ${h.z + 16 * k}L${h.x - 16 * k} ${h.z}Z`} fill={Math.floor(hud.time * 4) % 2 ? '#ff6d82' : '#6d9dff'} stroke="#fff" strokeWidth={3 * k} opacity={h.state === 'leaving' ? 0.5 : 1} />)}
     {hud.enemies.filter(e => e.health > 0).map(e => <circle key={e.id} cx={e.x} cy={e.z} r={13 * k} fill={e.kind === 'police' ? '#88aaff' : '#ff6d82'} />)}
     {point && <g><path d={`M${p.x} ${p.z}L${point.x} ${point.z}`} stroke="#f8d47a" strokeWidth={4 * k} strokeDasharray={`${12 * k} ${10 * k}`} /><circle cx={point.x} cy={point.z} r={23 * k} fill="#f8d47a" /></g>}
   </>;

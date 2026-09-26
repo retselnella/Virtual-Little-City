@@ -11,6 +11,8 @@ import { sceneryLayout } from './worldLayout.js';
 import { stopLineAhead } from './trafficLights.js';
 import { GUN_SHOP, WEAPONS, atGunShop, cleanOwned, damageAt, fullMagazines, weaponOf } from './weapons.js';
 import { aimFromRay, aimYawFrom } from './aiming.js';
+import { raiseHeat, recordKill } from './wanted.js';
+import { updateHelicopters } from './policeAir.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -311,7 +313,11 @@ function injure(s, target, amount, dx, dz, kind) {
   // Victims fall away from the blow: forward when hit from behind, backward when hit from the front.
   target.fallDir = dx * Math.sin(target.heading || 0) + dz * Math.cos(target.heading || 0) >= 0 ? 1 : -1;
   addImpact(s, target, dx, dz, kind, kind === 'punch' ? 0.8 + s.combo * 0.3 : 1);
-  if (target.health === 0 && target.deadAt === undefined) { target.deadAt = s.time; addImpact(s, target, dx, dz, 'pool'); }
+  if (target.health === 0 && target.deadAt === undefined) {
+    target.deadAt = s.time; addImpact(s, target, dx, dz, 'pool');
+    // Killing bystanders or officers raises the wanted level fast (gang fights do not count).
+    if (target.kind === 'civilian' || target.kind === 'police') { const news = recordKill(s); if (news) notify(s, news); }
+  }
 }
 function kaijuTarget(s, gun) {
   if (!s.boss?.alive || !onFoot(s)) return null;
@@ -454,8 +460,9 @@ function landHit(s, w, target, blocked, aimed = null) {
   // While the kaiju attacks, everyone is shooting at it: gunfire alone does not bring the police, only hitting people.
   if (target || (gun && !s.boss?.alive)) {
     // Harming bystanders or officers escalates the wanted level; gang fights stay at one star.
-    const raise = target?.kind === 'civilian' ? (target.health ? 0.2 : 0.5) : target?.kind === 'police' ? (target.health ? 0.5 : 0.9) : 0;
-    s.heat = Math.min(3, Math.max(s.heat, 1) + raise); s.quiet = 0;
+    // (A kill has already raised it through recordKill; wounding adds a little each time.)
+    const raise = !target?.health ? 0 : target.kind === 'civilian' ? 0.2 : target.kind === 'police' ? 0.5 : 0;
+    const news = raiseHeat(s, Math.max(s.heat, 1) + raise); if (news) notify(s, news);
     s.alarm = { x: from.x, z: from.z, time: s.time, radius: w.alarm };
     if (!s.lastSeen || s.unseen > 4) s.lastSeen = { x: from.x, z: from.z };
   }
@@ -490,7 +497,7 @@ export function setAppearance(s, appearance) {
 }
 export function recover(s) {
   s.player = { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(s.appearance) }; s.car = vehicle('player', 3, 12, Math.PI, 'player'); s.driving = false; s.health = 100; s.mags = fullMagazines(s.owned); s.reload = 0; s.heat = 0; s.down = 0; s.mission = null; s.enemies = []; s.traffic = createTraffic(); s.policeCars = createPatrols(); s.incident = false; s.arrest = 0; s.downReason = ''; s.lastSeen = null; s.alarm = null;
-  s.boat = createBoat(); s.boating = false; s.riding = false; s.metro = null; s.arrival = null;
+  s.boat = createBoat(); s.boating = false; s.riding = false; s.metro = null; s.arrival = null; s.kills = 0;
   notify(s, 'Back at the City Hub. Any unfinished contract can be restarted.');
 }
 // `aimRay` is the pointer's ray from the camera when the player aims with the mouse (see aiming.js), else null.
@@ -542,6 +549,13 @@ function stepSimulation(s, input, dt, yaw) {
   }
   if (control.attack) attack(s);
   if (s.heat > 0) s.quiet += dt;
+  // Police helicopters (four and five stars) search from the air; what they see counts for the whole pursuit.
+  const suspect = actor(s);
+  s.heliSpotted = updateHelicopters(s, s.driving ? { ...suspect, vx: s.car.vx, vz: s.car.vz } : suspect, dt, { hurt: amount => {
+    if (down) return;
+    s.health -= amount * (s.driving ? 0.5 : 1) * armorOf(s);
+    if (s.driving) s.car.damage = Math.min(100, s.car.damage + 2); else addImpact(s, s.player, 0, 1, 'shot', 0.6);
+  } }) && !down;
   if (!down) updatePolice(s, p, dt, clearSight);
   const cars = [s.car, ...s.traffic, ...s.policeCars];
   const walkers = s.pedestrians.filter(person => person.health > 0 && !person.ragdoll);
@@ -612,7 +626,7 @@ function stepSimulation(s, input, dt, yaw) {
     if (person === s.player) { s.health -= closing * 2 * armorOf(s); if (closing > 12) person.knockdown = 1.5; }
     else { injure(s, person, closing * 4, nx, nz, 'car'); if (closing > 6) person.knockdown = 1.6; }
     car.vx *= 0.9; car.vz *= 0.9;
-    if (car === s.car && s.driving && !person.child) { s.heat = Math.max(1, s.heat); s.quiet = 0; s.alarm = { x: person.x, z: person.z, time: s.time, radius: 40 }; }
+    if (car === s.car && s.driving && !person.child) { raiseHeat(s, Math.max(1, s.heat)); s.alarm = { x: person.x, z: person.z, time: s.time, radius: 40 }; }
   }
   if (s.mission?.id === 'bounty' && s.mission.stage === 0 && s.enemies.some(e => e.boss && e.health <= 0)) { s.mission.stage = 1; notify(s, 'The gang boss is down. Lose the heat and report to the City Hub.'); }
   if (s.mission) checkpointMission(s);

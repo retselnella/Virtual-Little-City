@@ -1,6 +1,6 @@
 # Little City: World Tour
 
-An open-world action game that runs in your web browser. Sail between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, play as a human, a wolf, a hulking brute or a robot, buy guns at the gun shop in Miami, fight, escape the police, race the ring road, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
+An open-world action game that runs in your web browser. Sail between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, watch airliners land at the airport and helicopters circle downtown, play as a human, a wolf, a hulking brute or a robot, buy guns at the gun shop in Miami, fight, escape the police, race the ring road, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
 
 **Contents**
 
@@ -245,13 +245,20 @@ Press **N** (or the **♫ Music** button) for the in-game radio: play and pause,
 
 ## 9. Police and your wanted level
 
-Attacking anyone, or hitting people with your car, gives you **wanted stars**. Hurting bystanders or police adds more. Fighting gang members stays at one star.
+Attacking anyone, or hitting people with your car, gives you **wanted stars**, up to **five**. Hurting bystanders or police adds more, and **killing** them raises the level fast. Fighting gang members stays at one star.
 
-- **Arrival**: police arrive a few seconds later in patrol cars that drive through the streets. More stars bring more cars, up to three.
-- **One star**: officers try to **arrest** you on foot. If one reaches you while you stand still, you are **BUSTED**: you lose up to $500 and are released at the City Hub. Run, drive away, or fight back to resist.
-- **Two or more stars**: officers shoot.
+| Stars | Kills that bring it | What the police do |
+| --- | --- | --- |
+| ★ | | Officers try to **arrest** you on foot. If one reaches you while you stand still, you are **BUSTED**: you lose up to $500 and are released at the City Hub. Run, drive away or fight back to resist. |
+| ★★ | 1 | Officers shoot. |
+| ★★★ | 3 | More patrol cars join the pursuit. |
+| ★★★★ | 6 | A **police helicopter** hunts you from the air. |
+| ★★★★★ | 10 | Every patrol car and **two helicopters**, with marksmen who fire at you. |
+
+- **Arrival**: police arrive a few seconds later in patrol cars that drive through the streets; one car per star, up to five.
 - **Chases**: a patrol car that sees you chases you. Out of sight, police search where you were last seen. Drive away and officers on foot get back in their car and follow.
-- **Losing them**: stop attacking for **12 seconds** and stay **out of sight for 8 seconds**. Your stars then fade. Buildings and distance help.
+- **Helicopters**: a helicopter flies in from beyond the city, circles above you with its searchlight on you, and searches a widening circle around your last known position when it loses you. It sees you from the air unless **tall buildings** are between you or you are **under trees**, and it is slower than your car, so you can outdrive it. It shows on the minimap as a flashing red and blue diamond.
+- **The pursuit only ends** when you are busted, wasted, or **get away**. To get away, stop attacking and stay out of sight of every unit (cars, officers and helicopters) once they have started looking for you: **9 seconds at one star, up to 21 seconds at five**. The stars then blink and fade to zero; if they spot you again, the chase is back on. At zero everyone stands down: patrols go back to their beats, the helicopters fly home and the streets calm down.
 
 ## 10. Driving
 
@@ -265,6 +272,8 @@ Your car is the cyan coupe next to the City Hub. Walk up to it and press **F**. 
 ## 11. Life on the streets
 
 About 95 people live in each city. You will see families with children holding hands, office workers taking phone calls, joggers, and friends chatting. There are food stalls with vendors and queues, bus stops where people sit and wait, and benches. People walk to these places, stay a while and move on. Traffic drives in lanes, stops at red lights behind the crosswalk, and gives way to pedestrians. People on foot wait at the kerb and cross when the cars on that road have a red light and the way is clear, and they step around a car parked on the sidewalk, so walkers and cars never push into each other. Violence nearby sends everyone running; vendors come back once it is calm.
+
+Overhead, an airliner lands on the airport runway, turns round and takes off again every two and a half minutes, jets cross the sky high up, a red news helicopter circles downtown and a yellow tour helicopter follows the coast. They follow the shared world clock, so everyone sees the same aircraft.
 
 ## 12. Playing together
 

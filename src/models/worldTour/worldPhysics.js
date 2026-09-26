@@ -80,7 +80,7 @@ export function patrolRoute({ x, z }) {
   return [...route.slice(1), route[0]];
 }
 export function createPatrols() {
-  return [[0, -240], [240, 0], [-240, 120]].map(([x, z], i) => {
+  return [[0, -240], [240, 0], [-240, 120], [120, 120], [-360, -240]].map(([x, z], i) => {
     const base = { x, z }, route = patrolRoute(base), start = route[route.length - 1];
     return { ...vehicle('patrol-' + i, start.x, start.z, 0, 'police'), state: 'patrol', base: { ...start }, home: base, route, loop: true, replan: 0, deployed: false };
   });

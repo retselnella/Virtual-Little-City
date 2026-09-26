@@ -17,6 +17,7 @@ import { signalAt, signalHeads } from '../../models/worldTour/trafficLights.js';
 import { MARINA, THEMES, islandFor } from '../../models/worldTour/worldIsland.js';
 import { buildMetro } from './metroScene.js';
 import { createKaiju } from './kaijuScene.js';
+import { buildAircraft } from './aircraftScene.js';
 import { worldConditions } from '../../models/worldTour/worldClock.js';
 import { buildIsland } from './islandScenery.js';
 import { buildAmbient } from './ambientScene.js';
@@ -39,7 +40,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
   const sky = createSky(scene, { hemisphere, sun });
   let kaiju = null, citySlots = new Map(), ruinsShown = '', hiddenOwners = new Map(), rubble = null, craterMesh = null;
-  let teleporterFx = null, ambient = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
+  let teleporterFx = null, ambient = null, aircraft = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
   let guns, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
@@ -91,7 +92,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   function disposeCity() {
     for (const id of [...remotes.keys()]) removeRemote(id);
     if (root) { root.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); scene.remove(root); }
-    island?.dispose(); island = null; ambient?.dispose(); ambient = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null; kaiju?.dispose(); kaiju = null;
+    island?.dispose(); island = null; ambient?.dispose(); ambient = null; aircraft?.dispose(); aircraft = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null; kaiju?.dispose(); kaiju = null;
     citySlots = new Map(); hiddenOwners = new Map(); ruinsShown = '';
     hullGeometry = deckGeometry = null; // disposed with the city's geometries below; rebuilt for the next city
     geometries.forEach(g => { if (g !== unitBox) { g.dispose(); geometries.delete(g); } });
@@ -119,6 +120,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     // Beach families, picnics, bonfires, café tables and night crowds (ambientLife.js).
     ambient = buildAmbient(root, kit, { island: islandData, blocks: session.current.baseBlocks || session.current.blocks, seed: city.seed, box, glowMaterial, geometries });
     metro = buildMetro(root, { box, glowMaterial, label });
+    // Airliner, jets and helicopters overhead, and police helicopters in a big pursuit.
+    aircraft = buildAircraft(root, kit, { color: city.color, geometries });
     const windowGlow = glowMaterial('#587b88', 0.95, '#ffd08a'), sideGlow = glowMaterial('#688c98', 0.8, '#ffe0a6'), neon = glowMaterial(city.color, 1.3);
     const lit = (x, y, side) => Math.abs(Math.sin(x * 12.9898 + y * 78.233 + side * 37.719) * 43758.5453) % 1 < 0.55;
     for (const road of ROADS) {
@@ -609,6 +612,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const conditions = environment?.current?.() ?? worldConditions(Date.now());
     sky.update(conditions, camera, step, glows, wetSurfaces); island?.update(conditions, s.time, camera);
     ambient?.update(orbit.target, conditions.night, step, time / 1000);
+    aircraft?.update(s, s.worldTime, step, conditions.night);
     // Impact shake is applied only for this render so it never accumulates into the orbit camera.
     shake *= Math.exp(-9 * step);
     const shaking = shake > 0.01 && step > 0;

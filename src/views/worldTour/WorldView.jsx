@@ -11,6 +11,7 @@ import { BossBanner, BossHits, BossPanel, WorldAtlas } from './bossViews.jsx';
 import { ShopPanel, WeaponBar } from './weaponViews.jsx';
 import { MusicPanel } from './musicViews.jsx';
 import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
+import { MAX_STARS, escapeTime, starsOf } from '../../models/worldTour/wanted.js';
 // Connection chip: who else is here, and whether this is the shared online world or the same-browser fallback.
 function onlineLabel({ status, peers }) {
   const others = peers.length, players = `${others} other player${others === 1 ? '' : 's'} here`;
@@ -108,7 +109,7 @@ export default function WorldView({ controller, onEditCharacter }) {
     </section>
     <section className="adventure-stats" aria-label="Player status">
       <span className="adventure-player">{playerName.toUpperCase()}</span>
-      <div className="wanted" aria-label={`Wanted level ${Math.ceil(hud.heat)}`}><span className={hud.heat >= 0.01 ? 'lit' : ''}>★</span><span className={hud.heat > 1 ? 'lit' : ''}>★</span><span className={hud.heat > 2 ? 'lit' : ''}>★</span></div>
+      <div className={`wanted${hud.heat > 0 && hud.lostFor > escapeTime(hud.heat) ? ' fading' : ''}`} aria-label={`Wanted level ${starsOf(hud.heat)} of ${MAX_STARS}`}>{Array.from({ length: MAX_STARS }, (_, i) => <span key={i} className={starsOf(hud.heat) > i ? 'lit' : ''}>★</span>)}</div>
       <strong>${hud.cash.toLocaleString()}</strong>
       <label className={hud.health < 35 ? 'low' : ''}><span>HEALTH</span><b>{Math.ceil(hud.health)}</b><progress max="100" value={hud.health} /></label>
       <div className="weapon-status"><span>{vehicle[0]}</span><b>{vehicle[1]}</b></div>

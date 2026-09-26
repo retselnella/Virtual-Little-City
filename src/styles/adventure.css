@@ -45,7 +45,9 @@
 /* Player status card (top right) */
 .adventure-stats{position:absolute;right:36px;top:112px;z-index:2;width:214px;padding:16px 18px;text-align:right;background:var(--panel);border:1px solid var(--line);border-radius:14px;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
 .adventure-player{font-size:10px;letter-spacing:2px;color:#cfdad8}
-.wanted{display:flex;justify-content:flex-end;gap:8px;color:#ffffff40;font-size:21px;letter-spacing:2px;margin-top:6px}
+.wanted{display:flex;justify-content:flex-end;gap:5px;color:#ffffff40;font-size:19px;letter-spacing:1px;margin-top:6px}
+.wanted.fading .lit{animation:wanted-fade 1s ease-in-out infinite}
+@keyframes wanted-fade{50%{opacity:.35}}
 .wanted .lit{color:#ffc38b;text-shadow:0 0 20px #ff985a}
 .adventure-stats>strong{display:block;font-size:31px;letter-spacing:-1px;margin:8px 0 14px;color:#f3ffe9}
 .adventure-stats label{display:block;text-align:left;font-size:9px;letter-spacing:1.5px}
@@ -182,7 +184,7 @@
   .adventure-header nav{gap:0;padding:3px}.adventure-header nav button{padding:9px;font-size:15px;gap:6px}.adventure-header nav button span{font-size:9px}.adventure-header nav kbd{display:none}
   .adventure-sky{position:absolute;top:52px;left:0;padding:5px 10px 5px 7px;gap:6px;font-size:9px}.adventure-sky b{font-size:11px}.adventure-sky small{display:none}.adventure-sky span{padding-left:6px}.sky-icon{width:17px;height:17px}
   .adventure-location{left:16px;top:106px;max-width:calc(100% - 170px)}.adventure-location .adventure-kicker{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.adventure-location .adventure-kicker{font-size:7px;letter-spacing:1.3px}.adventure-location h1{font-size:34px;letter-spacing:-1.8px;max-width:210px;margin:5px 0 6px}.adventure-location>div{font-size:10px}.adventure-location>div>span{display:none}
-  .adventure-stats{right:14px;top:104px;width:118px;padding:9px 11px;border-radius:11px}.adventure-player{font-size:7px;letter-spacing:1px}.wanted{font-size:14px;gap:3px}.adventure-stats>strong{font-size:20px;margin:4px 0 8px}.adventure-stats label{font-size:7px}.adventure-stats label b{font-size:8px}.weapon-status{font-size:7px;gap:5px;letter-spacing:0;margin-top:9px;padding-top:8px}
+  .adventure-stats{right:14px;top:104px;width:118px;padding:9px 11px;border-radius:11px}.adventure-player{font-size:7px;letter-spacing:1px}.wanted{font-size:12px;gap:1px}.adventure-stats>strong{font-size:20px;margin:4px 0 8px}.adventure-stats label{font-size:7px}.adventure-stats label b{font-size:8px}.weapon-status{font-size:7px;gap:5px;letter-spacing:0;margin-top:9px;padding-top:8px}
   .adventure-objective{top:236px;left:16px;width:200px;padding:13px}.adventure-objective .adventure-kicker{font-size:6px;letter-spacing:1px}.adventure-objective h2{font-size:15px;margin:9px 0 5px}.adventure-objective p{font-size:9px;margin-bottom:9px}.adventure-objective button{font-size:9px;padding-top:8px}.objective-distance{font-size:12px;margin:9px 0}.objective-distance small{font-size:8px;line-height:1.7}
   .adventure-bottom{left:14px;right:14px;bottom:14px;gap:10px}
   .adventure-radar{width:132px;padding:6px 6px 0;border-radius:14px}.radar-north{font-size:7px;padding:1px 4px}.adventure-radar footer{padding:6px 2px 7px;font-size:6px;letter-spacing:0}.adventure-radar footer button{font-size:7px;padding:3px 7px}
@@ -201,7 +203,7 @@
 @media(max-height:740px) and (max-width:760px){.adventure-objective{top:222px;width:188px}.adventure-objective p{display:none}.adventure-touch{bottom:180px}.adventure-location h1{font-size:30px}.adventure-radar{width:118px}.adventure-stats>strong{font-size:18px}}
 @media(pointer:coarse) and (min-width:761px){.adventure-touch{position:absolute;z-index:3;bottom:280px;right:38px;display:flex;gap:5px}.adventure-touch button{padding:14px;background:#18303ed9;color:white;border:1px solid #ffffff40;border-radius:6px;touch-action:none}}
 @media(max-height:570px){.adventure-location{top:84px}.adventure-stats{top:80px}.adventure-objective{top:190px}.adventure-radar{display:none}.adventure-actions{margin-left:auto}.adventure-touch{bottom:18px}.adventure-objective p{display:none}.adventure-objective h2{font-size:14px}.adventure-objective .objective-distance{margin:6px 0}.adventure-hints{display:none}.adventure-dispatch{top:245px;right:18px;width:145px}}
-@media(prefers-reduced-motion:reduce){.objective-edge,.adventure-stats label.low progress,.loading-ring{animation:none}}
+@media(prefers-reduced-motion:reduce){.wanted.fading .lit,.objective-edge,.adventure-stats label.low progress,.loading-ring{animation:none}}
 
 /* Context prompt: the one action available right here (also a tap target on touch screens). */
 .adventure-prompt{position:absolute;z-index:4;left:50%;bottom:148px;transform:translate(-50%);display:flex;align-items:center;gap:10px;padding:9px 16px 9px 9px;border-radius:999px;background:#10202bf0;border:1px solid #ffffff38;color:#f7f2ea;font-size:13px;font-weight:700;box-shadow:0 6px 24px #0a162466;animation:toast-in .2s ease-out;cursor:pointer}
