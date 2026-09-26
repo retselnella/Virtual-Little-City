@@ -3,10 +3,10 @@
 -- your data. See README.md, section 15.
 --
 -- The server decides everything that matters: when the kaiju appears (12:00 Philippine time every day, on each city in
--- turn), its HP (1,000,000,000), how much damage each hit does, how many hits a player can land per second, whether
+-- turn), its HP (1,000,000,000), how much damage each weapon's hit does, how many hits a player can land per second, whether
 -- the kaiju is in range, when it dies, the live ranking, the weekly leaderboard and weekly rewards. Clients can only
 -- call the functions below (they cannot read or write the tables), and they only ever send *what they did* (how many
--- shots and punches since their last report, and where they are), never damage numbers or HP.
+-- hits with each weapon since their last report, and where they are), never damage numbers or HP.
 -- The rules match src/models/worldTour/bossRules.js and the kaiju's path matches worldBoss.js (tests check both).
 --
 -- Destruction is not stored: it is a pure function of the event's start time and seed (issued here), so every client
@@ -48,6 +48,7 @@ revoke all on public.boss_events, public.boss_damage, public.boss_weekly, public
 -- shifted; everything real (real events, weekly boards, rewards) always uses the real time.
 drop function if exists public.boss_state();
 drop function if exists public.boss_event_now();
+drop function if exists public.boss_hit(text, integer, integer, double precision, double precision, text, text); -- the version before per-weapon damage
 -- The test clock (see boss_test_clock at the end): empty unless the owner is testing. Hidden from players like the rest.
 create table if not exists public.boss_test_clock (id boolean primary key default true check (id), offset_ms bigint not null default 0);
 alter table public.boss_test_clock enable row level security;
@@ -138,10 +139,19 @@ end $$;
 
 -- Report hits since the last report. The server checks the event, the city, the range to the kaiju and the rate, then
 -- computes the damage itself (45,000 per shot, 80,000 per punch).
-create or replace function public.boss_hit(p_event text, p_shots integer, p_punches integer, p_x double precision, p_z double precision, p_city text, p_name text)
+-- Kaiju damage per hit and fire-time cost (ms) per weapon, in the order hits are charged (KAIJU_DAMAGE in bossRules.js).
+create or replace function public.boss_arms() returns table (ord integer, id text, damage bigint, cost_ms integer) language sql immutable as $$
+  values (1, 'fists', 50000::bigint, 450), (2, 'pistol', 34000, 367), (3, 'revolver', 98000, 792), (4, 'smg', 17500, 133), (5, 'shotgun', 145000, 1044),
+    (6, 'rifle', 32000, 225), (7, 'lmg', 26000, 154), (8, 'sniper', 290000, 1680), (9, 'rocket', 330000, 1700)
+$$;
+
+-- A batch of hits: p_hits is { weapon: count } since the last report. Each hit is charged the weapon's fire time
+-- against the player's budget (one second per second, up to 8 s banked, plus 1 s of grace), so at most what the
+-- weapons can really fire counts, and the damage comes from boss_arms(), not from the caller.
+create or replace function public.boss_hit(p_event text, p_hits jsonb, p_x double precision, p_z double precision, p_city text, p_name text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare test boolean := p_event like 'test-%'; ev public.boss_events; t timestamptz := boss_clock(p_event like 'test-%'); me uuid := auth.uid(); player public.boss_damage; pos record;
-  since double precision; shots integer; punches integer; dmg bigint; clean text;
+  arm record; now_ms bigint; start_ms bigint; budget bigint; used bigint := 0; claimed bigint; n bigint; n_hits integer := 0; dmg bigint := 0; accepted jsonb := '{}'; clean text;
 begin
   if me is null then return jsonb_build_object('ok', false, 'reason', 'signed-out'); end if;
   perform boss_event_now(test);
@@ -149,23 +159,34 @@ begin
   if not found or (test and not boss_testing()) then return jsonb_build_object('ok', false, 'reason', 'no-event', 'damage', 0); end if;
   if boss_phase(ev, t) <> 'active' then return jsonb_build_object('ok', false, 'reason', boss_phase(ev, t), 'damage', 0, 'hp', ev.hp); end if;
   if p_city is distinct from ev.city then return jsonb_build_object('ok', false, 'reason', 'wrong-city', 'damage', 0, 'hp', ev.hp); end if;
-  if p_shots is null or p_punches is null or p_shots < 0 or p_punches < 0 then return jsonb_build_object('ok', false, 'reason', 'bad-input', 'damage', 0, 'hp', ev.hp); end if;
+  if p_hits is null or jsonb_typeof(p_hits) <> 'object' or exists (select 1 from jsonb_each(p_hits) e join boss_arms() a on a.id = e.key
+      where jsonb_typeof(e.value) <> 'number' or (e.value #>> '{}')::numeric < 0 or (e.value #>> '{}')::numeric <> trunc((e.value #>> '{}')::numeric)) then
+    return jsonb_build_object('ok', false, 'reason', 'bad-input', 'damage', 0, 'hp', ev.hp);
+  end if;
   select * into pos from boss_position(extract(epoch from (t - ev.starts_at)));
   if sqrt(power(p_x - pos.x, 2) + power(p_z - pos.z, 2)) > 220 then return jsonb_build_object('ok', false, 'reason', 'out-of-range', 'damage', 0, 'hp', ev.hp); end if;
   clean := left(regexp_replace(coalesce(nullif(trim(p_name), ''), 'Traveller'), '[[:cntrl:]]', '', 'g'), 24);
-  insert into boss_damage (event_id, user_id, name, last_at) values (ev.id, me, clean, greatest(ev.starts_at, t - interval '1 second')) on conflict do nothing;
+  insert into boss_damage (event_id, user_id, name, last_at) values (ev.id, me, clean, greatest(ev.starts_at, t - interval '8 seconds')) on conflict do nothing;
   select * into player from boss_damage where event_id = ev.id and user_id = me for update;
-  since := least(5, greatest(0, extract(epoch from (t - player.last_at))));
-  shots := least(p_shots, floor(since / 0.3)::integer + 1); punches := least(p_punches, floor(since / 0.45)::integer + 1);
-  dmg := least(ev.hp, shots::bigint * 45000 + punches::bigint * 80000);
-  update boss_damage set name = clean, damage = damage + dmg, hits = hits + shots + punches, last_at = t where event_id = ev.id and user_id = me;
+  -- last_at is how far this player's fire time is used up.
+  now_ms := boss_ms(t); start_ms := greatest(boss_ms(player.last_at), now_ms - 8000); budget := now_ms - start_ms + 1000;
+  for arm in select * from boss_arms() order by ord loop
+    claimed := least(coalesce((p_hits ->> arm.id)::numeric, 0), 100000)::bigint;
+    n := greatest(0, least(claimed, floor(budget::numeric / arm.cost_ms)::bigint));
+    if n > 0 then
+      accepted := accepted || jsonb_build_object(arm.id, n); budget := budget - n * arm.cost_ms; used := used + n * arm.cost_ms;
+      dmg := dmg + n * arm.damage; n_hits := n_hits + n;
+    end if;
+  end loop;
+  dmg := least(ev.hp, dmg);
+  update boss_damage set name = clean, damage = damage + dmg, hits = hits + n_hits, last_at = to_timestamp((start_ms + used) / 1000.0) where event_id = ev.id and user_id = me;
   update boss_events set hp = hp - dmg, defeated_at = case when hp - dmg <= 0 then t else defeated_at end where id = ev.id returning * into ev;
   -- Test damage never reaches the weekly board or rewards.
   if not test then
     insert into boss_weekly (week, user_id, name, damage) values (boss_week(t), me, clean, dmg)
       on conflict (week, user_id) do update set damage = boss_weekly.damage + excluded.damage, name = excluded.name;
   end if;
-  return jsonb_build_object('ok', true, 'damage', dmg, 'hp', ev.hp, 'accepted', jsonb_build_object('shots', shots, 'punches', punches));
+  return jsonb_build_object('ok', true, 'damage', dmg, 'hp', ev.hp, 'accepted', accepted);
 end $$;
 
 -- A player was wasted during the event (counted at most once every 8 seconds).
@@ -199,9 +220,9 @@ begin
 end $$;
 
 -- Only the entry points are callable, and only by signed-in (anonymous) players.
-revoke all on function public.boss_testing(), public.boss_clock(boolean), public.boss_event_now(boolean), public.boss_close_weeks(), public.boss_state(boolean), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
+revoke all on function public.boss_arms(), public.boss_testing(), public.boss_clock(boolean), public.boss_event_now(boolean), public.boss_close_weeks(), public.boss_state(boolean), public.boss_hit(text, jsonb, double precision, double precision, text, text),
   public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() from public, anon, authenticated;
-grant execute on function public.boss_state(boolean), public.boss_hit(text, integer, integer, double precision, double precision, text, text),
+grant execute on function public.boss_state(boolean), public.boss_hit(text, jsonb, double precision, double precision, text, text),
   public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() to authenticated;
 
 -- ---- Test mode, safe on the real project. The owner sets a test clock; only players who open the game with ?bosstest

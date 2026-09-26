@@ -30,8 +30,8 @@ test('delivery requires pickup, proximity, stopping and awards once', () => {
 test('combat respects line of sight, range, cooldown, ammunition and enemy death', () => {
   const s = createSession(CITIES[0]); s.blocks = [];
   s.enemies = [{ id: 'one', x: 8, z: 22, health: 100, kind: 'gang', cooldown: 5 }];
-  attack(s); assert.equal(s.enemies[0].health, 60); assert.equal(s.mags.pistol, 47); assert.equal(s.heat, 1);
-  attack(s); assert.equal(s.mags.pistol, 47);
+  attack(s); assert.equal(s.enemies[0].health, 60); assert.equal(s.mags.pistol, 14); assert.equal(s.heat, 1);
+  attack(s); assert.equal(s.mags.pistol, 14);
   s.cooldown = 0; s.blocks = [{ x: 8, z: 17, width: 4, depth: 2 }];
   assert.equal(clearSight(s.player, s.enemies[0], s.blocks), false);
   attack(s); assert.equal(s.enemies[0].health, 60);
@@ -70,7 +70,7 @@ test('death respawns, cancels the contract and keeps earned rewards; reload rest
   stepWorld(s, {}, 0.05); assert.ok(s.down > 0);
   for (let i = 0; i < 82; i++) stepWorld(s, {}, 0.05);
   assert.equal(s.health, 100); assert.equal(s.mission, null); assert.equal(s.cash, 650); assert.deepEqual(s.completed, ['miami:courier']);
-  s.mags.pistol = 0; s.reload = 1.5; for (let i = 0; i < 31; i++) stepWorld(s, {}, 0.05); assert.equal(s.mags.pistol, 48);
+  s.mags.pistol = 0; s.reload = 1.5; for (let i = 0; i < 31; i++) stepWorld(s, {}, 0.05); assert.equal(s.mags.pistol, 15);
   recover(s); assert.equal(s.cash, 650);
 });
 test('saves sanitize invalid data and keep city-specific completion', () => {

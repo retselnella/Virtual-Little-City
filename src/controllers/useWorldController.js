@@ -13,7 +13,7 @@ import { missionTask, policeStatus, snapshot } from '../models/worldTour/present
 import { displayName } from '../models/worldTour/characterProfile.js';
 import { parseEnvironmentOverride, weatherLabel, worldConditions } from '../models/worldTour/worldClock.js';
 import { islandFor } from '../models/worldTour/worldIsland.js';
-import { WEAPON_ORDER, atGunShop, buyWeapon, nextWeapon } from '../models/worldTour/weapons.js';
+import { WEAPONS, atGunShop, buyWeapon, nextWeapon, weaponForSlot } from '../models/worldTour/weapons.js';
 
 function sessionFor(city, save, blood = true, appearance = null, arrival = null) { return { ...createSession(city, save, appearance, arrival), cityInfo: city, blood }; }
 
@@ -69,7 +69,7 @@ export function useWorldController(character = null, suspended = false) {
     if (key === 'attack') attack(s);
     if (key === 'interact') { interact(s); if (s.shopping) { s.shopping = false; open('shop'); return; } if (s.teleporting) { s.teleporting = false; open('world'); return; } }
     if (key === 'weapon') equip(s, nextWeapon(s.weapon, s.owned));
-    if (key.startsWith('slot')) { const id = WEAPON_ORDER[Number(key.slice(4)) - 1]; if (id && !equip(s, id)) notify(s, `You do not own a ${id === 'smg' ? 'SMG' : id}. The gun shop is in Miami.`); }
+    if (key.startsWith('slot')) { const id = weaponForSlot(Number(key.slice(4))); if (id && !equip(s, id)) notify(s, `You do not own the ${WEAPONS[id].name}. The gun shop is in Miami.`); }
     if (key === 'reload') startReload(s);
     if (key === 'map') { open('world'); return; }
     setHud(snapshot(s));
@@ -94,7 +94,7 @@ export function useWorldController(character = null, suspended = false) {
   function buy(id) {
     const s = session.current; if (!atGunShop(s.city, s.player)) return;
     const result = buyWeapon(s, id);
-    notify(s, result.ok ? `Bought: ${id === 'smg' ? 'SMG' : id}. Press ${WEAPON_ORDER.indexOf(id) + 1} or Q to equip it.` : result.reason);
+    notify(s, result.ok ? `Bought: ${WEAPONS[id].name}. Press ${WEAPONS[id].slot} or Q to equip it.` : result.reason);
     if (result.ok) save(s); setHud(snapshot(s));
   }
   function equipWeapon(id) { if (equip(session.current, id)) setHud(snapshot(session.current)); }

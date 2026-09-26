@@ -37,12 +37,13 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
     // Report hits and deaths since the last report; the server answers with the damage it granted.
     async function flush(ev) {
       const s = session.current, api = server.current;
-      if (ev.phase === 'active' && ev.city === s.city && (s.bossHits.shot || s.bossHits.punch)) {
-        const shots = s.bossHits.shot, punches = s.bossHits.punch, at = s.player;
-        s.bossHits.shot -= shots; s.bossHits.punch -= punches;
-        const result = await api.hit({ event: ev.id, shots, punches, x: at.x, z: at.z, city: s.city, name: playerName.current });
+      const hits = Object.fromEntries(Object.entries(s.bossHits).filter(([, n]) => n > 0));
+      if (ev.phase === 'active' && ev.city === s.city && Object.keys(hits).length) {
+        const at = s.player;
+        for (const [id, n] of Object.entries(hits)) s.bossHits[id] -= n;
+        const result = await api.hit({ event: ev.id, hits, x: at.x, z: at.z, city: s.city, name: playerName.current });
         if (result?.ok && result.damage > 0) setHits(list => [...list.slice(-5), { id: Date.now() + Math.random(), damage: Number(result.damage) }]);
-      } else if (ev.phase !== 'active' || ev.city !== s.city) { s.bossHits.shot = 0; s.bossHits.punch = 0; }
+      } else if (ev.phase !== 'active' || ev.city !== s.city) s.bossHits = {};
       if (s.bossDeaths > reported.current.deaths) { reported.current.deaths = s.bossDeaths; await api.death(ev.id); }
     }
     function announce(ev) {

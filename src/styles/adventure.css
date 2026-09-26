@@ -290,22 +290,37 @@
 .weapon-bar kbd{font-size:9px;padding:1px 5px}
 .weapon-bar small{font-variant-numeric:tabular-nums;opacity:.75;font-size:10px}
 .adventure-prompt{bottom:152px}
-.gun-shop>p{font-size:13px;color:#d9ddd6}
-.gun-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
-.gun-list article{padding:14px;border-radius:12px;background:#ffffff0d;border:1px solid #ffffff1f;display:flex;flex-direction:column;gap:8px}
-.gun-list article.owned{border-color:#86edcb66}
-.gun-list header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.gun-list h3{margin:0;font-size:17px}
-.gun-list header b{color:#ffd6a0;font-variant-numeric:tabular-nums}
-.gun-list article.owned header b{color:#86edcb}
-.gun-list p{margin:0;font-size:12px;color:#c7cdc6;flex:1}
-.gun-list dl{display:grid;gap:4px;margin:0}
-.gun-list dl div{display:grid;grid-template-columns:70px 1fr;align-items:center;gap:8px;font-size:10px;letter-spacing:.5px;color:#aab3ad}
-.gun-list dd{margin:0;height:6px;border-radius:3px;background:#ffffff14;overflow:hidden}
-.gun-list dd i{display:block;height:100%;background:#ff8a7a}
-.gun-list button{padding:9px;border-radius:8px;border:1px solid #ffffff33;background:#f3eee5;color:#142634;font-weight:700}
-.gun-list button:disabled{background:none;color:#aab3ad;cursor:default}
-@media(max-width:760px){.weapon-bar{bottom:204px;left:auto;right:14px;transform:none;padding:3px;gap:2px}.weapon-bar button{padding:5px 7px;font-size:9px}.weapon-bar button span{display:none}.gun-list{grid-template-columns:1fr}}
+.gun-shop>p{font-size:13px;color:#d9ddd6;margin:0}
+.gun-shop>p b{color:#ffd6a0}
+.gun-counter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px;margin-top:12px}
+.gun-list{list-style:none;margin:0;padding:0;display:grid;gap:5px;align-content:start}
+.gun-list button{width:100%;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;border:1px solid #ffffff1f;background:#ffffff0d;color:#e8ece6;font-size:13px;text-align:left}
+.gun-list button[aria-pressed=true]{border-color:#ffd6a0;background:#ffd6a01f}
+.gun-list button kbd{font-size:9px;padding:1px 5px}
+.gun-list button small{font-size:10px;color:#ff9f8f;font-variant-numeric:tabular-nums}
+.gun-list button b{font-size:12px;color:#ffd6a0;font-variant-numeric:tabular-nums;min-width:62px;text-align:right}
+.gun-list button.owned b{color:#86edcb}
+.gun-detail{padding:14px;border-radius:12px;background:#ffffff0d;border:1px solid #ffffff1f;display:flex;flex-direction:column;gap:9px}
+.gun-detail.owned{border-color:#86edcb66}
+.gun-detail header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.gun-detail h3{margin:0;font-size:18px}
+.gun-detail header b{color:#ffd6a0;font-variant-numeric:tabular-nums}
+.gun-detail.owned header b{color:#86edcb}
+.gun-detail>p{margin:0;font-size:12px;color:#c7cdc6}
+.kaiju-damage{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:1px;align-items:baseline;padding:9px 11px;border-radius:9px;background:#ff72601a;border:1px solid #ff8a7a40}
+.kaiju-damage span{grid-column:1/-1;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ffb3a8;margin-bottom:3px}
+.kaiju-damage strong{font-size:16px;font-variant-numeric:tabular-nums;color:#fff}
+.kaiju-damage small{font-size:11px;color:#c7cdc6}
+.gun-detail dl{display:grid;gap:4px;margin:0}
+.gun-detail dl div{display:grid;grid-template-columns:104px 1fr 44px;align-items:center;gap:8px;font-size:10px;letter-spacing:.5px;color:#aab3ad}
+.gun-detail dl span{text-align:right;font-variant-numeric:tabular-nums;color:#dfe5e0}
+.gun-detail dd{margin:0;height:6px;border-radius:3px;background:#ffffff14;overflow:hidden}
+.gun-detail dd i{display:block;height:100%;background:#ff8a7a}
+.gun-detail>button{padding:9px;border-radius:8px;border:1px solid #ffffff33;background:#f3eee5;color:#142634;font-weight:700}
+.gun-detail>button:disabled{background:none;color:#aab3ad;cursor:default}
+@media(max-width:760px){.weapon-bar{bottom:204px;left:auto;right:14px;transform:none;padding:3px;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:62vw}.weapon-bar button{padding:5px 7px;font-size:9px}.weapon-bar button span{display:none}
+  .gun-counter{grid-template-columns:1fr;gap:10px}.gun-list{grid-template-columns:1fr 1fr;gap:4px}.gun-list button{grid-template-columns:1fr auto;gap:2px 6px;padding:6px 8px;font-size:11px}.gun-list button kbd,.gun-list button small{display:none}.gun-list button b{min-width:0;font-size:11px}
+  .gun-detail{padding:11px;gap:7px}.gun-detail>p{font-size:11px}.gun-detail dl div{grid-template-columns:92px 1fr 40px}.kaiju-damage strong{font-size:14px}.gun-shop>p{font-size:11px}}
 @media(max-height:570px){.weapon-bar{bottom:118px}}
 
 /* Dialogs sized to fit the screen without scrolling (the dialog still scrolls as a last resort on very short screens). */

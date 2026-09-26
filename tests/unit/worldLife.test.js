@@ -81,7 +81,7 @@ test('pistol prefers threats, spares bystanders behind the camera and stops stra
   s.enemies = []; s.pedestrians = []; s.blocks = [{ x: 8, z: -10, width: 20, depth: 4 }];
   attack(s); const shot = s.shots.at(-1);
   assert.ok(Math.abs(shot.tz - -8) < 0.01, 'the tracer ends at the wall instead of passing through');
-  s.mags.pistol = 0; s.cooldown = 0; s.reload = 0; attack(s); assert.equal(s.reload, 1.5, 'an empty pistol reloads automatically');
+  s.mags.pistol = 0; s.cooldown = 0; s.reload = 0; attack(s); assert.equal(s.reload, 1.3, 'an empty pistol reloads automatically');
 });
 
 test('at one star officers arrest a suspect who stays still, and busted players are fined', () => {

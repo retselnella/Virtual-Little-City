@@ -10,6 +10,7 @@ import { destructionAt, kaijuHazards, kaijuInReach, kaijuPose, standingBlocks } 
 import { sceneryLayout } from './worldLayout.js';
 import { stopLineAhead } from './trafficLights.js';
 import { GUN_SHOP, WEAPONS, atGunShop, cleanOwned, damageAt, fullMagazines, weaponOf } from './weapons.js';
+import { aimFromRay, aimYawFrom } from './aiming.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -109,7 +110,7 @@ export function createSession(city, save = {}, appearance = null, arrival = null
   s.pedestrians = createPedestrians(s);
   Object.assign(s, { boat: createBoat(), boating: false, metro: null, riding: false, train: trainAt(0), course: null, waypoint: null, arrival: null, teleporter: teleporterAt(s.blocks), teleporting: false });
   // World boss: the server's event (set by the controller), the kaiju here, hits waiting to be reported, and the ruins.
-  Object.assign(s, { bossEvent: null, boss: null, bossHits: { shot: 0, punch: 0 }, bossDeaths: 0, bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
+  Object.assign(s, { bossEvent: null, boss: null, bossHits: {}, bossDeaths: 0, bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
     s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
@@ -314,7 +315,7 @@ function injure(s, target, amount, dx, dz, kind) {
 }
 function kaijuTarget(s, gun) {
   if (!s.boss?.alive || !onFoot(s)) return null;
-  return kaijuInReach(s.player, gun ? s.aimYaw ?? s.player.heading : s.player.heading, gun, s.boss.t);
+  return kaijuInReach(s.player, gun ? s.aimYaw ?? s.player.heading : s.player.heading, gun, s.boss.t, weaponOf(s.weapon).reach);
 }
 // The world boss in this city: pose from the server's event, destruction so far, and what it does to you.
 function updateKaiju(s, dt) {
@@ -362,16 +363,14 @@ export function attack(s) {
   if (!gun) { s.combo = s.time - (s.lastPunch ?? -9) < 0.9 ? (s.combo + 1) % 3 : 0; s.lastPunch = s.time; s.punchTime = 0.28; }
   s.aimTime = gun ? 0.7 : 1.2;
   const from = s.player;
+  if (gun && s.aimRay) { freeAimShot(s, w); return; }
   let target = targetFor(s), blocked = null;
   // The kaiju: when it is in reach and nothing hostile is closer, the hit is recorded for the server (which decides the
   // damage) and does not draw the police.
   const kaijuRange = !target || target.kind === 'civilian' ? kaijuTarget(s, gun) : null;
   if (kaijuRange !== null) {
     const pose = s.boss, aim = Math.atan2(pose.x - from.x, pose.z - from.z), end = { x: from.x + Math.sin(aim) * (kaijuRange - 18), z: from.z + Math.cos(aim) * (kaijuRange - 18) };
-    from.heading = aim; s.bossHits[gun ? 'shot' : 'punch']++;
-    if (gun) s.shots.push({ x: from.x, z: from.z, tx: end.x, tz: end.z, ttl: 0.12, police: false, kaiju: true });
-    s.actions.push({ id: ++s.actionSeq, time: s.time, kind: gun ? 'shot' : 'punch', combo: s.combo, x: end.x, z: end.z, blood: false });
-    s.kaijuImpact = { x: end.x, z: end.z, time: s.time, kind: gun ? 'shot' : 'punch' };
+    from.heading = aim; hitKaiju(s, gun, { ...end, y: gun ? 60 : 8 });
     return;
   }
   if (gun) {
@@ -381,6 +380,45 @@ export function attack(s) {
     blocked = castShot(s, from, { x: aim.x, z: aim.z, y: target ? (target.height || 0) + 2 : undefined }, { target });
     if (blocked) target = null;
   }
+  landHit(s, w, target, blocked);
+}
+// A hit on the kaiju: counted for the server, which decides the damage for the weapon in hand.
+function hitKaiju(s, gun, at) {
+  const from = s.player;
+  s.bossHits[s.weapon] = (s.bossHits[s.weapon] || 0) + 1;
+  if (gun) s.shots.push({ x: from.x, z: from.z, y: (from.height || 0) + 2.1, tx: at.x, ty: at.y, tz: at.z, ttl: 0.12, police: false, kaiju: true, weapon: s.weapon });
+  s.actions.push({ id: ++s.actionSeq, time: s.time, kind: gun ? 'shot' : 'punch', combo: s.combo, x: at.x, z: at.z, blood: false });
+  s.kaijuImpact = { x: at.x, y: at.y, z: at.z, time: s.time, kind: gun ? s.weapon : 'punch', id: (s.kaijuImpact?.id || 0) + 1 };
+  s.aimPitch = gun ? Math.atan2(at.y - (from.height || 0) - 2.1, Math.max(1, Math.hypot(at.x - from.x, at.z - from.z))) : 0;
+}
+// Free aim: the shot goes where the pointer is (aiming.js). The kaiju counts when the pointer is on its body and it is
+// within the gun's reach; people are hit when the pointer is on them, in range and in the clear. Anything else in the
+// line of fire (a car, a lamp post, a wall) takes the bullet instead.
+function freeAimShot(s, w) {
+  const from = s.player, aim = aimFromRay(s, s.aimRay), muzzle = { x: from.x, y: (from.height || 0) + 2.2, z: from.z };
+  const flat = Math.hypot(aim.x - from.x, aim.z - from.z);
+  from.heading = flat > 0.5 ? Math.atan2(aim.x - from.x, aim.z - from.z) : from.heading;
+  if (aim.kind === 'kaiju') {
+    const center = Math.hypot(s.boss.x - from.x, s.boss.z - from.z), wall = castShot(s, from, aim, { reach: Math.hypot(flat, aim.y - muzzle.y) - 2 });
+    if (!wall && center <= w.reach) { hitKaiju(s, true, aim); return; }
+    if (!wall) {
+      // Out of this gun's reach: the round falls short (and shooting at the kaiju never draws the police).
+      const short = Math.min(1, w.range / Math.max(1, flat)), end = { x: from.x + (aim.x - from.x) * short, y: muzzle.y + (aim.y - muzzle.y) * short, z: from.z + (aim.z - from.z) * short };
+      s.shots.push({ x: from.x, z: from.z, y: muzzle.y, tx: end.x, ty: end.y, tz: end.z, ttl: 0.12, police: false, weapon: s.weapon });
+      s.actions.push({ id: ++s.actionSeq, time: s.time, kind: 'shot', combo: 0, x: end.x, z: end.z, blood: false });
+      if (s.time - (s.reachHint ?? -9) > 4) { s.reachHint = s.time; notify(s, `Too far for the ${w.name.toLowerCase()}: get within ${w.reach} m of the kaiju.`); }
+      return;
+    }
+  }
+  let target = aim.kind === 'person' && flat <= w.range ? aim.target : null;
+  const end = target ? { x: target.x, y: (target.height || 0) + 1.6, z: target.z } : flat > w.range ? { x: from.x + (aim.x - from.x) * w.range / flat, y: muzzle.y + (aim.y - muzzle.y) * w.range / flat, z: from.z + (aim.z - from.z) * w.range / flat } : aim;
+  const blocked = castShot(s, from, end, { target });
+  if (blocked) target = null;
+  landHit(s, w, target, blocked, blocked || end);
+}
+// The damage, knockback, tracer, alarm and wanted level of an attack on the street (not the kaiju).
+function landHit(s, w, target, blocked, aimed = null) {
+  const from = s.player, gun = w.gun;
   if (target) {
     const dx = target.x - from.x, dz = target.z - from.z, d = Math.hypot(dx, dz);
     from.heading = Math.atan2(dx, dz);
@@ -398,25 +436,41 @@ export function attack(s) {
       if (hook || (target.health > 0 && target.health < 35)) target.knockdown = 1.4;
     }
   }
-  const reach = gun ? w.range : 2, end = target || blocked || { x: from.x + Math.sin(from.heading) * reach, z: from.z + Math.cos(from.heading) * reach };
+  const reach = gun ? w.range : 2, end = target || blocked || aimed || { x: from.x + Math.sin(from.heading) * reach, z: from.z + Math.cos(from.heading) * reach };
+  const endY = target ? (target.height || 0) + 1.6 : end.y ?? 2;
+  s.aimPitch = gun ? Math.atan2(endY - (from.height || 0) - 2.1, Math.max(1, Math.hypot(end.x - from.x, end.z - from.z))) : 0;
   if (gun) {
-    s.shots.push({ x: from.x, z: from.z, tx: end.x, tz: end.z, ttl: 0.12, police: false, weapon: s.weapon });
+    s.shots.push({ x: from.x, z: from.z, y: (from.height || 0) + 2.1, tx: end.x, ty: endY, tz: end.z, ttl: w.blast ? 0.25 : 0.12, police: false, weapon: s.weapon, rocket: !!w.blast });
+    if (w.blast) blast(s, w, end, target);
     // Shotgun pellets spread around the main shot (visual only; the damage is in the main hit).
     for (let i = 1; i < (w.pellets || 0); i++) {
       const spread = (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.05, a = Math.atan2(end.x - from.x, end.z - from.z) + spread, len = Math.hypot(end.x - from.x, end.z - from.z);
-      s.shots.push({ x: from.x, z: from.z, tx: from.x + Math.sin(a) * len, tz: from.z + Math.cos(a) * len, ttl: 0.1, police: false, pellet: true });
+      s.shots.push({ x: from.x, z: from.z, y: (from.height || 0) + 2.1, tx: from.x + Math.sin(a) * len, ty: endY, tz: from.z + Math.cos(a) * len, ttl: 0.1, police: false, pellet: true });
     }
     if (blocked) bulletHit(s, blocked, end.x - from.x, end.z - from.z);
   }
   // Each attack is recorded for other players to replay (multiplayer.js): where it landed and whether it drew blood.
   s.actions.push({ id: ++s.actionSeq, time: s.time, kind: gun ? 'shot' : 'punch', combo: s.combo, x: end.x, z: end.z, blood: !!target && !target.child });
-  if (gun || target) {
+  // While the kaiju attacks, everyone is shooting at it: gunfire alone does not bring the police, only hitting people.
+  if (target || (gun && !s.boss?.alive)) {
     // Harming bystanders or officers escalates the wanted level; gang fights stay at one star.
     const raise = target?.kind === 'civilian' ? (target.health ? 0.2 : 0.5) : target?.kind === 'police' ? (target.health ? 0.5 : 0.9) : 0;
     s.heat = Math.min(3, Math.max(s.heat, 1) + raise); s.quiet = 0;
     s.alarm = { x: from.x, z: from.z, time: s.time, radius: w.alarm };
     if (!s.lastSeen || s.unseen > 4) s.lastSeen = { x: from.x, z: from.z };
   }
+}
+// A rocket's explosion: it hurts and throws everyone near where it lands (the direct hit already took its damage).
+function blast(s, w, at, direct) {
+  s.impacts.push({ id: ++s.impactSeq, time: s.time, x: at.x, z: at.z, y: Math.max(0.5, at.y ?? 1), dx: 0, dz: 0, kind: 'blast', power: 2, blood: false });
+  for (const e of [...s.enemies, ...s.pedestrians]) {
+    const dx = e.x - at.x, dz = e.z - at.z, d = Math.hypot(dx, dz);
+    if (e === direct || e.health <= 0 || e.child || d > w.blast) continue;
+    injure(s, e, Math.round(w.damage * 0.6 * (1 - d / (w.blast * 1.4))), dx || 0.1, dz, 'shot');
+    pushCharacter(e, dx || 0.1, dz, 14 * (1 - d / (w.blast * 1.4)), 4);
+  }
+  const p = s.player, pd = Math.hypot(p.x - at.x, p.z - at.z);
+  if (pd < w.blast && !s.driving) { s.health -= 30 * (1 - pd / (w.blast * 1.4)) * armorOf(s); pushCharacter(p, p.x - at.x || 0.1, p.z - at.z, 10, 3); }
 }
 // Side effects of a bullet stopped by something other than its target.
 function bulletHit(s, hit, dx, dz) {
@@ -439,15 +493,17 @@ export function recover(s) {
   s.boat = createBoat(); s.boating = false; s.riding = false; s.metro = null; s.arrival = null;
   notify(s, 'Back at the City Hub. Any unfinished contract can be restarted.');
 }
-export function stepWorld(s, input, delta, yaw = Math.PI) {
+// `aimRay` is the pointer's ray from the camera when the player aims with the mouse (see aiming.js), else null.
+export function stepWorld(s, input, delta, yaw = Math.PI, aimRay = null) {
   const duration = Math.min(Math.max(delta, 0), 0.05), steps = Math.max(1, Math.ceil(duration * 120));
+  s.aimRay = aimRay && WEAPONS[s.weapon]?.gun && onFoot(s) ? aimRay : null;
   for (let i = 0; i < steps; i++) stepSimulation(s, input, duration / steps, yaw);
 }
 function stepSimulation(s, input, dt, yaw) {
   s.time += dt;
   s.cooldown = Math.max(0, s.cooldown - dt); s.messageTime = Math.max(0, s.messageTime - dt);
   s.aimTime = Math.max(0, s.aimTime - dt); s.punchTime = Math.max(0, s.punchTime - dt);
-  if (!s.driving) s.aimYaw = yaw;
+  if (!s.driving) s.aimYaw = s.aimRay ? aimYawFrom(s.player, s.aimRay) : yaw;
   s.shots = s.shots.map(shot => ({ ...shot, ttl: shot.ttl - dt })).filter(shot => shot.ttl > 0);
   if (s.impacts.length && s.time - s.impacts[0].time > 1) s.impacts = s.impacts.filter(i => s.time - i.time <= 1);
   if (s.actions.length && s.time - s.actions[0].time > 1) s.actions = s.actions.filter(i => s.time - i.time <= 1);

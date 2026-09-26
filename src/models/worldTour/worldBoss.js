@@ -129,10 +129,11 @@ export function kaijuHazards(seed, t, at, memory, dt) {
   }
   return hits;
 }
-// Can the player hit the kaiju from here? Returns the distance, or null if out of reach or aimed away.
-export function kaijuInReach(player, aim, gun, t) {
+// Can the player hit the kaiju from here without free aim (keyboard or touch)? `reach` is the weapon's (weapons.js).
+// Returns the distance, or null if out of reach or aimed away.
+export function kaijuInReach(player, aim, gun, t, reach = gun ? 170 : 32) {
   const pose = kaijuPose(t), d = Math.hypot(pose.x - player.x, pose.z - player.z);
-  if (d > (gun ? 170 : 32)) return null;
+  if (d > reach) return null;
   const off = Math.abs(Math.atan2(Math.sin(Math.atan2(pose.x - player.x, pose.z - player.z) - aim), Math.cos(Math.atan2(pose.x - player.x, pose.z - player.z) - aim)));
   return off < (gun ? Math.atan2(KAIJU.bodyRadius + 10, Math.max(1, d)) + 0.2 : 1.3) ? d : null;
 }

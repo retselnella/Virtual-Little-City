@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Guns built from boxes in code (no third-party models). Each is modelled with +Z along the barrel and +Y up, with the
 // origin where the hand closes on the grip. `createGunHolder` mounts them in a character's right hand so the barrel
 // follows the forearm: pointing at the target when the arm is raised to aim, down at the ground when it hangs.
-const METAL = '#2b3037', DARK = '#16191d', STEEL = '#59606a', POLYMER = '#23262b', WOOD = '#6e4a2c', WOOD_DARK = '#4f3520';
+const METAL = '#2b3037', DARK = '#16191d', STEEL = '#59606a', POLYMER = '#23262b', WOOD = '#6e4a2c', WOOD_DARK = '#4f3520', OLIVE = '#4c5a3a', CHROME = '#a9aeb5';
 // [size, colour, position, tilt about X (radians)]
 const PARTS = {
   pistol: [
@@ -53,6 +53,56 @@ const PARTS = {
     [[0.07, 0.07, 0.3], POLYMER, [0, 0.19, -0.3]], // buffer tube
     [[0.09, 0.2, 0.18], POLYMER, [0, 0.13, -0.48]], // stock
   ],
+  revolver: [
+    [[0.1, 0.13, 0.2], CHROME, [0, 0.18, 0.03]], // frame
+    [[0.13, 0.13, 0.14], STEEL, [0, 0.17, 0.05]], // cylinder
+    [[0.055, 0.06, 0.42], CHROME, [0, 0.21, 0.33]], // barrel
+    [[0.07, 0.03, 0.42], CHROME, [0, 0.245, 0.33]], // barrel rib
+    [[0.03, 0.04, 0.02], DARK, [0, 0.275, 0.52]], // front sight
+    [[0.03, 0.06, 0.05], STEEL, [0, 0.26, -0.08], -0.5], // hammer
+    [[0.085, 0.29, 0.12], WOOD, [0, -0.02, -0.07], 0.32], // grip
+    [[0.03, 0.02, 0.12], CHROME, [0, 0.07, 0.04]], // trigger guard
+    [[0.018, 0.05, 0.02], STEEL, [0, 0.08, 0.02]], // trigger
+  ],
+  lmg: [
+    [[0.14, 0.18, 0.62], OLIVE, [0, 0.19, 0.08]], // receiver
+    [[0.13, 0.05, 0.42], DARK, [0, 0.3, 0.05]], // feed cover
+    [[0.12, 0.12, 0.3], POLYMER, [0, 0.17, 0.52]], // handguard
+    [[0.055, 0.055, 0.5], DARK, [0, 0.2, 0.9]], // barrel
+    [[0.08, 0.08, 0.08], DARK, [0, 0.2, 1.17]], // flash hider
+    [[0.02, 0.26, 0.02], STEEL, [0.06, 0.06, 0.95], 0.35], // bipod legs
+    [[0.02, 0.26, 0.02], STEEL, [-0.06, 0.06, 0.95], 0.35],
+    [[0.2, 0.22, 0.2], OLIVE, [0.02, 0.02, 0.14]], // ammunition box
+    [[0.08, 0.24, 0.1], POLYMER, [0, -0.01, -0.12], 0.26], // grip
+    [[0.03, 0.02, 0.12], POLYMER, [0, 0.07, -0.02]], // trigger guard
+    [[0.1, 0.19, 0.34], POLYMER, [0, 0.14, -0.42], -0.05], // stock
+    [[0.04, 0.05, 0.14], STEEL, [0, 0.33, 0.35]], // carry handle
+  ],
+  sniper: [
+    [[0.11, 0.13, 0.46], METAL, [0, 0.19, 0.08]], // receiver
+    [[0.045, 0.045, 0.78], DARK, [0, 0.21, 0.72]], // long barrel
+    [[0.07, 0.07, 0.1], DARK, [0, 0.21, 1.14]], // muzzle brake
+    [[0.1, 0.12, 0.5], OLIVE, [0, 0.13, 0.42]], // fore-end
+    [[0.07, 0.07, 0.42], DARK, [0, 0.35, 0.08]], // scope tube
+    [[0.1, 0.1, 0.07], DARK, [0, 0.35, 0.3]], // objective bell
+    [[0.08, 0.08, 0.06], DARK, [0, 0.35, -0.13]], // eyepiece
+    [[0.03, 0.08, 0.03], STEEL, [0, 0.28, 0.14]], // scope rings
+    [[0.03, 0.08, 0.03], STEEL, [0, 0.28, -0.02]],
+    [[0.03, 0.03, 0.08], STEEL, [0.08, 0.22, -0.03]], // bolt handle
+    [[0.08, 0.22, 0.1], OLIVE, [0, -0.01, -0.1], 0.35], // grip
+    [[0.1, 0.18, 0.46], OLIVE, [0, 0.14, -0.42], -0.06], // stock
+    [[0.105, 0.2, 0.03], DARK, [0, 0.12, -0.66]], // butt pad
+  ],
+  rocket: [
+    [[0.2, 0.2, 1.3], OLIVE, [0, 0.26, 0.15]], // launch tube
+    [[0.25, 0.25, 0.12], DARK, [0, 0.26, 0.82]], // front ring
+    [[0.25, 0.25, 0.12], DARK, [0, 0.26, -0.5]], // rear ring
+    [[0.12, 0.14, 0.2], DARK, [-0.16, 0.34, 0.2]], // sight
+    [[0.08, 0.24, 0.1], POLYMER, [0, 0.04, 0.1], 0.2], // grip
+    [[0.08, 0.22, 0.1], POLYMER, [0, 0.06, 0.45], 0.1], // fore grip
+    [[0.03, 0.02, 0.12], POLYMER, [0, 0.12, 0.14]], // trigger guard
+    [[0.14, 0.14, 0.26], '#9a3b2c', [0, 0.26, 0.92]], // rocket warhead
+  ],
 };
 // Where the muzzle flash sits on each gun, whether it is held with both hands at chest height, and its size in the
 // hand (the characters are chunky, so guns are drawn a little larger than life to read at a distance).
@@ -61,6 +111,10 @@ export const GUN_INFO = Object.freeze({
   smg: { muzzle: [0, 0.21, 0.5], long: false, scale: 1.35 },
   shotgun: { muzzle: [0, 0.235, 0.92], long: true, scale: 1.55 },
   rifle: { muzzle: [0, 0.21, 1.1], long: true, scale: 1.55 },
+  revolver: { muzzle: [0, 0.21, 0.56], long: false, scale: 1.3 },
+  lmg: { muzzle: [0, 0.2, 1.24], long: true, scale: 1.5 },
+  sniper: { muzzle: [0, 0.21, 1.22], long: true, scale: 1.5 },
+  rocket: { muzzle: [0, 0.26, 1.1], long: true, scale: 1.35 },
 });
 
 export function buildGun(kit, id, flashMaterial) {
@@ -100,14 +154,15 @@ export function createGunHolder(body, kit, flashMaterial) {
 const elbowOf = arm => arm.children.find(child => child.isGroup);
 // `gun` is the weapon id in hand (null for fists). Handguns are aimed at arm's length, gripped with both hands; long
 // guns are held at chest height with the left hand on the fore-end. Between shots a gun is carried at low ready.
-export function poseArms(body, gun, aiming, punchTime, combo, recoil) {
-  const right = body.getObjectByName('right-shoulder'), left = body.getObjectByName('left-shoulder');
+// `pitch` raises (positive) or lowers the aim, in radians, so a player shooting up at the kaiju points the gun at it.
+export function poseArms(body, gun, aiming, punchTime, combo, recoil, pitch = 0) {
+  const right = body.getObjectByName('right-shoulder'), left = body.getObjectByName('left-shoulder'), up = Math.max(-0.35, Math.min(1.25, pitch || 0));
   if (gun && aiming && GUN_INFO[gun].long) {
-    right.rotation.set(-1.02 - recoil * 0.25, 0, 0.3); elbowOf(right).rotation.set(-0.55 + recoil * 0.2, 0, 0);
-    left.rotation.set(-1.5, 0, -0.35); elbowOf(left).rotation.set(-0.12, 0, 0);
+    right.rotation.set(-1.02 - recoil * 0.25 - up, 0, 0.3); elbowOf(right).rotation.set(-0.55 + recoil * 0.2, 0, 0);
+    left.rotation.set(-1.5 - up, 0, -0.35); elbowOf(left).rotation.set(-0.12, 0, 0);
   } else if (gun && aiming) {
-    right.rotation.set(-1.5 - recoil * 0.4, 0, 0.12); elbowOf(right).rotation.set(recoil * -0.3, 0, 0);
-    left.rotation.set(-1.35, 0, 0.55); elbowOf(left).rotation.set(-0.35, 0, 0);
+    right.rotation.set(-1.5 - recoil * 0.4 - up, 0, 0.12); elbowOf(right).rotation.set(recoil * -0.3, 0, 0);
+    left.rotation.set(-1.35 - up, 0, 0.55); elbowOf(left).rotation.set(-0.35, 0, 0);
   } else if (gun) {
     right.rotation.set(-0.35, 0, 0.1); elbowOf(right).rotation.set(GUN_INFO[gun].long ? -0.95 : -0.45, 0, 0);
     if (GUN_INFO[gun].long) { left.rotation.set(-0.9, 0, -0.45); elbowOf(left).rotation.set(-0.7, 0, 0); }

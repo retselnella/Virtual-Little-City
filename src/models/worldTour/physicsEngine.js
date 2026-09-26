@@ -3,6 +3,7 @@ import { RAGDOLLS } from './ragdollProfiles.js';
 import { sceneryLayout } from './worldLayout.js';
 import { ISLAND_EXTENT, MARINA, SHORE_INSET, formSurface, islandFor, lakeShore } from './worldIsland.js';
 import { STATIONS, metroPillars } from './metro.js';
+import { blockHit } from './aiming.js';
 
 // Rapier (https://rapier.rs) runs World Tour's rigid bodies, vehicles, character movement, ragdolls and bullet rays.
 // Gameplay code keeps plain session objects (x, z, vx, vz, heading...) as its source of truth: each substep this module
@@ -418,21 +419,6 @@ export function stepPhysics(s, dt) {
 }
 
 // ---------------------------------------------------------------- queries
-// Distance along a ray to the first building box within `max`, or null (slab test).
-function blockHit(blocks, o, d, max) {
-  let best = null;
-  for (const b of blocks) {
-    const h = b.height ?? 200, lo = [b.x - b.width / 2, 0, b.z - b.depth / 2], hi = [b.x + b.width / 2, h, b.z + b.depth / 2], O = [o.x, o.y, o.z], D = [d.x, d.y, d.z];
-    let enter = 0, exit = max;
-    for (let i = 0; i < 3 && enter <= exit; i++) {
-      if (Math.abs(D[i]) < 1e-9) { if (O[i] < lo[i] || O[i] > hi[i]) exit = -1; continue; }
-      const a = (lo[i] - O[i]) / D[i], c = (hi[i] - O[i]) / D[i];
-      enter = Math.max(enter, Math.min(a, c)); exit = Math.min(exit, Math.max(a, c));
-    }
-    if (enter <= exit && (best === null || enter < best)) best = enter;
-  }
-  return best;
-}
 // A bullet ray from `from` toward `to` (plain {x, z} points at chest height). Returns the first obstruction, or null.
 // Cars, lamp posts and bodies are hit and pushed; the target's own collider (or car) counts as reaching the target.
 export function castShot(s, from, to, { reach = null, ignore = [], target = null } = {}) {

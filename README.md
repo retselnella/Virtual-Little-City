@@ -64,17 +64,18 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **Shift** | Sprint | | Full speed |
 | **Space** | Jump | Handbrake (slides the rear for drifting) | |
 | **F** | Get into your car or the boat (stand next to it) | Get out (stop first) | Go ashore (slow down next to a beach or the marina) |
-| **J** | Shoot or punch; hold to keep attacking | | |
+| **Mouse** | Point at what you want to shoot (with a gun in hand the pointer is a crosshair); **click** to fire once, hold the **right button** to keep firing | | |
+| **J** | Shoot at the crosshair (or the locked-on target), or punch; hold to keep attacking | | |
 | **Q** | Switch to the next weapon you own | | |
-| **1 – 5** | Fists, pistol, SMG, shotgun, assault rifle (the ones you own) | | |
-| **R** | Reload the pistol | | |
+| **1 – 9** | Fists, pistol, revolver, SMG, shotgun, assault rifle, machine gun, sniper rifle, rocket launcher (the ones you own) | | |
+| **R** | Reload the gun in your hands | | |
 | **E** | Collect, deliver, heal at the City Hub, take the metro at a station, or browse the gun shop | | |
 | **M** | World map and sailing | World map and sailing | World map and sailing |
 | **L** | Contract board | Contract board | Contract board |
 | **B** | Kaiju event and rankings | Kaiju event and rankings | Kaiju event and rankings |
 | **N** | Music player and playlist | Music player and playlist | Music player and playlist |
 | **Esc** | Pause menu and controls | Pause menu | Pause menu |
-| **Mouse drag / scroll** | Turn and zoom the camera | Turn and zoom the camera | Turn and zoom the camera |
+| **Mouse drag / scroll** | Turn and zoom the camera (a quick click fires; a drag turns) | Turn and zoom the camera | Turn and zoom the camera |
 
 A button above the controls bar always shows what you can do right where you are (for example **F Take the boat** or **E Take the metro · North station**); you can also click or tap it.
 
@@ -190,16 +191,24 @@ Each city has six contracts, 42 in total:
 
 - **Guns**: everyone has a pistol. More are sold at **Ocean Drive Arms**, the gun shop in Miami (the red storefront across the avenue from the City Hub; the map's GPS has a **Gun shop** button). Walk to its door and press **E**. Guns you buy are yours for good, in every city. Ammunition is free: each gun reloads automatically when empty, or press **R**.
 
-  | Gun | Price | Magazine | Range | Notes |
-  | --- | --- | --- | --- | --- |
-  | **Pistol** | free | 48 | 65 m | Strongest up to about 25 m. |
-  | **SMG** | $1,800 | 40 | 50 m | Fully automatic and very fast; weak per bullet. |
-  | **Shotgun** | $2,800 | 8 | 32 m | Devastating up close (and knocks people down), weak at range, forgiving to aim. |
-  | **Assault rifle** | $4,500 | 30 | 110 m | Automatic and long range: the best all-rounder. |
+  | Key | Gun | Price | Magazine | Range | Kaiju damage per hit | Kaiju damage per second | Kaiju reach | Notes |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | 1 | **Fists** | free | | 5 m | 50,000 | ~111k | 32 m | Jab, cross, hook. Only reaches the Kaiju under its feet. |
+  | 2 | **Pistol** | free | 15 | 65 m | 34,000 | ~93k | 170 m | Strongest up to about 25 m. |
+  | 3 | **Magnum revolver** | $6,500 | 6 | 80 m | 98,000 | ~124k | 170 m | Six heavy rounds; drops most people in one shot. |
+  | 4 | **SMG** | $12,000 | 40 | 50 m | 17,500 | ~132k | 170 m | Fully automatic and very fast; weak per bullet. |
+  | 5 | **Shotgun** | $16,000 | 8 | 32 m | 145,000 | ~139k | 70 m | Devastating up close (and knocks people down); get close to the Kaiju. |
+  | 6 | **Assault rifle** | $24,000 | 30 | 110 m | 32,000 | ~142k | 170 m | Automatic and long range: the best all-rounder. |
+  | 7 | **Light machine gun** | $38,000 | 100 | 95 m | 26,000 | ~169k | 170 m | A 100-round belt, then a long reload. |
+  | 8 | **Sniper rifle** | $52,000 | 5 | 200 m | 290,000 | ~173k | 210 m | Bolt-action; the only gun that hits the Kaiju from beyond 170 m. |
+  | 9 | **Rocket launcher** | $75,000 | 4 | 120 m | 330,000 | ~194k | 170 m | Explodes where it lands, hurting everyone nearby (you too, if you are close). |
 
-- **Switching**: **Q** cycles through fists and your guns; **1–5** pick one directly; or click the weapon bar. Switching cancels a reload. Handguns are aimed at arm's length with both hands; the shotgun and rifle are shouldered.
+  The shop shows all of this for each gun. *Kaiju damage per second* includes reloading, so it is what you really deal when firing without stopping. It rises with the price, and the best gun deals about twice as much as the free pistol.
+
+- **Switching**: **Q** cycles through fists and your guns; **1–9** pick one directly; or click the weapon bar. Switching cancels a reload. Handguns are aimed at arm's length with both hands; long guns are shouldered.
 - **Fists**: press **J** quickly for a **jab, cross and hook**. The hook knocks people off their feet; they get up again unless they were defeated.
-- **Aiming**: aim with the camera. The game locks onto the best target: armed threats first, and bystanders only when they are in front of you. The ring on the ground shows who you will hit.
+- **Aiming with a mouse**: with a gun in hand, the pointer becomes a crosshair and your shot goes exactly where it points: at a person, a car, a wall, or any part of the Kaiju, from its feet up to its head. Your character turns and raises the gun towards it. The crosshair turns **red** on someone you can hit and on the Kaiju within your gun's reach, and **amber** on the Kaiju when it is too far for this gun. Click to fire once, hold the right mouse button (or **J**) to keep firing.
+- **Aiming without a mouse** (touch screens, or keyboard only): the game locks onto the best target in front of the camera: armed threats first, and bystanders only when they are in front of you. The ring on the ground shows who you will hit.
 - **Cover**: buildings, cars and lamp posts block bullets, for you and for anyone shooting at you. Standing still makes you easier to hit. Sprinting and distance make enemies miss more.
 - **Children** can never be targeted or hurt.
 - **Health**: at zero health you are **WASTED** and wake up at the City Hub. To heal, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills every gun.
@@ -210,7 +219,7 @@ Each city has six contracts, 42 in total:
 Every day at **12:00 Philippine time**, a giant Kaiju, taller than the city's towers, rises from the sea off one of the seven cities and attacks it for **one hour**. The cities take turns, one per day. It has **1,000,000,000 HP** shared by every player in the world.
 
 - **Before**: an hour ahead, a banner announces where it will appear, with a countdown. Sail there in time. The World map marks the city.
-- **The fight**: it wades ashore and stomps through the streets. Shoot or punch it (**J**) from up to about 220 metres. Any gun works; the server counts each gunshot the same and caps how many count per second, so a faster gun does not deal more boss damage. It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
+- **The fight**: it wades ashore and stomps through the streets. Point at it with the mouse and fire (click, hold the right button, or **J**); on a touch screen the attack button aims at it for you. Every gun works within its **Kaiju reach** (170 m for most, 70 m for the shotgun, 210 m for the sniper rifle, under its feet for fists), and each deals its own damage per hit (see the table in [Fighting](#7-fighting)). Better guns deal more damage per second, but no gun is more than about twice the free pistol, so the leaderboard rewards time spent fighting. Drag the camera up to look up at it: the view tilts past your character so you can aim at its head. While it attacks, gunfire alone does not bring the police (only hitting people does). It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
 - **Destruction**: buildings, trees and lamp posts it hits collapse into rubble and craters. The damage stays for the whole hour and the city is restored when the event ends.
 - **The end**: when its HP reaches zero it is **defeated**. If time runs out first, it **retreats**. Either way, the next day's event is prepared.
 
@@ -228,7 +237,7 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 | #2–10 | $50,000 and the "Kaiju Hunter" title |
 | #11–100 | $10,000 and the "Defender" title |
 
-**Fair play**: the server decides everything that matters. Your game only reports *how many* shots and punches landed. The server checks each batch against the weapons' fire rates, the time since your last report, and your distance from where the Kaiju is at that moment (it computes the Kaiju's path itself), then applies the damage per hit. The server also owns the schedule, HP, defeat, deaths, rankings and rewards, and the destruction follows from the event's server-issued seed, so it is the same for everyone.
+**Fair play**: the server decides everything that matters. Your game only reports *how many* hits landed with *each weapon*. The server applies each weapon's damage from its own table and charges every hit that weapon's firing time, cooldowns and reloads included. Each player earns one second of firing time per second, can bank up to 8 seconds, and gets one extra second for network delays, so nobody can land more hits than their guns can really fire, however the game is modified. It also checks your distance from where the Kaiju is at that moment (it computes the Kaiju's path itself). The server also owns the schedule, HP, defeat, deaths, rankings and rewards, and the destruction follows from the event's server-issued seed, so it is the same for everyone.
 
 ### Music
 
@@ -300,7 +309,8 @@ The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Return to 
 | It is too dark to see | Night follows Philippine time. Zoom the camera in; street lamps and lit windows help in the city. |
 | I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. Then press Sail on the map, take the boat from the marina on the east waterfront and head for open sea on the course shown. |
 | The Kaiju panel says "an older copy of the Kaiju functions is still on the server" | An old copy of `world-boss.sql` was run after the new one. Run the latest file again (or `drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`). |
-| My Kaiju damage does not count | Get within about 220 metres of it and be in its city. The panel (**B**) shows your hits as the server counts them. |
+| My Kaiju damage does not count | Get within your gun's reach (170 m for most guns; an amber crosshair means too far) and be in its city. The panel (**B**) shows your hits as the server counts them. |
+| The Kaiju panel says the functions are "missing or out of date" | The game was updated. Run the whole latest `supabase/world-boss.sql` again in the Supabase SQL Editor (it keeps your data). |
 | I cannot collect a reward | Stop fully at the marker, and lose all wanted stars first. |
 | I do not see my friend | Check you are both in the same city and both show **Online**. On one computer, use two different browsers. |
 

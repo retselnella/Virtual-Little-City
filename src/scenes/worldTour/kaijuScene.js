@@ -67,10 +67,10 @@ export function createKaiju(root) {
   const shock = new THREE.Mesh(ringGeometry, additive('#ffe3b0')); shock.visible = false; root.add(shock);
   const roarShell = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: '#cfe8ff', transparent: true, opacity: 0.15, depthWrite: false, side: THREE.BackSide })); disposables.push(roarShell.material); roarShell.visible = false; root.add(roarShell);
   const fireballs = Array.from({ length: 5 }, () => { const m = new THREE.Mesh(ball, additive('#ff6a1a')); m.visible = false; root.add(m); return m; });
-  const flashes = Array.from({ length: 6 }, () => { const m = new THREE.Mesh(ball, additive('#ffd08a')); m.visible = false; root.add(m); return { m, age: 9 }; });
+  const flashes = Array.from({ length: 16 }, () => { const m = new THREE.Mesh(ball, additive('#ffd08a')); m.visible = false; root.add(m); return { m, age: 9 }; });
   const dummy = new THREE.Object3D(), mouthWorld = new THREE.Vector3(), audio = createKaijuAudio();
   const boomed = new Set();
-  let lastStep = 0, lastPhase = '', ruinedSeen = null, flameCursor = 0, debrisCursor = 0, flashCursor = 0, smokeSites = [];
+  let lastHit = 0, lastStep = 0, lastPhase = '', ruinedSeen = null, flameCursor = 0, debrisCursor = 0, flashCursor = 0, smokeSites = [];
 
   const emitFlame = (from, dir, speed) => { const f = flames[flameCursor++ % FLAMES]; Object.assign(f, { x: from.x, y: from.y, z: from.z, vx: dir.x * speed + (Math.random() - 0.5) * 12, vy: dir.y * speed + (Math.random() - 0.5) * 8, vz: dir.z * speed + (Math.random() - 0.5) * 12, life: 1.1, size: 3 }); };
   const burst = (x, y, z, n, power, color) => { for (let k = 0; k < n; k++) { const d = debris[debrisCursor++ % DEBRIS]; Object.assign(d, { x: x + (Math.random() - 0.5) * 8, y: y + Math.random() * 6, z: z + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * power, vy: Math.random() * power * 0.9, vz: (Math.random() - 0.5) * power, life: 2.5 + Math.random(), size: 0.8 + Math.random() * 2.2, spin: Math.random() * 6 }); } };
@@ -138,6 +138,16 @@ export function createKaiju(root) {
     plate.emissiveIntensity = plateGlow; plate.emissive.set(plateGlow > 0 ? '#6fd3ff' : '#000000');
     // Footfalls: a thud and a puff of dust at each step.
     if (boss?.alive) { const step = Math.floor(stride / Math.PI); if (step !== lastStep) { lastStep = step; audio.play('step', loud * 0.7); burst(pose.x + Math.sin(pose.heading + Math.PI / 2) * (step % 2 ? 10 : -10), 0.5, pose.z + Math.cos(pose.heading + Math.PI / 2) * (step % 2 ? 10 : -10), 5, 12); } }
+    // Your hits land where you aimed: a spark for bullets, a fireball for rockets.
+    const hit = s.kaijuImpact;
+    if (hit && hit.id !== lastHit) {
+      lastHit = hit.id;
+      if (boss?.alive && s.time - hit.time < 0.5) {
+        const size = { rocket: 9, sniper: 3.2, shotgun: 2.6, revolver: 2.2, punch: 2 }[hit.kind] || 1.3;
+        flash(hit.x, hit.y, hit.z, size); if (size > 2) burst(hit.x, hit.y, hit.z, size > 5 ? 10 : 3, size > 5 ? 22 : 8);
+        if (size > 5) audio.play('blast', 0.5);
+      }
+    }
     // Buildings that fall: debris, dust and smoke that keeps rising from the ruins.
     const ruined = s.ruins?.ruined;
     if (ruined && ruinedSeen && ruined.size > ruinedSeen.size) for (const i of ruined) if (!ruinedSeen.has(i)) { const b = blocks[i]; burst(b.x, b.height ?? 10, b.z, 24, 34); flash(b.x, 8, b.z, 16); audio.play('collapse', loud); }
@@ -170,5 +180,7 @@ export function createKaiju(root) {
     root.remove(group, flameMesh, debrisMesh, smokeMesh, beam, beamCore, shock, roarShell, ...warnings, ...fireballs, ...flashes.map(f => f.m));
     disposables.forEach(d => d.dispose()); audio.dispose();
   }
-  return { update, dispose, pose: kaijuPose, height: KAIJU.height };
+  // An explosion anywhere (a rocket hitting the street): a fireball and flying debris.
+  const blast = (x, y, z) => { flash(x, y, z, 5); burst(x, y, z, 10, 16); audio.play('blast', 0.35); };
+  return { update, dispose, blast, pose: kaijuPose, height: KAIJU.height };
 }

@@ -3,7 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCharacter } from '../shared/character.js';
 import { createCar } from '../shared/car.js';
 import { createStreetNpc } from '../shared/streetNpc.js';
-import { ROADS, actor, guidePoint, onFoot, stepWorld, targetFor } from '../../models/worldTour/worldAdventure.js';
+import { ROADS, actor, attack, guidePoint, onFoot, stepWorld, targetFor } from '../../models/worldTour/worldAdventure.js';
+import { aimFromRay } from '../../models/worldTour/aiming.js';
+import { WEAPONS } from '../../models/worldTour/weapons.js';
 import { ACTIVE_UNIT } from '../../models/worldTour/worldPolice.js';
 import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.js';
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
@@ -29,9 +31,9 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.2;
-  renderer.domElement.tabIndex = 0; renderer.domElement.setAttribute('aria-label', 'Open world game. WASD to move, F to enter your car, J to attack, E to interact.'); host.appendChild(renderer.domElement);
+  renderer.domElement.tabIndex = 0; renderer.domElement.setAttribute('aria-label', 'Open world game. WASD to move, F to enter your car, J or click to attack (point with the mouse to aim), E to interact.'); host.appendChild(renderer.domElement);
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(55, 1, 0.3, 3200);
-  const orbit = new OrbitControls(camera, renderer.domElement); orbit.enablePan = false; orbit.enableDamping = true; orbit.minDistance = 12; orbit.maxDistance = 200; orbit.maxPolarAngle = Math.PI / 2.25;
+  const orbit = new OrbitControls(camera, renderer.domElement); orbit.enablePan = false; orbit.enableDamping = true; orbit.minDistance = 12; orbit.maxDistance = 200; orbit.maxPolarAngle = Math.PI * 0.6;
   const hemisphere = new THREE.HemisphereLight('#fff2df', '#54647f', 2.4); scene.add(hemisphere);
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
   const sky = createSky(scene, { hemisphere, sun });
@@ -466,11 +468,52 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     guns.flash(!!shot && shot.ttl > 0.07);
     if (s.driving || s.down) return;
     const gun = GUN_INFO[s.weapon] ? s.weapon : null;
-    poseArms(avatar.avatar, gun, s.aimTime > 0 || (!!gun && input.current.attack), s.punchTime, s.combo, shot ? shot.ttl / 0.12 : 0);
+    poseArms(avatar.avatar, gun, s.aimTime > 0 || (!!gun && (input.current.attack || pointer.hold)), s.punchTime, s.combo, shot ? shot.ttl / 0.12 : 0, s.aimTime > 0 ? s.aimPitch : 0);
   }
   function resize() { camera.aspect = host.clientWidth / Math.max(1, host.clientHeight); camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); }
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
   const lost = event => { event.preventDefault(); onError(); }; renderer.domElement.addEventListener('webglcontextlost', lost);
+  // Free aim with a mouse: the pointer is the crosshair. A click (without dragging the camera) fires once; holding the
+  // right button keeps firing; J fires too. Touch screens keep the automatic lock-on.
+  const canvas = renderer.domElement, raycaster = new THREE.Raycaster(), pointer = { ndc: null, press: null, hold: false, pending: false };
+  const aimMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthTest: false, depthWrite: false });
+  const aimRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 28), aimMaterial), aimDot = new THREE.Mesh(new THREE.CircleGeometry(0.16, 12), aimMaterial);
+  aimRing.add(aimDot); aimRing.renderOrder = 10; aimDot.renderOrder = 10; aimRing.visible = false; scene.add(aimRing);
+  const onPointerMove = e => {
+    if (e.pointerType === 'touch') { pointer.ndc = null; return; }
+    const r = canvas.getBoundingClientRect(); pointer.ndc = new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  };
+  const onPointerDown = e => { onPointerMove(e); if (e.pointerType === 'touch') return; if (e.button === 0) pointer.press = { x: e.clientX, y: e.clientY, at: performance.now() }; if (e.button === 2) pointer.hold = true; };
+  const onPointerUp = e => {
+    if (e.button === 2) pointer.hold = false;
+    if (e.button === 0 && pointer.press && performance.now() - pointer.press.at < 350 && Math.hypot(e.clientX - pointer.press.x, e.clientY - pointer.press.y) < 7) pointer.pending = true;
+    pointer.press = null;
+  };
+  const onPointerLeave = () => { pointer.ndc = null; pointer.hold = false; };
+  const noMenu = e => e.preventDefault();
+  canvas.addEventListener('pointermove', onPointerMove); canvas.addEventListener('pointerdown', onPointerDown); canvas.addEventListener('pointerup', onPointerUp); canvas.addEventListener('pointerleave', onPointerLeave); canvas.addEventListener('contextmenu', noMenu);
+  let cursor = '';
+  function aimRayFor(s) {
+    if (!pointer.ndc || paused.current || !onFoot(s) || s.down || !WEAPONS[s.weapon]?.gun) return null;
+    raycaster.setFromCamera(pointer.ndc, camera); const { origin: o, direction: d } = raycaster.ray;
+    return { o: { x: o.x, y: o.y, z: o.z }, d: { x: d.x, y: d.y, z: d.z }, near: camera.position.distanceTo(orbit.target) };
+  }
+  // The crosshair in the world: red on the kaiju or on someone you can hit, amber on the kaiju out of this gun's reach.
+  function showAim(s, ray) {
+    const want = ray ? 'crosshair' : ''; if (cursor !== want) { cursor = want; canvas.style.cursor = want; }
+    aimRing.visible = !!ray;
+    const aim = ray && aimFromRay(s, ray), label = aim ? `${aim.kind}${aim.part ? `:${aim.part}` : ''}` : '';
+    // What the crosshair is on, for assistive tools and browser tests.
+    if (canvas.dataset.aim !== label) canvas.dataset.aim = label;
+    if (!aim) return null;
+    const w = WEAPONS[s.weapon], p = s.player, flat = Math.hypot(aim.x - p.x, aim.z - p.z);
+    const inReach = aim.kind === 'kaiju' ? Math.hypot(s.boss.x - p.x, s.boss.z - p.z) <= w.reach : aim.kind === 'person' && flat <= w.range;
+    aimMaterial.color.set(aim.kind === 'kaiju' ? (inReach ? '#ff4b3e' : '#ffb35c') : aim.kind === 'person' && inReach ? (aim.target.kind === 'civilian' ? '#f3ece1' : '#ff727f') : '#ffffff');
+    aimMaterial.opacity = aim.kind === 'sky' || aim.kind === 'ground' || aim.kind === 'building' ? 0.55 : 0.95;
+    const back = Math.min(aim.distance, 0.5); aimRing.position.set(aim.x - ray.d.x * back, aim.y - ray.d.y * back, aim.z - ray.d.z * back);
+    aimRing.quaternion.copy(camera.quaternion); aimRing.scale.setScalar(Math.max(0.2, camera.position.distanceTo(aimRing.position) * 0.014) * (aim.kind === 'kaiju' && aim.part === 'head' ? 1.5 : 1));
+    return aim;
+  }
   renderer.setAnimationLoop(time => {
     const s = session.current;
     if (lastCity !== s.city) build(s.cityInfo);
@@ -479,7 +522,12 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const yaw = Math.atan2(orbit.target.x - camera.position.x, orbit.target.z - camera.position.z);
     // The metro timetable runs on the shared world clock, so every player sees the same train.
     s.worldTime = (clock?.current?.() ?? Date.now()) / 1000;
-    if (!paused.current && !document.hidden) stepWorld(s, input.current, dt, yaw);
+    const aimRay = aimRayFor(s), firing = !!aimRay && pointer.hold;
+    if (!paused.current && !document.hidden) {
+      stepWorld(s, firing ? { ...input.current, attack: true } : input.current, dt, yaw, aimRay);
+      if (pointer.pending && aimRay) { if (s.cooldown <= 0 || s.cooldown > 0.2) pointer.pending = false; if (s.cooldown <= 0) attack(s); } else pointer.pending = false;
+    }
+    const aimed = showAim(s, paused.current ? null : aimRay);
     const p = actor(s), point = guidePoint(s), step = paused.current || document.hidden ? 0 : dt;
     avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = 0.2 * (s.player.look?.scale || 1) + s.player.height; guns.set(s.weapon);
     posePlayer(s); avatar.rig.after(s.player, step);
@@ -487,6 +535,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       if (hit.id <= lastImpact) continue;
       lastImpact = hit.id;
       if (hit.blood && s.blood !== false) spray(hit);
+      if (hit.kind === 'blast') { kaiju.blast(hit.x, hit.y, hit.z); if (Math.hypot(hit.x - p.x, hit.z - p.z) < 40) shake = Math.min(0.9, shake + 0.5); }
       if (hit.kind !== 'pool' && Math.hypot(hit.x - p.x, hit.z - p.z) < 7) shake = Math.min(0.6, shake + (hit.kind === 'car' ? 0.35 : hit.kind === 'punch' ? 0.22 * hit.power : 0.12));
     }
     updateBlood(step);
@@ -512,11 +561,11 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     }
     for (const [id, model] of enemies) if (!s.enemies.some(e => e.id === id)) { dynamic.remove(model.avatar); enemies.delete(id); }
     // The ring marks exactly who an attack would hit now; while driving it marks the nearest threat.
-    const lock = !onFoot(s) && !s.driving ? null : s.driving ? s.enemies.filter(e => e.health > 0).sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0] : targetFor(s);
+    const lock = !onFoot(s) && !s.driving ? null : s.driving ? s.enemies.filter(e => e.health > 0).sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0] : aimRay ? (aimed?.kind === 'person' ? aimed.target : null) : targetFor(s);
     targetRing.visible = !!lock;
     if (lock) { targetRing.position.set(lock.x, 0.35, lock.z); targetRing.rotation.z = s.time * 2; targetRing.material.color.set(lock.kind === 'civilian' ? '#f3ece1' : '#ff727f'); }
     shotLines.forEach(line => { root.remove(line); line.geometry.dispose(); line.material.dispose(); });
-    shotLines = [...s.shots, ...remoteShots].map(shot => { const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(shot.x, 2.1, shot.z), new THREE.Vector3(shot.tx, 2, shot.tz)]); const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: shot.police ? '#ff7881' : shot.kaiju ? '#ffb86b' : '#fff4b0' })); root.add(line); return line; });
+    shotLines = [...s.shots, ...remoteShots].map(shot => { const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(shot.x, shot.y ?? 2.1, shot.z), new THREE.Vector3(shot.tx, shot.ty ?? 2, shot.tz)]); const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: shot.police ? '#ff7881' : shot.rocket ? '#ff8a2a' : shot.kaiju ? '#ffb86b' : '#fff4b0' })); root.add(line); return line; });
     traffic.forEach((model, i) => updateCar(model, s.traffic[i]));
     patrols.forEach((model, i) => {
       const car = s.policeCars[i]; updateCar(model, car);
@@ -529,6 +578,9 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     followY = followY === null ? surface : followY + (surface - followY) * (1 - Math.exp(-8 * dt));
     follow.set(p.x, 1.8 + followY + lift, p.z); shift.copy(follow).sub(orbit.target); camera.position.add(shift); orbit.target.copy(follow);
     orbit.enabled = !paused.current; orbit.update();
+    // Looking up (at the kaiju's head, say): the camera stops just above the ground and the view tilts up past you.
+    const floor = Math.max(followY + 0.9, islandData.terrainHeight(camera.position.x, camera.position.z) + 2.5);
+    if (camera.position.y < floor) { orbit.target.y += floor - camera.position.y; camera.position.y = floor; }
     // Keep the camera in front of walls, including when orbiting around a corner.
     const offset = camera.position.clone().sub(orbit.target); let fraction = 1;
     for (const b of s.blocks) {
@@ -564,5 +616,5 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     if (shaking) camera.position.sub(shakeOffset);
     if (time - uiTime > 100) { onUpdate(s); uiTime = time; }
   });
-  return () => { renderer.setAnimationLoop(null); observer.disconnect(); orbit.dispose(); disposeCity(); sky.dispose(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); renderer.domElement.removeEventListener('webglcontextlost', lost); renderer.dispose(); renderer.domElement.remove(); };
+  return () => { renderer.setAnimationLoop(null); observer.disconnect(); orbit.dispose(); disposeCity(); sky.dispose(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); renderer.domElement.removeEventListener('webglcontextlost', lost); canvas.removeEventListener('pointermove', onPointerMove); canvas.removeEventListener('pointerdown', onPointerDown); canvas.removeEventListener('pointerup', onPointerUp); canvas.removeEventListener('pointerleave', onPointerLeave); canvas.removeEventListener('contextmenu', noMenu); aimRing.geometry.dispose(); aimDot.geometry.dispose(); aimMaterial.dispose(); renderer.dispose(); renderer.domElement.remove(); };
 }

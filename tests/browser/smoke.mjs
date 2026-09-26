@@ -54,7 +54,12 @@ try {
   // The inventory: fists and the pistol to start with; number keys switch.
   assert.deepEqual(await page.locator('.weapon-bar button span').allInnerTexts(), ['Fists', 'Pistol']);
   await page.keyboard.press('Digit1'); assert.equal(await page.getByRole('button', { name: /Fists/ }).first().getAttribute('aria-pressed'), 'true');
-  await page.keyboard.press('Digit2'); assert.match(await page.locator('.weapon-status').innerText(), /PISTOL[\s\S]*48 \/ ∞/);
+  await page.keyboard.press('Digit2'); assert.match(await page.locator('.weapon-status').innerText(), /PISTOL[\s\S]*15 \/ ∞/);
+  // With a gun in hand the mouse pointer is a crosshair that knows what it is on.
+  const canvas = page.locator('.adventure-canvas canvas'), box = await canvas.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.7);
+  await page.waitForFunction(() => /^(ground|building|person|sky)/.test(document.querySelector('.adventure-canvas canvas').dataset.aim || ''), null, { timeout: 20000 });
+  assert.equal(await canvas.evaluate(el => el.style.cursor), 'crosshair');
   const playerMarker = page.locator('.adventure-radar svg > path').last();
   const before = await playerMarker.getAttribute('transform');
   await page.keyboard.down('KeyW'); await page.waitForTimeout(750); await page.keyboard.up('KeyW');
@@ -137,7 +142,7 @@ try {
   await friend.close();
   await page.locator('.adventure-online', { hasText: 'Local · 0 other tabs' }).waitFor({ timeout: 10000 });
   assert.deepEqual(errors, []); assert.deepEqual(violations, []); assert.deepEqual(external, [], 'no third-party requests');
-  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sailing from the east marina or the City Hub teleporter, dialogs that fit without scrolling, world boss panel, sailing course, teleport from any island, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
+  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sailing from the east marina or the City Hub teleporter, dialogs that fit without scrolling, mouse aiming crosshair, world boss panel, sailing course, teleport from any island, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.httpServer.close(resolve));
