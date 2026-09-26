@@ -7,6 +7,7 @@ import { ROADS, actor, attack, guidePoint, onFoot, stepWorld, targetFor } from '
 import { aimFromRay } from '../../models/worldTour/aiming.js';
 import { WEAPONS } from '../../models/worldTour/weapons.js';
 import { ACTIVE_UNIT } from '../../models/worldTour/worldPolice.js';
+import { BODY_TIME, bodyGone } from '../../models/worldTour/worldPedestrians.js';
 import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.js';
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
 import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.js';
@@ -434,7 +435,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     if (ROADS.some(r => Math.abs(Math.abs(x - r) - 12) < 1.6 || Math.abs(Math.abs(z - r) - 12) < 1.6)) return 0.27;
     return ROADS.some(r => Math.abs(x - r) < 10.6 || Math.abs(z - r) < 10.6) ? 0.19 : -0.08;
   }
-  function addPool(x, z, radius, delay, grow) { pools[poolCursor % BLOOD_POOLS] = { x, z, y: surfaceY(x, z) + (poolCursor % 7) * 0.003, radius, age: -delay, grow, life: 75 }; poolCursor++; }
+  function addPool(x, z, radius, delay, grow) { pools[poolCursor % BLOOD_POOLS] = { x, z, y: surfaceY(x, z) + (poolCursor % 7) * 0.003, radius, age: -delay, grow, life: BODY_TIME + 1.5 }; poolCursor++; }
   // Blood from punches, gunshots and vehicle hits: droplets arc under gravity and stain the ground where they land.
   function spray(hit) {
     if (hit.kind === 'pool') { addPool(hit.x + hit.dx * 0.9, hit.z + hit.dz * 0.9, 1.3 + Math.random() * 0.7, 0.8, 5); return; }
@@ -456,7 +457,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     bloodDrops.count = drops.length; bloodDrops.instanceMatrix.needsUpdate = true;
     pools.forEach((pool, i) => {
       pool.age += dt;
-      const size = pool.radius * Math.min(1, Math.max(0, pool.age) / pool.grow) * Math.min(1, Math.max(0, (pool.life - pool.age) / 4));
+      const size = pool.radius * Math.min(1, Math.max(0, pool.age) / pool.grow) * Math.min(1, Math.max(0, (pool.life - pool.age) / 2.5));
       if (size <= 0.001) { bloodPools.setMatrixAt(i, hidden); return; }
       matrix.makeScale(size, 1, size * 0.85).setPosition(pool.x, pool.y, pool.z); bloodPools.setMatrixAt(i, matrix);
     });
@@ -557,7 +558,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
         const model = createStreetNpc(dynamic, kit, { shirt: e.kind === 'police' ? '#4366af' : e.boss ? '#1f2026' : '#b64e6d', armed: true, police: e.kind === 'police', look: e.boss ? { skin: OFFICER_SKIN[hash % 4], hairStyle: 'cap', hair: '#d4a53a' } : { skin: OFFICER_SKIN[hash % 4], hairStyle: hash % 3 ? 'short' : 'cap', hair: '#221a16' } });
         const bar = kit.box([1.6, 0.15, 0.15], e.boss ? '#ffc34d' : '#ff747b', [0, 3.7, 0], model.avatar); bar.name = 'health'; model.rig = createRagdollRig(model.avatar, 'npc'); enemies.set(e.id, model);
       }
-      const model = enemies.get(e.id); model.rig.before(e); model.update(e, paused.current ? 0 : dt); model.rig.after(e, step); model.avatar.getObjectByName('health').visible = e.health > 0; model.avatar.getObjectByName('health').scale.x = Math.max(0.01, e.health / (e.boss ? 300 : 100) * 1.6);
+      const model = enemies.get(e.id); model.rig.before(e); model.update(e, paused.current ? 0 : dt); model.rig.after(e, step); model.avatar.getObjectByName('health').visible = e.health > 0; model.avatar.visible = !bodyGone(e, s.time); model.avatar.getObjectByName('health').scale.x = Math.max(0.01, e.health / (e.boss ? 300 : 100) * 1.6);
     }
     for (const [id, model] of enemies) if (!s.enemies.some(e => e.id === id)) { dynamic.remove(model.avatar); enemies.delete(id); }
     // The ring marks exactly who an attack would hit now; while driving it marks the nearest threat.
@@ -572,7 +573,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       model.lights.forEach((light, side) => { light.visible = ACTIVE_UNIT.includes(car.state) && Math.floor(s.time * 8) % 2 === side; });
     });
     // Far-away pedestrians (beyond the fog) are neither drawn nor animated.
-    pedestrians.forEach((model, i) => { const person = s.pedestrians[i]; model.avatar.visible = nearCamera(person); if (!model.avatar.visible) return; model.rig.before(person); model.update(person, paused.current ? 0 : dt); model.rig.after(person, step); });
+    pedestrians.forEach((model, i) => { const person = s.pedestrians[i]; model.avatar.visible = nearCamera(person) && !bodyGone(person, s.time); if (!model.avatar.visible) return; model.rig.before(person); model.update(person, paused.current ? 0 : dt); model.rig.after(person, step); });
     // The camera follows the ground under you (hills, or the car's height) but only a little of each jump.
     const surface = s.driving ? Math.max(0, s.car.y || 0) : s.riding ? s.train.y : s.boating ? -0.5 : islandData.terrainHeight(p.x, p.z), lift = onFoot(s) ? Math.max(0, (s.player.height || 0) - surface) * 0.3 : 0;
     followY = followY === null ? surface : followY + (surface - followY) * (1 - Math.exp(-8 * dt));

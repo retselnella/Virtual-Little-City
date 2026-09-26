@@ -41,3 +41,22 @@ test('in the city, a traffic car waits at a red light and drives on at green', (
   assert.ok(car.z >= 20, 'went on when the light turned green');
   assert.ok(signalAt(s.worldTime, 'ns') !== 'red' || car.z >= 20);
 });
+
+test('people wait at the kerb for the walk signal and a gap, and cars stop behind the crosswalk', () => {
+  const s = createSession(CITIES[0]); s.policeCars = []; s.traffic = []; s.player.x = -30; s.player.z = -40;
+  const walker = s.pedestrians.find(p => p.leader === null && !p.child);
+  s.pedestrians = [walker]; s.respawnCheck = 1e9; // nobody is sent off to fill street spots mid-test
+  Object.assign(walker, { axis: 'x', lane: -13, x: -20, z: -13, direction: 1, idle: 0, pause: 999, mode: 'walk', spotCheck: 999, home: null, walk: 1.6, role: 'business' });
+  // North–south traffic has green: the walker waits at the kerb before crossing the north–south road at x = 0.
+  s.worldTime = 1; for (let i = 0; i < 100; i++) { stepWorld(s, {}, 0.05); s.worldTime += 0.05; }
+  assert.ok(walker.x < -10.4 && walker.x > -14, `waiting at the kerb (x=${walker.x.toFixed(1)})`);
+  // When north–south traffic gets red, they cross, briskly.
+  s.worldTime = SIGNAL.green + SIGNAL.yellow + 0.2;
+  for (let i = 0; i < 260 && walker.x < 11; i++) { stepWorld(s, {}, 0.05); s.worldTime += 0.05; }
+  assert.ok(walker.x > 11, `crossed on red for the cars (x=${walker.x.toFixed(1)})`);
+  // A car waiting at red stops clear of the crosswalk (13 m from the crossing's centre).
+  const car = vehicle('t', -4, -80, 0); car.route = [{ x: -4, z: 100 }]; car.loop = false; s.traffic = [car]; s.pedestrians = [];
+  s.worldTime = SIGNAL.green + SIGNAL.yellow + 0.1;
+  for (let i = 0; i < 160; i++) { stepWorld(s, {}, 0.05); s.worldTime += 0.05; }
+  assert.ok(car.z + car.radius < -13.5, `front of the car behind the crosswalk (z=${car.z.toFixed(1)})`);
+});

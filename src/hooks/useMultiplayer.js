@@ -21,11 +21,18 @@ export function useMultiplayer(session, character, city) {
       onLobby: presence => alive && setLobby(presence),
       onStatus: next => alive && setStatus(next),
     };
-    connectMultiplayer(handlers).then(client => {
+    // Signing in can fail for a moment (no network yet, the server busy): keep trying, a little less often each time.
+    let wait = 2000, retry = null;
+    const connect = () => connectMultiplayer(handlers).then(client => {
       if (!alive) { client.close(); return; }
       current = transport.current = client; setSelfId(client.selfId);
       client.setProfile(encodeProfile(character, session.current.city)); client.join(session.current.city);
-    }).catch(error => { console.warn('Multiplayer unavailable', error); if (alive) setStatus({ mode: 'online', state: 'error' }); });
+    }).catch(error => {
+      console.warn('Multiplayer unavailable, retrying', error);
+      if (!alive) return;
+      setStatus({ mode: 'online', state: 'reconnecting' }); retry = setTimeout(connect, wait); wait = Math.min(30000, wait * 2);
+    });
+    connect();
     // Send this player's state: every SEND_INTERVAL while it changes, at least every HEARTBEAT_INTERVAL. Attacks made since
     // the last message go with it, renumbered so the sequence keeps rising when travel or recovery starts a new session.
     const sender = setInterval(() => {
@@ -40,7 +47,7 @@ export function useMultiplayer(session, character, city) {
       pruneRoster(roster.current, performance.now());
       if (alive) setPeers([...roster.current.players.values()].filter(p => p.profile && p.snapshots.length).map(p => { const at = p.snapshots[p.snapshots.length - 1]; return { id: p.id, name: p.profile.name, x: at.x, z: at.z }; }));
     }, 500);
-    return () => { alive = false; clearInterval(sender); clearInterval(housekeeping); current?.close(); transport.current = null; };
+    return () => { alive = false; clearTimeout(retry); clearInterval(sender); clearInterval(housekeeping); current?.close(); transport.current = null; };
   }, []);
   // Travelling switches to the new city's channel; nobody from the old city is drawn any more.
   useEffect(() => { clearRoster(roster.current); transport.current?.join(city); transport.current?.setProfile(encodeProfile(character, city)); }, [city]);

@@ -212,7 +212,7 @@ Each city has six contracts, 42 in total:
 - **Cover**: buildings, cars and lamp posts block bullets, for you and for anyone shooting at you. Standing still makes you easier to hit. Sprinting and distance make enemies miss more.
 - **Children** can never be targeted or hurt.
 - **Health**: at zero health you are **WASTED** and wake up at the City Hub. To heal, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills every gun.
-- **Blood** effects can be switched off in the pause menu.
+- **Bodies and blood** are cleared a few seconds (6) after someone falls. Blood effects can be switched off in the pause menu.
 
 ## 8. Kaiju: the world boss
 
@@ -241,7 +241,7 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 
 ### Music
 
-Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, the playlists (one per folder of the site's music) and their songs to pick from. It keeps playing everywhere in the game (on foot, driving, at sea, in every city), and the button turns green while music plays. It pauses when you switch to another browser tab or minimise the window, and carries on when you come back. (While sound plays, your browser shows a speaker icon on the game's tab; that is the browser's own indicator and cannot be hidden by the page.) Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
+Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, the playlists (one per folder of the site's music) and their songs to pick from. It keeps playing everywhere in the game (on foot, driving, at sea, in every city), and the button turns green while music plays. It keeps playing when you switch to another browser tab or minimise the window; pause it from the player, your keyboard's media keys, or the browser's media controls. (While sound plays, your browser shows a speaker icon on the game's tab; that is the browser's own indicator and cannot be hidden by the page.) Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
 
 ## 9. Police and your wanted level
 
@@ -264,7 +264,7 @@ Your car is the cyan coupe next to the City Hub. Walk up to it and press **F**. 
 
 ## 11. Life on the streets
 
-About 95 people live in each city. You will see families with children holding hands, office workers taking phone calls, joggers, and friends chatting. There are food stalls with vendors and queues, bus stops where people sit and wait, and benches. People walk to these places, stay a while and move on. Traffic drives in lanes and gives way to pedestrians. Violence nearby sends everyone running; vendors come back once it is calm.
+About 95 people live in each city. You will see families with children holding hands, office workers taking phone calls, joggers, and friends chatting. There are food stalls with vendors and queues, bus stops where people sit and wait, and benches. People walk to these places, stay a while and move on. Traffic drives in lanes, stops at red lights behind the crosswalk, and gives way to pedestrians. People on foot wait at the kerb and cross when the cars on that road have a red light and the way is clear, and they step around a car parked on the sidewalk, so walkers and cars never push into each other. Violence nearby sends everyone running; vendors come back once it is calm.
 
 ## 12. Playing together
 
@@ -276,7 +276,7 @@ The status under the city name shows your connection:
 | --- | --- |
 | **Online · N other players here** | Connected to the shared world. |
 | **Connecting to the shared world…** | Joining; this usually takes a moment. |
-| **Offline · playing solo** | The shared world could not be reached. The game works normally on its own. |
+| **Reconnecting to the shared world…** | The connection dropped (network, a sleeping laptop, an expired sign-in). The game reconnects by itself, retrying every few seconds, and keeps working meanwhile. If it never comes back, see [Turn on online play](#turn-on-online-play-supabase). |
 | **Local · N other tabs** | This site has no online server set up; only other tabs in *this* browser are shared. |
 
 Things to know:
@@ -351,7 +351,7 @@ Without this, only tabs of the same browser share the world. Online play uses a 
 7. **The Kaiju event**: in the SQL Editor, also run the whole of [`supabase/world-boss.sql`](supabase/world-boss.sql). It creates the event, damage, weekly board and reward tables (hidden from players; they can only use the game's checked functions) and the reward tiers, which you can change in the `boss_reward_tiers` table. Paste the whole file and click **Run** with nothing highlighted (with text highlighted, Supabase runs only the selection). Run it again whenever the game is updated; it keeps your data. Weeks are closed automatically the first time anyone opens the board after Monday 00:00 PH time; if you have the `pg_cron` extension, the file shows an optional schedule for it. Without this step, online play works but the Kaiju panel says the event server cannot be reached.
 8. **Check it**: the build log shows `Multiplayer: online via SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY`, and the game shows **Online · 0 other players here**.
 
-If it does not connect: **Offline** usually means anonymous sign-ins are off or the key is wrong. A status stuck on **Connecting…** usually means step 4 was not run. **Local** means the values were not found by the build.
+If it does not connect: a status stuck on **Reconnecting…** usually means anonymous sign-ins are off or the key is wrong (the browser console shows the reason). A status stuck on **Connecting…** usually means step 4 was not run. **Local** means the values were not found by the build.
 
 Usage note: each player sends about 10 position updates per second to every other player in the same city. Check your Supabase plan's Realtime limits before a large event.
 

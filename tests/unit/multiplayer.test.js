@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CITIES, attack, createSession, stepWorld } from '../../src/models/worldTour/worldAdventure.js';
-import { LOBBY_CHANNEL, MAX_REMOTE, RENDER_DELAY, STALE_AFTER, cityChannel, cityCounts, cleanActions, cleanProfile, cleanState, createRoster, dueActions, encodeProfile, encodeState, hasProfile, pruneRoster, receiveProfile, receiveState, samplePlayer, validId, visiblePlayers } from '../../src/models/worldTour/multiplayer.js';import { connectMultiplayer } from '../../src/services/multiplayerClient.js';
+import { LOBBY_CHANNEL, MAX_REMOTE, RENDER_DELAY, STALE_AFTER, cityChannel, cityCounts, cleanActions, cleanProfile, cleanState, createRoster, dueActions, encodeProfile, encodeState, hasProfile, pruneRoster, receiveProfile, receiveState, samplePlayer, validId, visiblePlayers } from '../../src/models/worldTour/multiplayer.js';import { RETRY_FIRST, connectMultiplayer } from '../../src/services/multiplayerClient.js';
 import { contentSecurityPolicy, realtimeOrigins } from '../../src/config/security.js';
 
 const look = { name: 'Ada', skin: '#6d452e', hair: '#161616', hairStyle: 'bun', shirt: '#e0b04b', pants: '#2f3338', shoes: '#e8e2d6', build: 'tall' };
@@ -105,6 +105,17 @@ test('the Supabase transport signs in anonymously and uses private, presence-key
   room.emit('presence', 'leave', { key: 'user-2', currentPresences: [], leftPresences: [{ v: 1 }] });
   assert.deepEqual(events.leaves, ['user-2']);
   assert.ok(events.statuses.includes('online'));
+  // A dropped lobby is rebuilt quietly (only the city counts wait); a dropped city channel shows "reconnecting" and is
+  // rebuilt with a refreshed session until it is online again.
+  const before = log.channels.length, auth = log.auth;
+  lobby.status('CHANNEL_ERROR'); assert.equal(events.statuses.at(-1), 'online', 'a lobby hiccup does not take you offline');
+  room.status('TIMED_OUT'); assert.equal(events.statuses.at(-1), 'reconnecting');
+  transport.send({ v: 1, x: 2 }); assert.notDeepEqual(log.sent.at(-1).message.payload.x, 2, 'nothing is sent on a dead channel');
+  await new Promise(resolve => setTimeout(resolve, RETRY_FIRST + 150));
+  assert.deepEqual(log.channels.slice(before).map(c => c.topic).sort(), [LOBBY_CHANNEL, cityChannel('miami')].sort(), 'both channels rebuilt');
+  assert.ok(log.auth > auth, 'with the session refreshed'); assert.equal(events.statuses.at(-1), 'online');
+  assert.ok(log.tracked.some(t => t.topic === cityChannel('miami') && t.payload.name), 'and the profile announced again');
+  transport.send({ v: 1, x: 3 }); assert.equal(log.sent.at(-1).message.payload.x, 3);
   transport.close(); assert.ok(log.removed && log.disconnected);
 });
 

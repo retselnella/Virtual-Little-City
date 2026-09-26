@@ -7,7 +7,8 @@ import { AUTH_OPTIONS, guestClient, signInGuest } from './guestSession.js';
 // and report through handlers: onState(id, raw), onProfile(id, raw), onLeave(id), onLobby(presence), onStatus(status).
 // Payloads are passed on raw: callers validate them with models/worldTour/multiplayer.js. profileOf(id) returns the
 // last profile a player announced in the current city, so a player who went quiet can be recognised again.
-//  - 'online': Supabase Realtime (anonymous sign-in, private channels, presence per city plus a lobby).
+//  - 'online': Supabase Realtime (anonymous sign-in, private channels, presence per city plus a lobby). It reconnects by
+//    itself: status goes 'connecting' → 'online', and 'reconnecting' while a lost channel is being rebuilt.
 //  - 'local': a BroadcastChannel between tabs of this browser, used when Supabase is not configured.
 
 export async function connectMultiplayer(handlers, { config = ONLINE, configured = ONLINE_CONFIGURED, createClient } = {}) {
@@ -23,21 +24,42 @@ async function supabaseTransport(handlers, config, createClient) {
   try {
     if (createClient) { client = createClient(config.url, config.key, AUTH_OPTIONS); session = await signInGuest(client); }
     else ({ client, session } = await guestClient(config));
-  } catch (error) { handlers.onStatus?.({ mode: 'online', state: 'error', reason: 'sign-in' }); throw error; }
+  } catch (error) { handlers.onStatus?.({ mode: 'online', state: 'reconnecting', reason: 'sign-in' }); throw error; }
   // Tabs of one browser share the anonymous session, so each tab gets its own presence key or they would hide each other.
   const selfId = session.user.id + '-' + tabNonce();
   await client.realtime.setAuth();
-  let profile = null, city = null, cityRoom = null, closed = false;
+  let profile = null, city = null, cityRoom = null, lobby = null, closed = false, roomReady = false;
   const status = state => handlers.onStatus?.({ mode: 'online', state });
   const presenceIds = channel => new Set(Object.keys(channel.presenceState()));
-  const lobby = client.channel(LOBBY_CHANNEL, { config: { private: true, presence: { key: selfId, enabled: true } } })
-    .on('presence', { event: 'sync' }, () => handlers.onLobby?.(Object.fromEntries(Object.entries(lobby.presenceState()).map(([id, metas]) => [id, metas[0]]))))
-    .subscribe(state => { if (state === 'SUBSCRIBED' && profile) lobby.track(profile); if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') status('error'); });
-  function join(next) {
-    if (closed || next === city) return;
+  // Staying online: a channel that errors or times out (a dropped network, a laptop waking up, a sign-in token that
+  // expired while the tab slept) is rebuilt after a short, growing pause, with the session refreshed first. Coming
+  // back to the tab or the network retries at once.
+  const retries = { lobby: { timer: null, delay: RETRY_FIRST }, room: { timer: null, delay: RETRY_FIRST } };
+  function retry(which, build) {
+    if (closed || retries[which].timer) return;
+    const r = retries[which];
+    r.timer = setTimeout(async () => {
+      r.timer = null; if (closed) return;
+      try { await client.auth.getSession?.(); await client.realtime.setAuth(); } catch { /* the rebuilt channel reports any problem */ }
+      build();
+    }, r.delay);
+    r.delay = Math.min(RETRY_MAX, r.delay * 2);
+  }
+  const healthy = which => { clearTimeout(retries[which].timer); retries[which] = { timer: null, delay: RETRY_FIRST }; };
+  function buildLobby() {
+    if (lobby) client.removeChannel(lobby);
+    const channel = lobby = client.channel(LOBBY_CHANNEL, { config: { private: true, presence: { key: selfId, enabled: true } } })
+      .on('presence', { event: 'sync' }, () => handlers.onLobby?.(Object.fromEntries(Object.entries(channel.presenceState()).map(([id, metas]) => [id, metas[0]]))))
+      .subscribe(state => {
+        if (channel !== lobby) return;
+        if (state === 'SUBSCRIBED') { healthy('lobby'); if (profile) channel.track(profile); }
+        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') retry('lobby', buildLobby); // only the city counts are missing meanwhile
+      });
+  }
+  function buildRoom() {
     if (cityRoom) client.removeChannel(cityRoom);
-    city = next; let ready = false;
-    const room = client.channel(cityChannel(city), { config: { private: true, broadcast: { self: false, ack: false }, presence: { key: selfId, enabled: true } } });
+    roomReady = false;
+    const room = cityRoom = client.channel(cityChannel(city), { config: { private: true, broadcast: { self: false, ack: false }, presence: { key: selfId, enabled: true } } });
     room.on('broadcast', { event: 'state' }, ({ payload }) => {
       // Only accept positions from players currently present in this city's channel.
       if (payload && payload.id !== selfId && presenceIds(room).has(payload.id)) handlers.onState?.(payload.id, payload);
@@ -47,20 +69,31 @@ async function supabaseTransport(handlers, config, createClient) {
       .on('presence', { event: 'leave' }, ({ key, currentPresences }) => { if (key !== selfId && !currentPresences?.length) handlers.onLeave?.(key); })
       .subscribe(state => {
         if (room !== cityRoom) return;
-        if (state === 'SUBSCRIBED') { ready = true; status('online'); if (profile) room.track(profile); }
-        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') status('error');
-        else if (state === 'CLOSED') ready = false;
+        if (state === 'SUBSCRIBED') { roomReady = true; healthy('room'); status('online'); if (profile) room.track(profile); }
+        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') { roomReady = false; status('reconnecting'); retry('room', buildRoom); }
+        else if (state === 'CLOSED') roomReady = false;
       });
-    cityRoom = room; cityRoom.isReady = () => ready;
   }
+  function wake() {
+    if (closed || globalThis.document?.hidden) return;
+    if (city && !roomReady) { healthy('room'); retry('room', buildRoom); }
+  }
+  globalThis.addEventListener?.('online', wake); globalThis.document?.addEventListener?.('visibilitychange', wake);
+  buildLobby();
   return {
-    mode: 'online', selfId, join,
-    send(state) { if (cityRoom?.isReady()) cityRoom.send({ type: 'broadcast', event: 'state', payload: { ...state, id: selfId } }); },
-    setProfile(next) { profile = next; lobby.track(next); if (cityRoom?.isReady()) cityRoom.track(next); },
+    mode: 'online', selfId,
+    join(next) { if (closed || next === city) return; city = next; healthy('room'); buildRoom(); },
+    send(state) { if (roomReady) cityRoom.send({ type: 'broadcast', event: 'state', payload: { ...state, id: selfId } }); },
+    setProfile(next) { profile = next; lobby?.track(next); if (roomReady) cityRoom.track(next); },
     profileOf(id) { return cityRoom?.presenceState()[id]?.at(-1) || null; },
-    close() { closed = true; client.removeAllChannels(); client.realtime.disconnect?.(); },
+    close() {
+      closed = true; clearTimeout(retries.lobby.timer); clearTimeout(retries.room.timer);
+      globalThis.removeEventListener?.('online', wake); globalThis.document?.removeEventListener?.('visibilitychange', wake);
+      client.removeAllChannels(); client.realtime.disconnect?.();
+    },
   };
 }
+export const RETRY_FIRST = 1000, RETRY_MAX = 15000;
 
 // Same-browser fallback: tabs announce themselves, answer each other's hellos and share states over BroadcastChannel.
 const tabNonce = () => (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g, '').slice(0, 12);

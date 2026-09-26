@@ -5,7 +5,7 @@
 export const SIGNAL = Object.freeze({ green: 12, yellow: 3, allRed: 1.5 });
 export const CYCLE = 2 * (SIGNAL.green + SIGNAL.yellow + SIGNAL.allRed);
 export const CROSSINGS = Object.freeze([-360, -240, -120, 0, 120, 240, 360]);
-export const STOP_LINE = 13; // from the crossing's centre: the cross street is 21 m wide, plus the crosswalk
+export const STOP_LINE = 17; // from the crossing's centre: behind the crosswalk (13 m out, where the sidewalks meet the road)
 const HALF = SIGNAL.green + SIGNAL.yellow + SIGNAL.allRed;
 
 // 'green', 'yellow' or 'red' for traffic moving along `axis` ('ns': along z, 'ew': along x) at world time `t` (s).
@@ -13,6 +13,12 @@ export function signalAt(t, axis) {
   const phase = ((t % CYCLE) + CYCLE) % CYCLE, local = axis === 'ns' ? phase : (phase + HALF) % CYCLE;
   return local < SIGNAL.green ? 'green' : local < SIGNAL.green + SIGNAL.yellow ? 'yellow' : 'red';
 }
+// Seconds of red left for traffic along `axis` (0 when it is not red): the time people on foot have to cross that road.
+export function redLeft(t, axis) {
+  const phase = ((t % CYCLE) + CYCLE) % CYCLE, local = axis === 'ns' ? phase : (phase + HALF) % CYCLE;
+  return local >= SIGNAL.green + SIGNAL.yellow ? CYCLE - local : 0;
+}
+export const inCity = (x, z) => Math.abs(x) <= 372 && Math.abs(z) <= 372;
 const nearest = v => CROSSINGS.reduce((best, n) => Math.abs(v - n) < Math.abs(v - best) ? n : best, CROSSINGS[0]);
 // How far `car` is from the stop line it must stop at, or null when it may drive on. Cars already past the line (in
 // the crossing) keep going; so do cars that cannot stop in time on yellow.

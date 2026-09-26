@@ -4,6 +4,7 @@ import { sceneryLayout } from './worldLayout.js';
 import { ISLAND_EXTENT, MARINA, SHORE_INSET, formSurface, islandFor, lakeShore } from './worldIsland.js';
 import { STATIONS, metroPillars } from './metro.js';
 import { blockHit } from './aiming.js';
+import { BODY_TIME } from './worldPedestrians.js';
 
 // Rapier (https://rapier.rs) runs World Tour's rigid bodies, vehicles, character movement, ragdolls and bullet rays.
 // Gameplay code keeps plain session objects (x, z, vx, vz, heading...) as its source of truth: each substep this module
@@ -380,9 +381,9 @@ export function stepPhysics(s, dt) {
     if (aboard) { entry.last = { x: person.x, z: person.z }; continue; }
     moveCharacter(P, entry, dt, person === s.player ? person.velocityY || 0 : person.vy || 0);
   }
-  // Keep only a handful of dead bodies simulated; the rest keep their final pose.
+  // Keep only a handful of dead bodies simulated; the rest keep their final pose (and are cleared after BODY_TIME).
   const dead = P.ragdolls.filter(r => r.entry.owner.health <= 0 && r.entry.owner !== s.player);
-  for (const ragdoll of dead) if (ragdoll.age > 12 || (ragdoll.age > 2 && Object.values(ragdoll.bodies).every(({ body }) => body.isSleeping()))) freezeRagdoll(P, ragdoll);
+  for (const ragdoll of dead) if (ragdoll.age > BODY_TIME || (ragdoll.age > 2 && Object.values(ragdoll.bodies).every(({ body }) => body.isSleeping()))) freezeRagdoll(P, ragdoll);
   while (P.ragdolls.length > MAX_ACTIVE_RAGDOLLS) { const oldest = P.ragdolls.filter(r => r.entry.owner.health <= 0).sort((a, b) => b.age - a.age)[0]; if (!oldest) break; freezeRagdoll(P, oldest); }
 
   syncKaiju(P, s.boss);

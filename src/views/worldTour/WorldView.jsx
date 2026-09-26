@@ -14,8 +14,8 @@ import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
 // Connection chip: who else is here, and whether this is the shared online world or the same-browser fallback.
 function onlineLabel({ status, peers }) {
   const others = peers.length, players = `${others} other player${others === 1 ? '' : 's'} here`;
-  if (status.state === 'error') return ['offline', 'Offline · playing solo'];
   if (status.mode === 'local') return ['local', `Local · ${others} other tab${others === 1 ? '' : 's'}`];
+  if (status.state === 'reconnecting' || status.state === 'error') return ['connecting', globalThis.navigator?.onLine === false ? 'No internet · reconnecting…' : 'Reconnecting to the shared world…'];
   if (status.state !== 'online') return ['connecting', 'Connecting to the shared world…'];
   return ['online', `Online · ${players}`];
 }

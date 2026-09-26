@@ -1,11 +1,15 @@
 import { ROAD_GRID, length, random, stepCharacterBody } from './worldPhysics.js';
 import { sceneryLayout } from './worldLayout.js';
+import { inCity, redLeft } from './trafficLights.js';
 
 // Sidewalk street life: families with children, office workers, joggers and friends walking together, plus the people
 // at street spots (worldLayout.js): vendors behind food stalls, customers queuing, commuters at bus stops, people on
 // benches and friends chatting. Walkers stop at spots they pass, stay a while and move on, so spots keep changing.
 // Pedestrians walk sidewalk lanes 13 units from each road centre and may turn at corners.
 const SIDEWALK = 13;
+// Seconds a body stays where it fell before it is cleared away (with its blood); the person re-enters later elsewhere.
+export const BODY_TIME = 6;
+export const bodyGone = (person, now) => person.health <= 0 && person.deadAt !== undefined && now - person.deadAt > BODY_TIME;
 const CORNERS = ROAD_GRID.flatMap(road => [road - SIDEWALK, road + SIDEWALK]);
 const SKIN = ['#f3cfb0', '#e0ac85', '#c18b63', '#9a6644', '#6d452e', '#4d3122'];
 const HAIR = ['#2a211c', '#4b3428', '#7d532f', '#c7a266', '#161616', '#a7a39c', '#8c3b2b'];
@@ -179,13 +183,38 @@ function crossedCorner(before, after) {
   return CORNERS.find(c => (before - c) * (after - c) < 0 && Math.abs(c) < 420);
 }
 function nearRoad(value) { return ROAD_GRID.some(road => Math.abs(value - road) < 12); }
+const CURB = 10.6;
+// Crossing the road ahead, like careful people do: wait at the kerb for the walk signal (the traffic on that road has a
+// red light long enough to get across) and for a gap, so walkers and cars never end up pushing into each other. Out of
+// town, where there are no lights, only the gap counts. Returns 'wait', 'cross' (on the carriageway) or null.
+function crossing(s, person, along, cars) {
+  const pos = person[along], dir = person.direction, road = ROAD_GRID.find(r => Math.abs(r - pos) < CURB), onRoad = road !== undefined;
+  const ahead = onRoad ? null : ROAD_GRID.find(r => { const d = (r - pos) * dir; return d > CURB && d < CURB + 2.4; });
+  if (onRoad) return 'cross';
+  if (ahead === undefined || ahead === null) return null;
+  const traffic = along === 'x' ? 'ns' : 'ew', x = along === 'x' ? ahead : person.lane, z = along === 'x' ? person.lane : ahead;
+  if (inCity(x, z) && redLeft(s.worldTime ?? s.time, traffic) < 21 / (person.walk * 1.5) + 1) return 'wait';
+  for (const car of cars) {
+    if (!car) continue;
+    const onIt = Math.abs((traffic === 'ns' ? car.x : car.z) - ahead) < CURB + 1, gap = (traffic === 'ns' ? car.z : car.x) - person.lane;
+    if (!onIt) continue;
+    const toward = -(traffic === 'ns' ? car.vz : car.vx) * Math.sign(gap || 1), speed = Math.hypot(car.vx || 0, car.vz || 0);
+    if (Math.abs(gap) < 5 || (toward > 1.5 && Math.abs(gap) < 12 + speed * 2.5)) return 'wait';
+  }
+  return null;
+}
+// A car standing on the sidewalk (parked, crashed or pulled over) is walked around.
+function blockingCar(person, along, cars) {
+  const perp = along === 'z' ? 'x' : 'z';
+  return cars.find(car => car && Math.hypot(car.vx || 0, car.vz || 0) < 1 && (car[along] - person[along]) * person.direction > 0 && (car[along] - person[along]) * person.direction < 5 && Math.abs(car[perp] - person.lane) < 2.8);
+}
 function frightened(s, person, player) {
   const alarm = s.alarm && s.time - s.alarm.time < 7 && length(person, s.alarm) < s.alarm.radius;
   return !!alarm || (s.heat > 0 && s.quiet < 8 && length(person, player) < 60);
 }
 
 export function stepPedestrians(s, player, dt) {
-  const people = s.pedestrians, spots = sceneryLayout().spots;
+  const people = s.pedestrians, spots = sceneryLayout().spots, cars = [s.car, ...(s.traffic || []), ...(s.policeCars || [])];
   if (!s.spots) s.spots = spots.map(spot => spot.slots.map(() => null));
   const leaders = new Set(people.filter(p => p.leader !== null).map(p => people[p.leader]));
   for (const person of people) {
@@ -243,7 +272,16 @@ export function stepPedestrians(s, player, dt) {
       } else speed = afraid ? (person.child ? 5.5 : 7) : person.walk;
     }
     if (person[along] > 420) person.direction = -1; else if (person[along] < -420) person.direction = 1;
-    const before = person[along], forward = person.direction * speed, correction = Math.max(-2, Math.min(2, (person.lane - person[perp]) * 2));
+    let lane = person.lane;
+    if (speed && !afraid) {
+      const road = crossing(s, person, along, cars);
+      if (road === 'wait') { speed = 0; person.idleHeading = along === 'x' ? (person.direction > 0 ? Math.PI / 2 : -Math.PI / 2) : person.direction > 0 ? 0 : Math.PI; }
+      else if (road === 'cross') speed *= 1.5; // across the road briskly
+      const car = speed && blockingCar(person, along, cars);
+      if (car) person.dodge = { side: person.lane >= car[perp] ? 1 : -1, until: s.time + 2.5 };
+    }
+    if (person.dodge && s.time < person.dodge.until) lane += person.dodge.side * 3.4; else person.dodge = null;
+    const before = person[along], forward = person.direction * speed, correction = Math.max(-2, Math.min(2, (lane - person[perp]) * 2));
     stepCharacterBody(person, along === 'x' ? forward : correction, along === 'z' ? forward : correction, dt);
     person.heading = speed ? Math.atan2(along === 'x' ? forward : correction * 0.2, along === 'z' ? forward : correction * 0.2) : person.idleHeading ?? person.heading;
     const corner = speed ? crossedCorner(before, person[along]) : undefined;
@@ -256,11 +294,12 @@ export function stepPedestrians(s, player, dt) {
   if (s.respawnCheck > 0) return;
   s.respawnCheck = 1;
   fillSpots(s, leaders);
-  // Bodies are cleared once nobody in the group is near the player; the group re-enters elsewhere as new pedestrians.
+  // A body is cleared a few seconds after it falls (bodyGone). Once nobody in its group is near the player, the group
+  // re-enters elsewhere as new pedestrians.
   const groups = new Map();
   for (const person of people) { if (!groups.has(person.group)) groups.set(person.group, []); groups.get(person.group).push(person); }
   for (const members of groups.values()) {
-    if (!members.some(m => m.health <= 0 && s.time - (m.deadAt ?? s.time) > 40)) continue;
+    if (!members.some(m => bodyGone(m, s.time))) continue;
     if (members.some(m => length(m, player) < 150)) continue;
     // A vendor reopens their own stall, once it is well away from the player; everyone else re-enters as a walker.
     const home = members.length === 1 && members[0].home;

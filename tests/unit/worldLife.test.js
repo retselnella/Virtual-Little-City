@@ -208,3 +208,15 @@ test('the chosen build sizes the player, and a new look keeps position and motio
   for (let i = 0; i < 20; i++) stepWorld(s, { forward: true }, 0.05);
   assert.ok(Math.hypot(s.player.x - x, s.player.z - z) > 3, 'the rebuilt capsule keeps walking');
 });
+
+test('a body and its blood are cleared a few seconds after the person falls', async () => {
+  const { BODY_TIME, bodyGone } = await import('../../src/models/worldTour/worldPedestrians.js');
+  const { CITIES, attack, createSession, stepWorld } = await import('../../src/models/worldTour/worldAdventure.js');
+  const s = createSession(CITIES[0]); s.traffic = []; s.policeCars = []; s.pedestrians = []; s.blocks = [];
+  s.enemies = [{ id: 'g', kind: 'gang', x: 8, z: 18, health: 30, cooldown: 99, heading: 0 }]; s.aimYaw = Math.PI; s.cooldown = 0;
+  attack(s); const body = s.enemies[0];
+  assert.equal(body.health, 0); assert.equal(bodyGone(body, s.time), false, 'it stays down for a moment');
+  for (let i = 0; i < (BODY_TIME + 0.5) / 0.05; i++) stepWorld(s, {}, 0.05);
+  assert.equal(bodyGone(body, s.time), true, `gone after ${BODY_TIME} s`);
+  assert.ok(BODY_TIME <= 8, 'a few seconds, not minutes');
+});
