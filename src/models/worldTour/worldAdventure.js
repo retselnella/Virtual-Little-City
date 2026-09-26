@@ -1,4 +1,4 @@
-import { ROAD_GRID, vehicle, createTraffic, createPatrols, driveVehicle, steerVehicle, stepCharacterBody, pushCharacter, angleDelta, random } from './worldPhysics.js';
+import { ROAD_GRID, vehicle, createTraffic, createPatrols, driveVehicle, steerVehicle, stepCharacterBody, pushCharacter, angleDelta, random, inputAxes } from './worldPhysics.js';
 import { stepPhysics, castShot } from './physicsEngine.js';
 import { updatePolice } from './worldPolice.js';
 import { createPedestrians, stepPedestrians } from './worldPedestrians.js';
@@ -528,7 +528,7 @@ function stepSimulation(s, input, dt, yaw) {
   }
   if (s.stun > 0) s.stun = Math.max(0, s.stun - dt);
   const p = actor(s), control = !down && !(s.player.knockdown > 0) && !(s.stun > 0) ? input : {};
-  const forward = Number(!!control.forward) - Number(!!control.backward), right = Number(!!control.right) - Number(!!control.left);
+  const { forward, right } = inputAxes(control);
   if (s.boating) {
     const island = islandFor(s.city);
     stepBoat(s.boat, island, control, dt);
@@ -537,7 +537,8 @@ function stepSimulation(s, input, dt, yaw) {
   const guide = !s.mission && s.waypoint;
   if (guide && distance(p, guide) < 15) { notify(s, `You have arrived: ${guide.label}.`); s.waypoint = null; }
   if (onFoot(s)) {
-    const length = Math.hypot(forward, right) || 1, speed = control.run ? 15 * (p.look?.speed || 1) : 8;
+    // A joystick walks slower the less it is pushed; keys and buttons are always full speed.
+    const push = Math.min(1, Math.hypot(forward, right)), length = push || 1, speed = (control.run ? 15 * (p.look?.speed || 1) : 8) * (control.stick ? Math.max(0.35, push) : 1);
     const dx = (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
     const dz = (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
     stepCharacterBody(p, dx, dz, dt);

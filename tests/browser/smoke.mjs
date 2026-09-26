@@ -142,7 +142,29 @@ try {
   await friend.close();
   await page.locator('.adventure-online', { hasText: 'Local · 0 other tabs' }).waitFor({ timeout: 10000 });
   assert.deepEqual(errors, []); assert.deepEqual(violations, []); assert.deepEqual(external, [], 'no third-party requests');
-  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sailing from the east marina or the City Hub teleporter, dialogs that fit without scrolling, mouse aiming crosshair, world boss panel, sailing course, teleport from any island, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts.');
+  // Phones and tablets get touch controls: a joystick, a fire button with actions around it, and cards that fold away.
+  const phone = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+  const mobile = await phone.newPage(); mobile.on('pageerror', error => errors.push(error.message));
+  await mobile.goto(base, { waitUntil: 'networkidle' });
+  await mobile.getByRole('button', { name: 'Start playing ↗' }).click();
+  await mobile.waitForFunction(() => document.querySelector('.adventure-canvas canvas') && !document.querySelector('.adventure-loading'), null, { timeout: 90000 });
+  const inView = async selector => mobile.locator(selector).evaluate(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; });
+  for (const selector of ['.touch-stick-base', '.touch-fire', '.touch-jump', '.touch-vehicle', '.touch-info-toggle', '.adventure-stats']) assert.ok(await inView(selector), `${selector} on screen in landscape`);
+  assert.equal(await mobile.locator('.adventure-actions').isVisible(), false, 'no keyboard buttons on a phone');
+  const spot = async () => mobile.locator('.adventure-radar svg > path').last().getAttribute('transform');
+  const startSpot = await spot(), stick = await mobile.locator('.touch-stick').boundingBox();
+  await mobile.mouse.move(stick.x + stick.width * 0.4, stick.y + stick.height * 0.6); await mobile.mouse.down();
+  await mobile.mouse.move(stick.x + stick.width * 0.4, stick.y + stick.height * 0.6 - 60, { steps: 4 });
+  await mobile.waitForFunction(start => document.querySelector('.adventure-radar svg > path:last-of-type')?.getAttribute('transform') !== start, startSpot, { polling: 250, timeout: 60000 });
+  await mobile.mouse.up();
+  await mobile.getByRole('button', { name: 'Fire' }).click(); await mobile.waitForFunction(() => /14 \/ ∞/.test(document.querySelector('.weapon-status')?.textContent || ''), null, { timeout: 20000 });
+  await mobile.locator('.touch-info-toggle').click(); assert.ok(await mobile.locator('.touch-info .adventure-objective').isVisible(), 'the objective card opens');
+  await mobile.setViewportSize({ width: 390, height: 844 });
+  for (const selector of ['.touch-stick-base', '.touch-fire', '.adventure-stats']) assert.ok(await inView(selector), `${selector} on screen in portrait`);
+  assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await mobile.screenshot({ path: 'test-results/touch-portrait.png' });
+  await phone.close();
+  console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sailing from the east marina or the City Hub teleporter, dialogs that fit without scrolling, mouse aiming crosshair, world boss panel, sailing course, teleport from any island, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts, touch controls (joystick, fire button, folding cards).');
 } finally {
   await browser?.close();
   await new Promise(resolve => server.httpServer.close(resolve));

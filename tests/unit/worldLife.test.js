@@ -220,3 +220,18 @@ test('a body and its blood are cleared a few seconds after the person falls', as
   assert.equal(bodyGone(body, s.time), true, `gone after ${BODY_TIME} s`);
   assert.ok(BODY_TIME <= 8, 'a few seconds, not minutes');
 });
+
+test('the touch joystick is analog: a light push walks slowly, the edge sprints, cars steer smoothly', async () => {
+  const { inputAxes } = await import('../../src/models/worldTour/worldPhysics.js');
+  const { CITIES, createSession, stepWorld } = await import('../../src/models/worldTour/worldAdventure.js');
+  assert.deepEqual(inputAxes({ forward: true, left: true }), { forward: 1, right: -1 });
+  assert.deepEqual(inputAxes({ stick: { x: 0.5, y: -0.25 } }), { forward: -0.25, right: 0.5 });
+  const walked = stick => {
+    const s = createSession(CITIES[0]); s.traffic = []; s.pedestrians = []; s.policeCars = [];
+    const from = { x: s.player.x, z: s.player.z };
+    for (let i = 0; i < 20; i++) stepWorld(s, { stick, forward: stick.y > 0.3, run: Math.hypot(stick.x, stick.y) > 0.92 }, 0.05, Math.PI);
+    return Math.hypot(s.player.x - from.x, s.player.z - from.z);
+  };
+  const slow = walked({ x: 0, y: 0.4 }), full = walked({ x: 0, y: 0.9 }), sprint = walked({ x: 0, y: 1 });
+  assert.ok(slow < full * 0.7 && full < sprint * 0.8, `light ${slow.toFixed(1)} < full ${full.toFixed(1)} < sprint ${sprint.toFixed(1)}`);
+});

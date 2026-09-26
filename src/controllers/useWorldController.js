@@ -5,6 +5,7 @@ import { disposePhysics } from '../models/worldTour/physicsEngine.js';
 
 import { readWorldSave, serializeWorldSave, writeWorldSave } from '../services/worldStorage.js';
 import { readBloodPreference, writeBloodPreference } from '../services/preferences.js';
+import { useTouchUi } from '../hooks/useTouchUi.js';
 import { useWorldInput } from '../hooks/useWorldInput.js';
 import { useMultiplayer } from '../hooks/useMultiplayer.js';
 import { useWorldBoss } from '../hooks/useWorldBoss.js';
@@ -23,7 +24,8 @@ export function useWorldController(character = null, suspended = false) {
   if (!session.current) session.current = sessionFor(CITIES.find(c => c.id === initial.city), initial, blood, character);
   const [hud, setHud] = useState(() => snapshot(session.current)), [panel, setPanel] = useState(null), [ready, setReady] = useState(false), [error, setError] = useState(false), [storage, setStorage] = useState(true);
   const host = useRef(null), paused = useRef(false), lastSave = useRef(''), [teleported, setTeleported] = useState(0), [bigMap, setBigMap] = useState(false);
-  const { input, clear, touchControl } = useWorldInput(paused, action, setPanel);
+  const { input, clear, touchControl, setStick } = useWorldInput(paused, action, setPanel);
+  const touch = useTouchUi();
   paused.current = !!panel || error || suspended;
   useEffect(() => { if (suspended) clear(); }, [suspended]);
   useEffect(() => { setAppearance(session.current, character); setHud(snapshot(session.current)); }, [character]);
@@ -104,5 +106,5 @@ export function useWorldController(character = null, suspended = false) {
   function guide(point) { setWaypoint(session.current, point); setHud(snapshot(session.current)); open(null); }
   const island = islandFor(city.id), playerName = displayName(character), region = island.regionAt(p.x, p.z, city.district), weather = weatherLabel(sky);
   async function claimRewards() { const cash = await boss.claim(); if (cash) { notify(session.current, `Weekly boss rewards claimed: +$${cash.toLocaleString()}.`); save(session.current); setHud(snapshot(session.current)); } }
-  return { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), bigMap, setBigMap, teleport: id => travel(id, 'teleport'), teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
+  return { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), bigMap, setBigMap, teleport: id => travel(id, 'teleport'), teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
 }

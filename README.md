@@ -83,7 +83,15 @@ Movement follows the camera: **W** always walks the way the camera faces.
 
 ### Touch screens
 
-On phones and tablets, on-screen arrows move you, **Run** sprints, and **Jump** (or **Brake** in a car) is next to them. The buttons at the bottom right enter and exit the car, attack, interact, switch weapon and reload. Drag the city to turn the camera, and pinch to zoom.
+Phones and tablets get touch controls, laid out like mobile shooters (they turn on by themselves on any device you use with your fingers; add `?touch=1` or `?touch=0` to the address to force them on or off):
+
+- **Joystick** (lower left): put your thumb down anywhere in the lower-left area and drag. Push a little to walk slowly, further to walk, and to the edge to **sprint**. In a car or the boat it steers and drives.
+- **Fire** (the big red button, lower right): tap to shoot or punch, hold to keep firing. The game aims for you at the best target in front of the camera (the ring on the ground shows who). In a car it becomes **Brake**.
+- Around it: **Jump**, **Reload**, **Use** (collect, deliver, metro, shop, heal) and **Car** (get in or out of your car or the boat). Tap a gun in the weapon bar above them to switch.
+- **Drag anywhere else** on the screen to turn the camera; pinch to zoom.
+- **Cards fold away**: tap the pill at the top left (city · objective) to open your objective and location, tap the police pill to see what the police are doing, and tap **×** on the minimap to hide it (the ◎ button brings it back). Tap the minimap to see the whole island.
+
+It works in portrait and landscape, on small phones and large tablets; everything stays clear of notches and the home bar.
 
 Opening any menu pauses the game.
 

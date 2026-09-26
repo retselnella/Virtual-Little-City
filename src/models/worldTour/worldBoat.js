@@ -2,6 +2,7 @@
 // sea to the others. Boats are simple displacement craft (thrust, drag, rudder that bites with speed) on a flat sea;
 // they cannot run onto land or through the pier. Heading uses the game's convention, atan2(dx, dz).
 import { MARINA } from './worldIsland.js';
+import { inputAxes } from './worldPhysics.js';
 
 export const BOAT = Object.freeze({ radius: 3.2, thrust: 12, reverse: 5, drag: 0.42, top: 28, turn: 0.95 });
 export function createBoat(at = MARINA.mooring) { return { id: 'boat', kind: 'boat', x: at.x, z: at.z, heading: at.heading, speed: 0, vx: 0, vz: 0, steer: 0, impact: 0 }; }
@@ -11,7 +12,7 @@ export function inWater(island, x, z, radius = BOAT.radius) {
   return !onPier(x, z, radius) && Math.hypot(x, z) > island.coastRadius(Math.atan2(z, x)) + radius - 2;
 }
 export function stepBoat(boat, island, input, dt) {
-  const throttle = (input.forward ? 1 : 0) - (input.backward ? 1 : 0), steer = Number(!!input.left) - Number(!!input.right);
+  const throttle = (input.forward ? 1 : 0) - (input.backward ? 1 : 0), steer = -inputAxes(input).right;
   const push = throttle > 0 ? BOAT.thrust * (input.run ? 1.25 : 1) : throttle < 0 ? -BOAT.reverse : 0;
   boat.speed += (push - boat.speed * BOAT.drag * (throttle ? 1 : 2.2)) * dt;
   boat.speed = Math.max(-8, Math.min(BOAT.top * (input.run ? 1.2 : 1), boat.speed));

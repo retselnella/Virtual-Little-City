@@ -10,6 +10,7 @@ import { BOSS_NAME } from '../../models/worldTour/bossRules.js';
 import { BossBanner, BossHits, BossPanel, WorldAtlas } from './bossViews.jsx';
 import { ShopPanel, WeaponBar } from './weaponViews.jsx';
 import { MusicPanel } from './musicViews.jsx';
+import { TouchActions, TouchStick } from './touchControls.jsx';
 import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
 import { MAX_STARS, escapeTime, starsOf } from '../../models/worldTour/wanted.js';
 // A reason that will not go away by retrying: the site's Supabase setup needs a step (README, "Turn on online play").
@@ -57,8 +58,10 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, bigMap, setBigMap, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, bigMap, setBigMap, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [picked, setPicked] = useState(null);
+  // Touch screens: the cards fold away so the game stays visible (tap to open them).
+  const [infoOpen, setInfoOpen] = useState(false), [policeOpen, setPoliceOpen] = useState(false), [mapHidden, setMapHidden] = useState(false);
   const now = boss.clock.current(), bossEvent = boss.event;
   const clock = formatClock(sky.clock), [onlineState, onlineText] = onlineLabel(online);
   const course = hud.course, sailing = hud.boating && course;
@@ -93,7 +96,27 @@ export default function WorldView({ controller, onEditCharacter }) {
     text: !hud.boating ? `Your speedboat is moored at the marina pier on the east waterfront, ${marina.distance} m ${marina.direction}. Follow the gold marker, then press F beside the boat.` : `${(course.remaining / 1000).toFixed(1)} km of open sea to ${course.name}. Keep the arrow ahead; hold Shift for full power.`,
     arrow: hud.boating ? course.bearing - hud.boat.heading : null,
   } : hud.riding ? { kicker: 'CITY METRO', title: hud.train.station !== null ? `Stopped at ${STATIONS[hud.train.station].name}` : `Next stop: ${STATIONS[hud.train.next].name}`, text: 'Press E while the train is stopped to get off.' } : null;
-  return <div className={`adventure sky-${sky.kind} phase-${sky.phase}`} style={{ '--city-accent': city.color, '--night': sky.night.toFixed(2), '--wet': sky.rain.toFixed(2) }}>
+  const location = <section className="adventure-location">
+      <span className="adventure-kicker">{city.country} / {city.region}</span>
+      <h1>{city.name}<span>.</span></h1>
+      <div><i />{region}<span>FREE ROAM</span></div>
+      <p className={'adventure-online ' + onlineState} role="status" aria-live="polite" title={online.status.reason || undefined}>{onlineText}</p>
+    </section>;
+  const objective = <section className="adventure-objective">
+      {card ? <>
+        <div className="adventure-kicker">{card.kicker}</div>
+        <h2>{card.arrow !== null && card.arrow !== undefined && <span className="bearing" style={{ transform: `rotate(${-card.arrow}rad)` }} aria-hidden="true">↑</span>}{card.title}</h2>
+        <p>{card.text}</p>
+        {course ? <button onClick={stopSailing}>Cancel course <span>×</span></button> : <button onClick={() => openMap()}>Open the map <span>↗</span></button>}
+      </> : <>
+        <div className="adventure-kicker">{current ? current.type + ' / ACTIVE CONTRACT' : 'YOUR NEXT MOVE'}</div>
+        <h2>{current || !hud.waypoint ? task : `Head to ${hud.waypoint.label}`}</h2>
+        <p>{current ? `${current.title} · $${current.reward.toLocaleString()}` : island.summary + '.'}</p>
+        {point && <span className="objective-distance">◇ {Math.round(away)} m <small>{current ? 'Follow the gold marker · E to interact' : 'Follow the gold marker'}</small></span>}
+        <button onClick={() => open('contracts')}>{current ? 'Contract details' : 'Find a contract'} <span>↗</span></button>
+      </>}
+    </section>;
+  return <div className={`adventure sky-${sky.kind} phase-${sky.phase}${touch ? ' touch' : ''}`} style={{ '--city-accent': city.color, '--night': sky.night.toFixed(2), '--wet': sky.rain.toFixed(2) }}>
     <div className="adventure-canvas" ref={host} />
     <header className="adventure-header">
       <a href="#world" onClick={e => { e.preventDefault(); openMap(); }} className="adventure-brand">lc<span>WORLD TOUR</span><i>✦</i></a>
@@ -108,12 +131,6 @@ export default function WorldView({ controller, onEditCharacter }) {
         <button onClick={() => open('help')} aria-label="Controls and pause menu">Ⅱ</button>
       </nav>
     </header>
-    <section className="adventure-location">
-      <span className="adventure-kicker">{city.country} / {city.region}</span>
-      <h1>{city.name}<span>.</span></h1>
-      <div><i />{region}<span>FREE ROAM</span></div>
-      <p className={'adventure-online ' + onlineState} role="status" aria-live="polite" title={online.status.reason || undefined}>{onlineText}</p>
-    </section>
     <section className="adventure-stats" aria-label="Player status">
       <span className="adventure-player">{playerName.toUpperCase()}</span>
       <div className={`wanted${hud.heat > 0 && hud.lostFor > escapeTime(hud.heat) ? ' fading' : ''}`} aria-label={`Wanted level ${starsOf(hud.heat)} of ${MAX_STARS}`}>{Array.from({ length: MAX_STARS }, (_, i) => <span key={i} className={starsOf(hud.heat) > i ? 'lit' : ''}>★</span>)}</div>
@@ -121,21 +138,13 @@ export default function WorldView({ controller, onEditCharacter }) {
       <label className={hud.health < 35 ? 'low' : ''}><span>HEALTH</span><b>{Math.ceil(hud.health)}</b><progress max="100" value={hud.health} /></label>
       <div className="weapon-status"><span>{vehicle[0]}</span><b>{vehicle[1]}</b></div>
     </section>
-    <section className="adventure-objective">
-      {card ? <>
-        <div className="adventure-kicker">{card.kicker}</div>
-        <h2>{card.arrow !== null && card.arrow !== undefined && <span className="bearing" style={{ transform: `rotate(${-card.arrow}rad)` }} aria-hidden="true">↑</span>}{card.title}</h2>
-        <p>{card.text}</p>
-        {course ? <button onClick={stopSailing}>Cancel course <span>×</span></button> : <button onClick={() => openMap()}>Open the map <span>↗</span></button>}
-      </> : <>
-        <div className="adventure-kicker">{current ? current.type + ' / ACTIVE CONTRACT' : 'YOUR NEXT MOVE'}</div>
-        <h2>{current || !hud.waypoint ? task : `Head to ${hud.waypoint.label}`}</h2>
-        <p>{current ? `${current.title} · $${current.reward.toLocaleString()}` : island.summary + '.'}</p>
-        {point && <span className="objective-distance">◇ {Math.round(away)} m <small>{current ? 'Follow the gold marker · E to interact' : 'Follow the gold marker'}</small></span>}
-        <button onClick={() => open('contracts')}>{current ? 'Contract details' : 'Find a contract'} <span>↗</span></button>
-      </>}
-    </section>
-    {hud.heat > 0 && <div className="adventure-dispatch" aria-label="Police response"><span>POLICE RESPONSE</span><strong>{dispatchTitle}</strong><small>{dispatchHint}</small></div>}
+    {touch ? <div className={'touch-info' + (infoOpen ? ' open' : '')}>
+      <button className="touch-info-toggle" aria-expanded={infoOpen} onClick={() => setInfoOpen(!infoOpen)}><i className={'dot ' + onlineState} aria-hidden="true" /><b>{city.name}</b><span>{current || !hud.waypoint ? task : `Head to ${hud.waypoint.label}`}</span><em aria-hidden="true">{infoOpen ? '▴' : '▾'}</em></button>
+      {infoOpen && <>{location}{objective}</>}
+    </div> : <>{location}{objective}</>}
+    {hud.heat > 0 && (touch && !policeOpen
+      ? <button className="adventure-dispatch folded" aria-expanded="false" aria-label={`Police response: ${dispatchTitle}`} onClick={() => setPoliceOpen(true)}><span>POLICE</span><strong>{dispatchTitle}</strong></button>
+      : <div className="adventure-dispatch" aria-label="Police response" onClick={() => touch && setPoliceOpen(false)}><span>POLICE RESPONSE</span><strong>{dispatchTitle}</strong><small>{dispatchHint}</small></div>)}
     <BossBanner boss={boss} city={city} now={now} onOpen={() => open('boss')} onMap={() => openMap()} />
     <BossHits hits={boss.hits} />
     {hud.messageTime > 0 && <div className="adventure-toast" role="status">{hud.message}</div>}
@@ -146,7 +155,8 @@ export default function WorldView({ controller, onEditCharacter }) {
     {error && <div className="adventure-loading"><strong>The city needs WebGL.</strong><p>Enable hardware acceleration and reload to play.</p><button onClick={() => location.reload()}>Reload</button></div>}
     {!hud.driving && !hud.boating && !hud.riding && <WeaponBar hud={hud} onEquip={equipWeapon} />}
     <div className="adventure-bottom">
-      <section className={'adventure-radar' + (bigMap ? ' expanded' : '')} aria-label="Island minimap">
+      {touch && mapHidden && !bigMap ? <button className="touch-map-show" aria-label="Show the minimap" onClick={() => setMapHidden(false)}>◎</button> : <section className={'adventure-radar' + (bigMap ? ' expanded' : '')} aria-label="Island minimap">
+        {touch && !bigMap && <button className="touch-map-hide" aria-label="Hide the minimap" onClick={() => setMapHidden(true)}>×</button>}
         {bigMap ? <div className="radar-dial whole" role="button" tabIndex="0" aria-label="Shrink the island map" onClick={() => setBigMap(false)} onKeyDown={e => { if (e.key === 'Enter') setBigMap(false); }}>
           <svg viewBox={`${whole.x} ${whole.z} ${whole.width} ${whole.height}`} role="img" aria-label={`Map of ${city.name} island. You are in ${region}.`}>
             <IslandLayers island={island} hud={hud} online={online} p={p} point={point} k={bigK} labels district={city.district} />
@@ -167,11 +177,12 @@ export default function WorldView({ controller, onEditCharacter }) {
           <span className="radar-expand" aria-hidden="true">⤢</span>
         </div>}
         <footer><span><i /> {hud.driving ? 'IN VEHICLE' : hud.boating ? 'AT SEA' : hud.riding ? 'ON THE METRO' : 'ON FOOT'} · {region}</span><button onClick={() => setBigMap(!bigMap)} aria-pressed={bigMap}>{bigMap ? 'Shrink' : 'Island'} <kbd>V</kbd></button><button onClick={() => openMap()}>World ↗</button></footer>
-      </section>
+      </section>}
       <div className="adventure-hints"><span><kbd>W A S D</kbd> {hud.driving || hud.boating ? 'Drive' : 'Move'}</span><span><kbd>F</kbd> {hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'}</span><span><kbd>J</kbd> Attack</span><span><kbd>E</kbd> Interact · metro</span><span><kbd>M</kbd> Map</span><small>{hud.weapon !== 'fists' && !hud.driving && !hud.boating ? 'Point to aim · click or hold right button to fire · drag to look' : 'Drag to look · Scroll to zoom'}</small></div>
       <div className="adventure-actions"><button disabled={!ready || error} onClick={() => action('vehicle')}>{hud.driving ? 'Exit car' : hud.boating ? 'Go ashore' : 'Car / boat'} <kbd>F</kbd></button><button disabled={!ready || error || hud.driving || hud.boating || hud.riding} {...touchControl('attack')}>Attack <kbd>J</kbd></button><button disabled={!ready || error} onClick={() => action('interact')}>Interact <kbd>E</kbd></button><button onClick={() => action('weapon')}>Switch weapon <kbd>Q</kbd></button><button onClick={() => action('reload')}>Reload <kbd>R</kbd></button></div>
     </div>
-    <div className="adventure-touch" aria-label="Touch movement controls">{[['forward', '↑'], ['left', '←'], ['backward', '↓'], ['right', '→'], ['run', 'Run'], ['brake', hud.driving ? 'Brake' : 'Jump']].map(([key, title]) => <button key={key} className={'control-' + key} aria-label={key} {...touchControl(key)}>{title}</button>)}</div>
+    {touch && ready && !error && !(hud.down > 0) && <><TouchStick onMove={setStick} /><TouchActions hud={hud} disabled={!ready || !!error} touchControl={touchControl} action={action} /></>}
+    {!touch && <div className="adventure-touch" aria-label="Touch movement controls">{[['forward', '↑'], ['left', '←'], ['backward', '↓'], ['right', '→'], ['run', 'Run'], ['brake', hud.driving ? 'Brake' : 'Jump']].map(([key, title]) => <button key={key} className={'control-' + key} aria-label={key} {...touchControl(key)}>{title}</button>)}</div>}
     {panel === 'shop' && <ExperienceDialog title={`${GUN_SHOP.name}.`} className="adventure-dialog shop-dialog" onClose={() => open(null)}><ShopPanel hud={hud} onBuy={buy} onEquip={equipWeapon} /></ExperienceDialog>}
     {panel === 'music' && <ExperienceDialog title="Music." className="adventure-dialog music-dialog" onClose={() => open(null)}><MusicPanel music={music} /></ExperienceDialog>}
     {panel === 'boss' && <ExperienceDialog title={`${BOSS_NAME}: the world boss.`} className="adventure-dialog boss-dialog" onClose={() => open(null)}><BossPanel boss={boss} city={city} now={now} onClaim={claimRewards} /></ExperienceDialog>}

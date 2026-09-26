@@ -452,3 +452,77 @@
 .adventure-radar.expanded .radar-dial:after{border-radius:14px}
 .adventure-radar.expanded .radar-dial svg{display:block;width:100%;height:auto;max-height:min(66svh,620px)}
 @media(max-width:760px){.adventure-radar.expanded{left:10px;right:10px;bottom:10px;width:auto}.adventure-radar footer kbd{display:none}}
+
+/* ---- Touch layout (phones and tablets, any size and orientation): cards fold into pills, a joystick on the left and
+   a fire button with the other actions around it on the right, like mobile shooters. */
+.adventure.touch{min-height:0;--touch-top:calc(max(10px,env(safe-area-inset-top)) + 92px);--edge-l:max(12px,env(safe-area-inset-left));--edge-r:max(12px,env(safe-area-inset-right));--edge-b:max(12px,env(safe-area-inset-bottom));--cluster:1;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.adventure.touch .adventure-header{top:max(10px,env(safe-area-inset-top));left:var(--edge-l);right:var(--edge-r);gap:8px}
+.adventure.touch .adventure-brand{font-size:28px;gap:9px;letter-spacing:-3px}.adventure.touch .adventure-brand span{font-size:7px;max-width:54px;letter-spacing:2px}.adventure.touch .adventure-brand i{display:none}
+.adventure.touch .adventure-header nav{gap:0;padding:3px}.adventure.touch .adventure-header nav button{padding:10px;font-size:16px;gap:0}.adventure.touch .adventure-header nav button span,.adventure.touch .adventure-header nav kbd{display:none}
+.adventure.touch .adventure-sky{position:absolute;top:52px;left:0;padding:5px 10px 5px 7px;gap:6px;font-size:9px}.adventure.touch .adventure-sky b{font-size:11px}.adventure.touch .adventure-sky small{display:none}
+.adventure.touch .adventure-hints,.adventure.touch .adventure-actions,.adventure.touch .adventure-touch{display:none}
+/* Where you are and what to do: one pill, tap to open. */
+.touch-info{position:absolute;z-index:4;left:var(--edge-l);top:var(--touch-top);max-width:min(60vw,340px)}
+.touch-info-toggle{display:flex;align-items:center;gap:7px;max-width:100%;padding:8px 12px;border-radius:999px;background:var(--panel-strong);border:1px solid var(--line);font-size:11px;text-align:left;box-shadow:0 4px 16px #0a141c40}
+.touch-info-toggle b{font-size:12px;flex-shrink:0}.touch-info-toggle span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#d5dcd8}.touch-info-toggle em{font-style:normal;color:var(--city-accent)}
+.touch-info-toggle .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#a4e5c5;box-shadow:0 0 8px #a4e5c5}.touch-info-toggle .dot.connecting,.touch-info-toggle .dot.offline{background:#f5c46b;box-shadow:0 0 8px #f5c46b}
+.adventure.touch .touch-info .adventure-location{position:static;margin:8px 0 0;padding:12px 14px;border-radius:14px;background:var(--panel-strong);border:1px solid var(--line);pointer-events:auto;max-width:none}
+.adventure.touch .touch-info .adventure-location h1{font-size:28px;letter-spacing:-1.5px;margin:4px 0 6px}.adventure.touch .touch-info .adventure-location>div>span{display:none}
+.adventure.touch .touch-info .adventure-objective{position:static;width:auto;margin-top:8px;padding:13px}
+.adventure.touch .touch-info .adventure-objective p{display:block}
+/* Status, police and minimap: compact, and out of the way of the controls. */
+.adventure.touch .adventure-stats{top:var(--touch-top);right:var(--edge-r);width:118px;padding:9px 11px;border-radius:11px}
+.adventure.touch .adventure-player{font-size:7px;letter-spacing:1px}.adventure.touch .wanted{font-size:12px;gap:1px}.adventure.touch .adventure-stats>strong{font-size:20px;margin:4px 0 8px}.adventure.touch .adventure-stats label{font-size:7px}.adventure.touch .adventure-stats label b{font-size:8px}.adventure.touch .weapon-status{font-size:7px;gap:5px;letter-spacing:0;margin-top:9px;padding-top:8px}
+.adventure.touch .adventure-dispatch{top:calc(var(--touch-top) + 132px);right:var(--edge-r);width:150px;padding:9px;pointer-events:auto;text-align:left;color:inherit}
+.adventure.touch .adventure-dispatch.folded{width:auto;max-width:150px;padding:6px 10px;border-radius:999px;display:flex;gap:6px;align-items:center;font-size:9px}.adventure.touch .adventure-dispatch.folded strong{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adventure.touch .adventure-bottom{position:static}
+.adventure.touch .adventure-radar:not(.expanded){position:absolute;z-index:3;left:var(--edge-l);top:calc(var(--touch-top) + 46px);width:112px;padding:5px;border-radius:14px}
+.adventure.touch .adventure-radar:not(.expanded) footer{display:none}
+.adventure.touch .touch-info.open~.adventure-bottom .adventure-radar:not(.expanded),.adventure.touch .touch-info.open~.adventure-bottom .touch-map-show{visibility:hidden}
+.adventure.touch .adventure-radar.expanded{left:50%;top:50%;bottom:auto;transform:translate(-50%,-50%);width:min(620px,calc(100vw - 24px),calc((100svh - 70px) * 0.95))}
+.adventure.touch .adventure-radar.expanded .radar-dial,.adventure.touch .adventure-radar.expanded .radar-dial svg{max-height:calc(100svh - 110px)}
+.touch-map-hide{position:absolute;z-index:2;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:#10202bf0;border:1px solid #ffffff40;font-size:14px;line-height:1}
+.touch-map-show{position:absolute;z-index:3;left:var(--edge-l);top:calc(var(--touch-top) + 46px);width:40px;height:40px;border-radius:50%;background:var(--panel-strong);border:1px solid var(--line);font-size:18px}
+/* Messages and the context button sit above the controls. */
+.adventure.touch .adventure-toast{top:calc(var(--touch-top) - 34px);max-width:calc(100% - 24px);font-size:10px;padding:7px 12px;border-radius:12px}
+.adventure.touch .adventure-prompt{left:50%;right:auto;transform:translate(-50%);bottom:calc(var(--edge-b) + 200px * var(--cluster));max-width:min(70vw,360px);font-size:12px}
+.adventure.touch .weapon-bar{left:auto;right:var(--edge-r);transform:none;bottom:calc(var(--edge-b) + 196px * var(--cluster));padding:3px;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:min(60vw,420px)}
+.adventure.touch .weapon-bar button{padding:6px 8px;font-size:10px}
+.adventure.touch .boss-banner{top:calc(var(--touch-top) - 40px);width:min(420px,calc(100% - 270px));min-width:0}
+/* The joystick: anywhere in the lower-left area; the ring comes to your thumb. */
+.touch-stick{position:absolute;z-index:3;left:0;bottom:0;width:46%;height:46%;touch-action:none}
+.touch-stick-base{position:absolute;left:calc(var(--edge-l) + 76px);bottom:calc(var(--edge-b) + 76px);width:132px;height:132px;margin:-66px 0 -66px -66px;border-radius:50%;border:2px solid #ffffff4d;background:radial-gradient(circle,#0f1c2533 0 40%,#0f1c2566 70%);box-shadow:0 0 0 6px #ffffff0d;opacity:.75;transition:opacity .15s}
+.touch-stick-base.active{bottom:auto;margin:-66px 0 0 -66px;opacity:1}
+.touch-stick-knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffffff,#d9e3e6);box-shadow:0 4px 14px #0a141c66}
+/* Fire button and the ring of actions around it. */
+.touch-actions{position:absolute;z-index:4;right:var(--edge-r);bottom:var(--edge-b);width:190px;height:190px;transform:scale(var(--cluster));transform-origin:100% 100%;pointer-events:none}
+.touch-actions button{position:absolute;pointer-events:auto;touch-action:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-radius:50%;color:#fff;-webkit-tap-highlight-color:transparent}
+.touch-actions button svg{width:22px;height:22px}.touch-actions button span{font-size:8px;letter-spacing:.3px}
+.touch-actions button:active,.touch-actions button[aria-pressed=true]{filter:brightness(1.35);transform:scale(.94)}
+.touch-actions button:disabled{opacity:.4}
+.touch-fire{right:12px;bottom:12px;width:88px;height:88px;background:radial-gradient(circle at 40% 35%,#ff7a6a,#c9313f);border:3px solid #ffffffb3;box-shadow:0 6px 22px #c9313f66}
+.touch-fire svg{width:36px!important;height:36px!important}.touch-fire span{font-size:10px!important;font-weight:700}
+.touch-fire.brake{background:radial-gradient(circle at 40% 35%,#8fb2c9,#35556b);box-shadow:0 6px 22px #0a141c66}
+.touch-act{width:50px;height:50px;background:#12222de6;border:1.5px solid #ffffff55;box-shadow:0 3px 10px #0a141c55}
+.touch-jump{right:136px;bottom:31px}.touch-reload{right:122px;bottom:84px}.touch-interact{right:84px;bottom:122px}.touch-vehicle{right:31px;bottom:136px}
+.touch-actions.inside .touch-vehicle{right:136px;bottom:31px}.touch-actions.inside .touch-interact{right:122px;bottom:84px}
+/* Phones held sideways: less height, so everything is a little smaller and higher up the sides. */
+@media (orientation:landscape) and (max-height:540px){
+  .adventure.touch{--touch-top:calc(max(8px,env(safe-area-inset-top)) + 50px);--cluster:.82}
+  .adventure.touch .adventure-sky{position:static}
+  .adventure.touch .adventure-header nav button{padding:8px}
+  .adventure.touch .adventure-stats{width:112px;padding:7px 10px}.adventure.touch .adventure-stats>strong{font-size:17px;margin:2px 0 5px}.adventure.touch .weapon-status{margin-top:6px;padding-top:6px}
+  .adventure.touch .adventure-dispatch{top:calc(var(--touch-top) + 118px)}
+  .adventure.touch .adventure-radar{display:block}.adventure.touch .adventure-radar:not(.expanded){width:96px}
+  .adventure.touch .touch-info{max-width:min(44vw,340px)}
+  .adventure.touch .adventure-toast{top:calc(var(--touch-top) + 4px);max-width:40vw}
+  .adventure.touch .boss-banner{top:calc(var(--touch-top) + 4px);width:min(360px,40vw)}
+  .touch-stick-base{width:112px;height:112px;margin:-56px 0 -56px -56px;left:calc(var(--edge-l) + 84px);bottom:calc(var(--edge-b) + 64px)}.touch-stick-base.active{margin:-56px 0 0 -56px}
+  .touch-stick{width:40%;height:56%}
+}
+@media (orientation:landscape) and (max-height:400px){.adventure.touch{--cluster:.72}.adventure.touch .adventure-radar:not(.expanded){width:84px}.adventure.touch .adventure-dispatch{top:calc(var(--touch-top) + 112px)}}
+/* Small portrait phones. */
+@media (orientation:portrait) and (max-width:380px){.adventure.touch{--cluster:.9}.adventure.touch .touch-info{max-width:52vw}.adventure.touch .adventure-radar:not(.expanded){width:100px}}
+/* Tablets: bigger thumbs, more room. */
+@media (min-width:900px) and (min-height:600px){.adventure.touch{--cluster:1.15}.touch-stick-base{width:150px;height:150px;margin:-75px 0 -75px -75px;left:calc(var(--edge-l) + 100px);bottom:calc(var(--edge-b) + 100px)}.touch-stick-base.active{margin:-75px 0 0 -75px}.adventure.touch .adventure-radar:not(.expanded){width:150px}.adventure.touch .adventure-stats{width:150px}}
+@media(prefers-reduced-motion:reduce){.touch-stick-base{transition:none}}

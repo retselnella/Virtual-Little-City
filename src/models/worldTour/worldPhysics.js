@@ -12,9 +12,15 @@ export function fits(x, z, blocks, radius = 1) {
   // A city's blocks carry the island they stand on (generateBlocks), so positions are bounded by its coastline.
   return (blocks.island ? blocks.island.onIsland(x, z, radius) : Math.abs(x) < 440 - radius && Math.abs(z) < 440 - radius) && !blocks.some(b => Math.abs(x - b.x) < b.width / 2 + radius && Math.abs(z - b.z) < b.depth / 2 + radius);
 }
+// Movement input as two axes, each -1…1: from the touch joystick (analog, `input.stick` = { x: right, y: forward }) or
+// from keys and buttons (full deflection).
+export function inputAxes(input) {
+  if (input.stick) return { forward: Math.max(-1, Math.min(1, input.stick.y)), right: Math.max(-1, Math.min(1, input.stick.x)) };
+  return { forward: Number(!!input.forward) - Number(!!input.backward), right: Number(!!input.right) - Number(!!input.left) };
+}
 // Player driving: input becomes throttle, brake, steering and handbrake. Parked cars hold their brakes.
 export function driveVehicle(car, input, dt) {
-  const forward = car.speed || 0, steer = Number(!!input.left) - Number(!!input.right);
+  const forward = car.speed || 0, steer = -inputAxes(input).right;
   let throttle = 0, brake = input.park ? 1 : 0;
   if (input.forward) { if (forward < -1) brake = 1; else throttle = 1; }
   if (input.backward) { if (forward > 1) brake = 1; else throttle = -1; }

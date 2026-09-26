@@ -29,5 +29,13 @@ export function useWorldInput(paused, action, setPanel) {
     function set(pressed) { touch.current[key] = pressed; if (key === 'brake') touch.current.jump = pressed; refreshControls(); }
     return { onPointerDown: e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); set(true); if (key === 'attack') actions.current('attack'); }, onPointerUp: () => set(false), onPointerCancel: () => set(false), onLostPointerCapture: () => set(false) };
   }
-  return { input, clear, touchControl };
+  // The on-screen joystick: x to the right, y forward, each -1…1. Direction keys are set too (cars, boats and menus that
+  // read them), and pushing the stick to its edge sprints. `null` releases it.
+  function setStick(x, y) {
+    const t = touch.current;
+    if (x === null) { delete t.stick; t.forward = t.backward = t.left = t.right = t.run = false; }
+    else Object.assign(t, { stick: { x, y }, forward: y > 0.3, backward: y < -0.3, right: x > 0.3, left: x < -0.3, run: Math.hypot(x, y) > 0.92 });
+    refreshControls();
+  }
+  return { input, clear, touchControl, setStick };
 }
