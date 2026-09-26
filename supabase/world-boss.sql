@@ -11,6 +11,12 @@
 --
 -- Destruction is not stored: it is a pure function of the event's start time and seed (issued here), so every client
 -- computes the same ruins, cannot alter what anyone else sees, and everything is restored when the event ends.
+--
+-- The file runs as one transaction: if anything fails, nothing is changed. An error such as "function ... does not
+-- exist" means only part of the file ran: open a new query, paste the whole file, click in it WITHOUT selecting any
+-- text (Supabase runs only the highlighted part), and Run.
+
+begin;
 
 create table if not exists public.boss_events (
   id text primary key, day integer not null, city text not null, seed integer not null,
@@ -138,12 +144,13 @@ begin
 end $$;
 
 -- Report hits since the last report. The server checks the event, the city, the range to the kaiju and the rate, then
--- computes the damage itself (45,000 per shot, 80,000 per punch).
+-- computes the damage itself, per weapon.
 -- Kaiju damage per hit and fire-time cost (ms) per weapon, in the order hits are charged (KAIJU_DAMAGE in bossRules.js).
 create or replace function public.boss_arms() returns table (ord integer, id text, damage bigint, cost_ms integer) language sql immutable as $$
   values (1, 'fists', 50000::bigint, 450), (2, 'pistol', 34000, 367), (3, 'revolver', 98000, 792), (4, 'smg', 17500, 133), (5, 'shotgun', 145000, 1044),
     (6, 'rifle', 32000, 225), (7, 'lmg', 26000, 154), (8, 'sniper', 290000, 1680), (9, 'rocket', 330000, 1700)
 $$;
+revoke all on function public.boss_arms() from public, anon, authenticated; -- internal: players cannot call it
 
 -- A batch of hits: p_hits is { weapon: count } since the last report. Each hit is charged the weapon's fire time
 -- against the player's budget (one second per second, up to 8 s banked, plus 1 s of grace), so at most what the
@@ -220,7 +227,7 @@ begin
 end $$;
 
 -- Only the entry points are callable, and only by signed-in (anonymous) players.
-revoke all on function public.boss_arms(), public.boss_testing(), public.boss_clock(boolean), public.boss_event_now(boolean), public.boss_close_weeks(), public.boss_state(boolean), public.boss_hit(text, jsonb, double precision, double precision, text, text),
+revoke all on function public.boss_testing(), public.boss_clock(boolean), public.boss_event_now(boolean), public.boss_close_weeks(), public.boss_state(boolean), public.boss_hit(text, jsonb, double precision, double precision, text, text),
   public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() from public, anon, authenticated;
 grant execute on function public.boss_state(boolean), public.boss_hit(text, jsonb, double precision, double precision, text, text),
   public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() to authenticated;
@@ -253,5 +260,6 @@ begin
 end $$;
 revoke all on function public.boss_test_clock(text, text), public.boss_test_clock_off(), public.boss_test_reset() from public, anon, authenticated;
 
--- Tell the API about the new function signatures.
+-- Tell the API about the new function signatures (sent when the transaction commits).
 notify pgrst, 'reload schema';
+commit;
