@@ -19,6 +19,7 @@ import { MARINA, THEMES, islandFor } from '../../models/worldTour/worldIsland.js
 import { buildMetro } from './metroScene.js';
 import { createKaiju } from './kaijuScene.js';
 import { buildAircraft } from './aircraftScene.js';
+import { buildVenues } from './venuesScene.js';
 import { worldConditions } from '../../models/worldTour/worldClock.js';
 import { buildIsland } from './islandScenery.js';
 import { buildAmbient } from './ambientScene.js';
@@ -41,7 +42,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
   const sky = createSky(scene, { hemisphere, sun });
   let kaiju = null, citySlots = new Map(), ruinsShown = '', hiddenOwners = new Map(), rubble = null, craterMesh = null;
-  let teleporterFx = null, ambient = null, aircraft = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = new Map(), pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
+  let teleporterFx = null, ambient = null, aircraft = null, venues = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = new Map(), pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
   let guns, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
@@ -93,7 +94,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   function disposeCity() {
     for (const id of [...remotes.keys()]) removeRemote(id);
     if (root) { root.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); scene.remove(root); }
-    island?.dispose(); island = null; ambient?.dispose(); ambient = null; aircraft?.dispose(); aircraft = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null; kaiju?.dispose(); kaiju = null;
+    island?.dispose(); island = null; ambient?.dispose(); ambient = null; aircraft?.dispose(); aircraft = null; venues?.dispose(); venues = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null; kaiju?.dispose(); kaiju = null;
     citySlots = new Map(); hiddenOwners = new Map(); ruinsShown = '';
     hullGeometry = deckGeometry = null; // disposed with the city's geometries below; rebuilt for the next city
     geometries.forEach(g => { if (g !== unitBox) { g.dispose(); geometries.delete(g); } });
@@ -144,6 +145,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     for (const b of cityBlocks) {
       owner = `block:${++blockIndex}`;
       if (b.hub) { cityHub(b); continue; }
+      if (b.venue) continue; // drawn with its venue (venuesScene.js)
       box([b.width + 3, 0.5, b.depth + 3], '#a6aca8', [b.x, 0.2, b.z]);
       box([b.width, b.height, b.depth], b.color, [b.x, b.height / 2, b.z]);
       box([b.width + 1, 0.8, b.depth + 1], '#d6d3c4', [b.x, b.height, b.z]);
@@ -245,6 +247,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     }
     const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5);
     buildTeleporter(session.current.teleporter, label);
+    // The Lounge and the Open-Air Cinema by the City Hub.
+    venues = buildVenues(root, { box, label, glowMaterial, geometries, color: city.color });
     const shop = session.current.blocks.find(b => b.shop); if (shop) label('GUN SHOP', shop.x + 9, shop.z + shop.depth / 2 + 3, '#ff8a7a', 7.5, 1.2); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('MARINA', MARINA.x0 + 20, MARINA.z - 8, '#9fd6ff');
     const lighthouse = islandData.landmarks.lighthouse; label('LIGHTHOUSE', lighthouse.x + 10, lighthouse.z + 10, '#f8d47a', 40, 1.4);
     if (islandData.landmarks.feature) label(islandData.landmarks.feature.name.toUpperCase(), islandData.landmarks.feature.x, islandData.landmarks.feature.z, '#f3eee5', 16, 1.4);
@@ -352,7 +356,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const seen = new Set();
     const now = performance.now();
     remoteShots = remoteShots.filter(shot => (shot.ttl -= dt) > 0);
-    let crew = 0; const me = actor(s);
+    let crew = 0; const me = actor(s), seats = [];
     for (const { id, player, profile, pose } of visiblePlayers(remote.current, actor(s), now)) {
       seen.add(id);
       // Wanted players close together are a crew: the police send more units after them (wanted.js).
@@ -368,15 +372,16 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
         model.car.car.position.set(pose.x, pose.y, pose.z); model.car.car.quaternion.set(...pose.q);
         model.car.wheels.forEach(wheel => { wheel.spin.rotation.x += pose.s * dt / 0.55; });
       } else {
-        model.rig.update({ x: pose.x, z: pose.z, heading: pose.h, height: pose.y, speed: pose.s, waveTime: 0 }, dt);
-        model.rig.avatar.position.y = 0.2 * profile.scale + pose.y;
+        model.rig.update({ x: pose.x, z: pose.z, heading: pose.h, height: pose.y, speed: pose.s, waveTime: 0, seated: pose.si }, dt);
+        model.rig.avatar.position.y = (pose.si ? -0.52 : 0.2) * profile.scale + pose.y;
+        if (pose.si) seats.push({ x: pose.x, z: pose.z });
         if (!pose.k) poseArms(model.rig.avatar, pose.w, pose.a, model.punchTime, model.combo, model.fired / 0.12);
       }
       model.guns.set(pose.w); model.guns.flash(!!pose.w && model.fired > 0.07);
       model.tag.position.set(pose.x, pose.y + (pose.d ? 3.6 : pose.b ? 4 : 4.2 * profile.scale), pose.z);
     }
     for (const id of [...remotes.keys()]) if (!seen.has(id)) removeRemote(id);
-    s.crew = crew;
+    s.crew = crew; s.remoteSeats = seats;
   }
   // Another player's attack: the punch or recoil on their ghost, a tracer for shots, and blood where it landed.
   function playRemoteAction(s, model, pose, action) {
@@ -538,7 +543,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     }
     const aimed = showAim(s, paused.current ? null : aimRay);
     const p = actor(s), point = guidePoint(s), step = paused.current || document.hidden ? 0 : dt;
-    avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = 0.2 * (s.player.look?.scale || 1) + s.player.height; guns.set(s.weapon);
+    avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = (s.player.seated ? -0.52 : 0.2) * (s.player.look?.scale || 1) + s.player.height; guns.set(s.weapon);
     posePlayer(s); avatar.rig.after(s.player, step);
     for (const hit of s.impacts) {
       if (hit.id <= lastImpact) continue;
@@ -621,6 +626,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     sky.update(conditions, camera, step, glows, wetSurfaces); island?.update(conditions, s.time, camera);
     ambient?.update(orbit.target, conditions.night, step, time / 1000);
     aircraft?.update(s, s.worldTime, step, conditions.night);
+    venues?.update(s, time / 1000);
     // Impact shake is applied only for this render so it never accumulates into the orbit camera.
     shake *= Math.exp(-9 * step);
     const shaking = shake > 0.01 && step > 0;

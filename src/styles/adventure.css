@@ -526,3 +526,9 @@
 /* Tablets: bigger thumbs, more room. */
 @media (min-width:900px) and (min-height:600px){.adventure.touch{--cluster:1.15}.touch-stick-base{width:150px;height:150px;margin:-75px 0 -75px -75px;left:calc(var(--edge-l) + 100px);bottom:calc(var(--edge-b) + 100px)}.touch-stick-base.active{margin:-75px 0 0 -75px}.adventure.touch .adventure-radar:not(.expanded){width:150px}.adventure.touch .adventure-stats{width:150px}}
 @media(prefers-reduced-motion:reduce){.touch-stick-base{transition:none}}
+
+/* The cinema's programme, shown near the Open-Air Cinema. */
+.cinema-now{position:absolute;z-index:3;left:50%;transform:translate(-50%);bottom:200px;display:flex;flex-direction:column;align-items:center;gap:2px;max-width:min(420px,calc(100% - 24px));padding:8px 16px;border-radius:14px;background:#1a1224e6;border:1px solid #ffd98a55;text-align:center;pointer-events:none}
+.cinema-now span{font-size:9px;letter-spacing:1.5px;color:#ffd98a}.cinema-now b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.cinema-now small{font-size:10px;color:#c9d2e0}
+.adventure.touch .cinema-now{bottom:auto;top:calc(var(--touch-top) + 46px);padding:6px 12px}.adventure.touch .cinema-now b{font-size:12px}
+@media (orientation:landscape) and (max-height:540px){.adventure.touch .cinema-now{top:calc(var(--touch-top) + 4px);max-width:38vw}}

@@ -251,6 +251,15 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 
 Press **N** (or the **♫ Music** button) for the in-game radio: play and pause, previous and next, shuffle, volume, the playlists (one per folder of the site's music) and their songs to pick from. It keeps playing everywhere in the game (on foot, driving, at sea, in every city), and the button turns green while music plays. It keeps playing when you switch to another browser tab or minimise the window; pause it from the player, your keyboard's media keys, or the browser's media controls. (While sound plays, your browser shows a speaker icon on the game's tab; that is the browser's own indicator and cannot be hidden by the page.) Your volume and shuffle are remembered in this browser, and music you left on resumes with your first click or key press next time (browsers do not allow sound before that). The playlist is the site owner's; see [Music playlist](#music-playlist).
 
+### The Lounge and the Open-Air Cinema
+
+Every city has two places to hang out, on the blocks just west of the City Hub (the map's GPS has **Lounge** and **Cinema** buttons):
+
+- **Skyline Lounge**: a deck with a colour-changing dance floor, a DJ booth, a bar and sofas. Walk in and your music starts by itself (a playlist named "Lounge" if the site has one, otherwise your last one); walk out and it stops again. Press **E** by a sofa to sit down and stay as long as you like; move (or press **E**) to get up. There is a crowd on the dance floor, bigger at night.
+- **Open-Air Cinema**: a big screen with rows of seats. It shows the site's **shows and movies**, alternating a show and a movie all day with a short intermission between them, on the shared clock, so **everyone watching sees the same moment** of the same film. Near the cinema a card shows what is on, how long is left and what is next; the sound gets louder as you walk up to the screen (it starts after your first tap or key press, as browsers require), and your music pauses while a film plays. Press **E** by a free seat to sit (the regulars keep their seats); move to get up.
+
+Other players see you sitting. You cannot sit down while you are wanted.
+
 ## 9. Police and your wanted level
 
 Attacking anyone, or hitting people with your car, gives you **wanted stars**, up to **five**. Hurting bystanders or police adds more, and **killing** them raises the level fast. Fighting gang members stays at one star.
@@ -407,6 +416,24 @@ Things to know:
 - **Upload a whole folder of folders from your computer** with `node scripts/upload-music.mjs "C:\Users\you\Downloads\Music"`: each subfolder becomes a playlist (add `--sync` to hide songs no longer in the folder). It needs `SUPABASE_URL` and your **secret** key in `SUPABASE_SECRET_KEY`, set in that terminal only (Command Prompt: `set SUPABASE_SECRET_KEY=sb_secret_...`; PowerShell: `$env:SUPABASE_SECRET_KEY="sb_secret_..."`). Never put the secret key in `.env` files or Vercel.
 - **Splitting or shrinking a long mix** with the free [FFmpeg](https://ffmpeg.org): `ffmpeg -i "Long Mix.mp3" -f segment -segment_time 1200 -c copy "Long Mix part %02d.mp3"` cuts it into 20-minute parts without re-encoding; `ffmpeg -i "Long Mix.mp3" -b:a 96k "Long Mix 96k.mp3"` makes a smaller copy.
 - **Rights**: files in a public bucket can be downloaded by anyone who has their link, and the radio streams them to every player. Only upload music you have the right to share publicly (your own, licensed, or royalty-free); commercial recordings generally need a licence for this.
+
+
+Tip: a folder named **Lounge** becomes the Skyline Lounge's playlist: it starts when a player walks into the lounge (if nothing else is playing).
+### Cinema
+
+The Open-Air Cinema plays videos from a public Supabase Storage bucket, like the music:
+
+1. In your project's **SQL Editor**, run the whole of [`supabase/cinema.sql`](supabase/cinema.sql) (nothing highlighted). It creates the `cinema` bucket.
+2. Add videos:
+   - **Dashboard**: Storage → **cinema**. Create a folder **shows** for episodes and short programmes and a folder **movies** for films (files at the top count as movies). Titles come from file names (`01 - The Big Race.mp4` shows as "The Big Race"); Storage only accepts plain-ASCII names.
+   - **Script**: put the videos in `Videos/shows` and `Videos/movies` on your computer, then in the project folder run:
+     ```
+     SUPABASE_URL=https://your-project.supabase.co SUPABASE_SECRET_KEY=sb_secret_... node scripts/upload-cinema.mjs "path/to/Videos"
+     ```
+     (Windows Command Prompt: `set SUPABASE_URL=...` and `set SUPABASE_SECRET_KEY=...` on their own lines first.) The secret key stays on your computer; never put it in `.env` or Vercel.
+3. Reload the game and walk to the cinema.
+
+Tips: use **MP4 (H.264 video, AAC sound)** so every browser can play it; **720p** is plenty for the big screen. Files must fit your plan's upload limit (**50 MB per file on the Free plan**; paid plans can raise it in Storage → Settings), and every player near the screen streams the film from your project, which counts toward your plan's bandwidth. The screen alternates shows and movies in file-name order; add or remove files at any time (players pick up the change when they reload). **Only upload videos you have the right to show publicly.**
 
 ### Testing the Kaiju event online
 

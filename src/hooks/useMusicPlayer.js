@@ -74,6 +74,17 @@ export function useMusicPlayer() {
     previous() { if (now.list >= 0) { step(-1); remember({ ...prefs, on: true }); } },
     pick(index) { start(view, index); remember({ ...prefs, on: true, playlist: playlists[view].id }); },
     setVolume(value) { const volume = Math.max(0, Math.min(1, Number(value) || 0)); if (audio.current) audio.current.volume = volume; remember({ ...prefs, volume }); },
+    // Places that play music by themselves (the lounge) or need quiet (the cinema). These do not change your saved
+    // music preference. `startFor` plays the playlist whose name contains `name` (else your last one) if nothing is
+    // playing, and says whether it started anything.
+    startFor(name) {
+      if (playing || !playlists.length) return false;
+      const wanted = playlists.findIndex(l => l.name.toLowerCase().includes(name)), saved = playlists.findIndex(l => l.id === prefs.playlist);
+      const list = wanted >= 0 ? wanted : Math.max(0, saved);
+      order.current = playOrder(playlists[list].tracks.length, prefs.shuffle); start(list, order.current[0]); return true;
+    },
+    hold() { const el = audio.current; if (!el || el.paused) return false; el.pause(); return true; },
+    release() { const el = audio.current; if (el && el.paused && now.list >= 0) el.play().catch(() => {}); },
     toggleShuffle() { if (now.list >= 0) order.current = playOrder(playlists[now.list].tracks.length, !prefs.shuffle); remember({ ...prefs, shuffle: !prefs.shuffle }); },
   };
 }

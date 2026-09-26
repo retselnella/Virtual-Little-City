@@ -12,6 +12,7 @@ import { stopLineAhead } from './trafficLights.js';
 import { GUN_SHOP, WEAPONS, atGunShop, cleanOwned, damageAt, fullMagazines, weaponOf } from './weapons.js';
 import { aimFromRay, aimYawFrom } from './aiming.js';
 import { raiseHeat, recordKill } from './wanted.js';
+import { seatNear, venueAt, venueBlocks } from './venues.js';
 import { updateHelicopters } from './policeAir.js';
 
 export const CITIES = [
@@ -80,8 +81,24 @@ export function generateBlocks(city) {
   Object.assign(blocks.find(b => b.x === 37 && b.z === 37), { hub: true, height: 19, color: '#e4ebe8' });
   // Miami's gun shop takes the ground floor of the block across the avenue.
   if (city.id === GUN_SHOP.city) blocks.find(b => b.x === GUN_SHOP.block.x && b.z === GUN_SHOP.block.z).shop = true;
-  Object.defineProperty(blocks, 'island', { value: islandFor(city.id) });
-  return blocks;
+  // The Lounge and the Open-Air Cinema take a block each by the City Hub (venues.js).
+  const city_blocks = venueBlocks(blocks);
+  Object.defineProperty(city_blocks, 'island', { value: islandFor(city.id) });
+  return city_blocks;
+}
+// Sitting on a lounge sofa or a cinema seat: you sit facing the dance floor or the screen; moving (or E) gets you up.
+const takenSeats = s => s.remoteSeats || [];
+export const freeSeat = s => onFoot(s) && !s.seated && !s.down && !(s.heat > 0) ? seatNear(s.player, new Set(takenSeats(s).map(p => `${p.x},${p.z}`))) : null;
+export function sitDown(s, seat) {
+  s.player = { ...s.player, x: seat.x, z: seat.z, heading: seat.heading, height: 0, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0, speed: 0, seated: true };
+  s.seated = { venue: seat.venue, x: seat.x, z: seat.z, heading: seat.heading };
+  notify(s, seat.venue === 'cinema' ? 'Enjoy the show. Move or press E to get up.' : 'Relax and enjoy the music. Move or press E to get up.');
+}
+export function standUp(s) {
+  if (!s.seated) return;
+  const { x, z, heading } = s.seated;
+  s.player = { ...s.player, x: x + Math.sin(heading) * 1.3, z: z + Math.cos(heading) * 1.3, moveX: 0, moveZ: 0, seated: false };
+  s.seated = null;
 }
 // The teleporter: a pad on the City Hub's north forecourt, facing the avenue. Teleporting (from the world map, or E on
 // the pad) takes you to another island instantly; you arrive beside that island's pad.
@@ -176,6 +193,7 @@ export function promptFor(s) {
   if (s.down) return null;
   if (s.riding) return s.train.station !== null ? { key: 'E', action: 'interact', text: `Get off at ${STATIONS[s.train.station].name}` } : { key: null, text: `Metro · next stop ${STATIONS[s.train.next].name}` };
   if (s.stun > 0) return { key: null, text: 'Stunned by the roar!' };
+  if (s.seated) return { key: 'E', action: 'interact', text: 'Get up' };
   if (s.metro) return { key: 'E', action: 'interact', text: `Waiting for the metro · ${Math.ceil(arrivalIn(s.worldTime ?? s.time, s.metro.station))} s · E to leave` };
   const at = actor(s), point = objectivePoint(s);
   if (point && !CONTRACTS.find(m => m.id === s.mission.id).auto && distance(at, point) < 12) return { key: 'E', action: 'interact', text: s.mission.stage === 0 ? (s.mission.id === 'crew' || s.mission.id === 'bounty' ? 'Clear the area first' : 'Collect') : 'Deliver' };
@@ -186,6 +204,7 @@ export function promptFor(s) {
   if (distance(s.player, s.car) < 9) return { key: 'F', action: 'vehicle', text: 'Get in your car' };
   if (atGunShop(s.city, s.player)) return { key: 'E', action: 'interact', text: 'Browse Ocean Drive Arms' };
   if (atTeleporter(s)) return { key: 'E', action: 'interact', text: 'Teleport to another island' };
+  const seat = freeSeat(s); if (seat) return { key: 'E', action: 'interact', text: seat.venue === 'cinema' ? 'Take a seat' : 'Sit on the sofa' };
   if (distance(s.player, HUB) < 13 && (s.health < 100 || needsAmmo(s))) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
   return null;
 }
@@ -214,6 +233,7 @@ export function interact(s) {
     notify(s, `${STATIONS[stop].name} station.`); return;
   }
   if (s.metro) { s.metro = null; notify(s, 'You left the platform.'); return; }
+  if (s.seated) { standUp(s); return; }
   const at = actor(s), point = objectivePoint(s);
   const auto = CONTRACTS.find(m => m.id === s.mission?.id)?.auto;
   if (point && !auto && distance(at, point) < 12 && Math.abs(at.speed) < 3) {
@@ -235,6 +255,7 @@ export function interact(s) {
     s.metro = { station }; notify(s, `Waiting at ${STATIONS[station].name} station. The train arrives in ${Math.ceil(arrivalIn(s.worldTime ?? s.time, station))} s.`); return;
   }
   // The teleporter: the controller opens the world map to pick an island.
+  { const seat = freeSeat(s); if (seat) { sitDown(s, seat); return; } }
   if (atTeleporter(s)) {
     const blocked = travelBlocked(s);
     if (blocked) { notify(s, `The teleporter is locked. ${blocked}`); return; }
@@ -362,7 +383,7 @@ export function startReload(s) {
 }
 export function attack(s) {
   const w = WEAPONS[s.weapon] || WEAPONS.fists, gun = w.gun;
-  if (!onFoot(s) || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
+  if (!onFoot(s) || s.seated || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
   if (gun && !(s.mags[s.weapon] > 0)) { startReload(s); return; }
   s.cooldown = w.cooldown; if (gun) s.mags[s.weapon]--;
   // Punches chain into a jab, cross and heavier hook when thrown in quick succession.
@@ -527,6 +548,13 @@ function stepSimulation(s, input, dt, yaw) {
     else if (s.train.station === s.metro.station) { s.riding = true; notify(s, `All aboard at ${st.name}! Press E when the train stops to get off.`); }
   }
   if (s.stun > 0) s.stun = Math.max(0, s.stun - dt);
+  // Seated: stay put until you move (or are knocked over, wanted or wasted), then get up.
+  if (s.seated) {
+    const push = inputAxes(input);
+    if (down || !onFoot(s) || s.player.knockdown > 0 || s.heat > 0) { s.seated = null; s.player.seated = false; }
+    else if (Math.hypot(push.forward, push.right) > 0.3 || input.jump || input.attack) standUp(s);
+  }
+  s.venue = onFoot(s) ? venueAt(s.player.x, s.player.z) : null;
   const p = actor(s), control = !down && !(s.player.knockdown > 0) && !(s.stun > 0) ? input : {};
   const { forward, right } = inputAxes(control);
   if (s.boating) {
@@ -538,10 +566,11 @@ function stepSimulation(s, input, dt, yaw) {
   if (guide && distance(p, guide) < 15) { notify(s, `You have arrived: ${guide.label}.`); s.waypoint = null; }
   if (onFoot(s)) {
     // A joystick walks slower the less it is pushed; keys and buttons are always full speed.
-    const push = Math.min(1, Math.hypot(forward, right)), length = push || 1, speed = (control.run ? 15 * (p.look?.speed || 1) : 8) * (control.stick ? Math.max(0.35, push) : 1);
-    const dx = (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
-    const dz = (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
-    stepCharacterBody(p, dx, dz, dt);
+    if (s.seated) { stepCharacterBody(p, 0, 0, dt); p.heading = s.seated.heading; p.speed = 0; }
+    const push = s.seated ? 0 : Math.min(1, Math.hypot(forward, right)), length = push || 1, speed = (control.run ? 15 * (p.look?.speed || 1) : 8) * (control.stick ? Math.max(0.35, push) : 1);
+    const dx = s.seated ? 0 : (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
+    const dz = s.seated ? 0 : (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
+    if (!s.seated) stepCharacterBody(p, dx, dz, dt);
     if (dx || dz) p.heading = Math.atan2(dx, dz);
     // Jump from anything solid underfoot: the street, a roof, a car or a hillside.
     if (control.jump && !s.jumpHeld && (!p.height || p.grounded) && (p.velocityY || 0) <= 0) p.velocityY = 8;

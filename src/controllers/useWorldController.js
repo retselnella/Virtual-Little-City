@@ -10,6 +10,8 @@ import { useWorldInput } from '../hooks/useWorldInput.js';
 import { useMultiplayer } from '../hooks/useMultiplayer.js';
 import { useWorldBoss } from '../hooks/useWorldBoss.js';
 import { useMusicPlayer } from '../hooks/useMusicPlayer.js';
+import { useCinema } from '../hooks/useCinema.js';
+import { useVenueSound } from '../hooks/useVenueSound.js';
 import { missionTask, policeStatus, snapshot } from '../models/worldTour/presentation.js';
 import { displayName } from '../models/worldTour/characterProfile.js';
 import { parseEnvironmentOverride, weatherLabel, worldConditions } from '../models/worldTour/worldClock.js';
@@ -37,6 +39,7 @@ export function useWorldController(character = null, suspended = false) {
   // The world boss runs on the server's clock (the preview offset only applies in local mode).
   const previewOffset = useRef(override.current.offset), nameRef = useRef(displayName(character)); nameRef.current = displayName(character);
   const music = useMusicPlayer();
+  const cinema = useCinema(session);
   const boss = useWorldBoss(session, nameRef, previewOffset, override.current.bossTest);
   useEffect(() => {
     const timer = setInterval(() => {
@@ -106,5 +109,6 @@ export function useWorldController(character = null, suspended = false) {
   function guide(point) { setWaypoint(session.current, point); setHud(snapshot(session.current)); open(null); }
   const island = islandFor(city.id), playerName = displayName(character), region = island.regionAt(p.x, p.z, city.district), weather = weatherLabel(sky);
   async function claimRewards() { const cash = await boss.claim(); if (cash) { notify(session.current, `Weekly boss rewards claimed: +$${cash.toLocaleString()}.`); save(session.current); setHud(snapshot(session.current)); } }
-  return { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), bigMap, setBigMap, teleport: id => travel(id, 'teleport'), teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
+  useVenueSound(hud.venue, music, !!cinema.showing?.live);
+  return { music, cinema, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), bigMap, setBigMap, teleport: id => travel(id, 'teleport'), teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
 }

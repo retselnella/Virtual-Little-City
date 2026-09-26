@@ -146,7 +146,13 @@ export function createCharacter(scene, kit, palette = {}) {
       body.position.y = player.speed > 0.1 ? Math.abs(Math.sin(gait)) * 0.035 : Math.sin(animationTime * 2) * 0.012;
       body.rotation.x = player.speed > 3 ? 0.09 : 0;
       if (tail) { tail.rotation.y = Math.sin(animationTime * (motion > 0.2 ? 4 : 7)) * (0.35 - motion * 0.2); tail.rotation.x = 0.75 - motion * 0.35; }
-      if (player.height > 0.03) {
+      // Seated (a lounge sofa or a cinema seat): thighs forward, shins down, hands resting on the knees.
+      if (player.seated) {
+        legs.forEach(leg => { leg.rotation.x = -1.45; }); knees.forEach(knee => { knee.rotation.x = 1.45; });
+        arms.forEach((arm, i) => { arm.rotation.x = -0.55; arm.rotation.z = (i ? 1 : -1) * 0.08; }); elbows.forEach(elbow => { elbow.rotation.x = -0.6; elbow.rotation.z = 0; });
+        body.position.y = Math.sin(animationTime * 1.6) * 0.01; body.rotation.x = -0.05;
+      }
+      else if (player.height > 0.03) {
         legs.forEach(leg => { leg.rotation.x = -0.35; }); knees.forEach(knee => { knee.rotation.x = 0.65; });
         arms[0].rotation.z = -0.3; if (wave < 0.1) arms[1].rotation.z = 0.3;
       }
