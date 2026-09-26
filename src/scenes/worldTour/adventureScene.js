@@ -8,6 +8,7 @@ import { aimFromRay } from '../../models/worldTour/aiming.js';
 import { WEAPONS } from '../../models/worldTour/weapons.js';
 import { ACTIVE_UNIT } from '../../models/worldTour/worldPolice.js';
 import { BODY_TIME, bodyGone } from '../../models/worldTour/worldPedestrians.js';
+import { CREW_RANGE } from '../../models/worldTour/wanted.js';
 import { vehicleSpec, wheelLayout } from '../../models/worldTour/physicsEngine.js';
 import { sceneryLayout } from '../../models/worldTour/worldLayout.js';
 import { dueActions, visiblePlayers } from '../../models/worldTour/multiplayer.js';
@@ -40,7 +41,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const sun = new THREE.DirectionalLight('#ffd7b0', 3); sun.position.set(-90, 160, 100); scene.add(sun);
   const sky = createSky(scene, { hemisphere, sun });
   let kaiju = null, citySlots = new Map(), ruinsShown = '', hiddenOwners = new Map(), rubble = null, craterMesh = null;
-  let teleporterFx = null, ambient = null, aircraft = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = [], pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
+  let teleporterFx = null, ambient = null, aircraft = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = new Map(), pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
   let guns, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
@@ -98,7 +99,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     geometries.forEach(g => { if (g !== unitBox) { g.dispose(); geometries.delete(g); } });
     textures.forEach(t => t.dispose()); textures.clear();
     for (const [key, mat] of materials) if (key.startsWith('label-')) { mat.dispose(); materials.delete(key); }
-    enemies.clear(); traffic = []; patrols = []; pedestrians = []; drops = []; pools = []; poolCursor = 0;
+    enemies.clear(); traffic = []; patrols = new Map(); pedestrians = []; drops = []; pools = []; poolCursor = 0;
     shotLines.forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); }); shotLines = []; remoteShots = [];
   }
   function build(city) {
@@ -266,14 +267,6 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       const model = createCar(root, kit, glow, { color: ['#dba186', '#d0c9bb', '#798bac', '#bc7d94', '#e6d27a', '#8fb89a', '#f2f0ea', '#3b4450'][i % 8], headlights: false }); model.car.scale.setScalar(1.5);
       traffic.push(model);
     }
-    for (let i = 0; i < session.current.policeCars.length; i++) {
-      const model = createCar(root, kit, glow, { color: '#24394e', police: true, headlights: false }); model.car.scale.setScalar(1.7);
-      for (const side of [-1, 1]) { kit.box([0.03, 0.4, 1.2], '#e5eaec', [side * 0.69, 0.6, -0.1], model.car); kit.box([0.04, 0.2, 0.18], '#d7b96b', [side * 0.71, 0.6, -0.1], model.car); }
-      kit.box([1.1, 0.1, 0.3], '#142937', [0, 1.55, -0.1], model.car);
-      model.lights = [-1, 1].map(side => kit.box([0.43, 0.18, 0.28], side < 0 ? '#ff4966' : '#438aff', [side * 0.28, 1.68, -0.1], model.car));
-      model.lights.forEach(light => { light.material.emissive.copy(light.material.color); light.material.emissiveIntensity = 2; });
-      patrols.push(model);
-    }
     for (const person of session.current.pedestrians) { const model = createStreetNpc(root, kit, { shirt: person.look?.shirt, role: person.role, look: person.look }); model.rig = createRagdollRig(model.avatar, 'npc'); pedestrians.push(model); }
     const markerGeo = new THREE.OctahedronGeometry(2.8); geometries.add(markerGeo); marker = new THREE.Mesh(markerGeo, material('#f8d47a')); root.add(marker);
     if (!materials.has('lock')) materials.set('lock', new THREE.MeshBasicMaterial({ color: '#ff727f' }));
@@ -346,13 +339,24 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const model = remotes.get(id); if (!model) return;
     root.remove(model.rig.avatar, model.car.car, model.boat.group, model.tag); model.tag.material.map.dispose(); model.tag.material.dispose(); remotes.delete(id);
   }
+  function policeCarModel() {
+    const model = createCar(root, kit, glow, { color: '#24394e', police: true, headlights: false }); model.car.scale.setScalar(1.7);
+    for (const side of [-1, 1]) { kit.box([0.03, 0.4, 1.2], '#e5eaec', [side * 0.69, 0.6, -0.1], model.car); kit.box([0.04, 0.2, 0.18], '#d7b96b', [side * 0.71, 0.6, -0.1], model.car); }
+    kit.box([1.1, 0.1, 0.3], '#142937', [0, 1.55, -0.1], model.car);
+    model.lights = [-1, 1].map(side => kit.box([0.43, 0.18, 0.28], side < 0 ? '#ff4966' : '#438aff', [side * 0.28, 1.68, -0.1], model.car));
+    model.lights.forEach(light => { light.material.emissive.copy(light.material.color); light.material.emissiveIntensity = 2; });
+    return model;
+  }
   function updateRemotes(s, dt) {
-    if (!remote?.current) return;
+    if (!remote?.current) { s.crew = 0; return; }
     const seen = new Set();
     const now = performance.now();
     remoteShots = remoteShots.filter(shot => (shot.ttl -= dt) > 0);
+    let crew = 0; const me = actor(s);
     for (const { id, player, profile, pose } of visiblePlayers(remote.current, actor(s), now)) {
       seen.add(id);
+      // Wanted players close together are a crew: the police send more units after them (wanted.js).
+      if (pose.st > 0 && Math.hypot(pose.x - me.x, pose.z - me.z) < CREW_RANGE) crew++;
       const key = JSON.stringify(profile);
       let model = remotes.get(id);
       if (!model || model.key !== key) { removeRemote(id); model = createRemote(id, profile, key); }
@@ -372,6 +376,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
       model.tag.position.set(pose.x, pose.y + (pose.d ? 3.6 : pose.b ? 4 : 4.2 * profile.scale), pose.z);
     }
     for (const id of [...remotes.keys()]) if (!seen.has(id)) removeRemote(id);
+    s.crew = crew;
   }
   // Another player's attack: the punch or recoil on their ghost, a tracer for shots, and blood where it landed.
   function playRemoteAction(s, model, pose, action) {
@@ -571,10 +576,13 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     shotLines.forEach(line => { root.remove(line); line.geometry.dispose(); line.material.dispose(); });
     shotLines = [...s.shots, ...remoteShots].map(shot => { const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(shot.x, shot.y ?? 2.1, shot.z), new THREE.Vector3(shot.tx, shot.ty ?? 2, shot.tz)]); const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: shot.police ? '#ff7881' : shot.rocket ? '#ff8a2a' : shot.kaiju ? '#ffb86b' : '#fff4b0' })); root.add(line); return line; });
     traffic.forEach((model, i) => updateCar(model, s.traffic[i]));
-    patrols.forEach((model, i) => {
-      const car = s.policeCars[i]; updateCar(model, car);
+    // Police cars come and go (reinforcements), so their models are made and removed by id.
+    for (const car of s.policeCars) {
+      if (!patrols.has(car.id)) patrols.set(car.id, policeCarModel());
+      const model = patrols.get(car.id); updateCar(model, car);
       model.lights.forEach((light, side) => { light.visible = ACTIVE_UNIT.includes(car.state) && Math.floor(s.time * 8) % 2 === side; });
-    });
+    }
+    for (const [id, model] of patrols) if (!s.policeCars.some(c => c.id === id)) { root.remove(model.car); patrols.delete(id); }
     // Far-away pedestrians (beyond the fog) are neither drawn nor animated.
     pedestrians.forEach((model, i) => { const person = s.pedestrians[i]; model.avatar.visible = nearCamera(person) && !bodyGone(person, s.time); if (!model.avatar.visible) return; model.rig.before(person); model.update(person, paused.current ? 0 : dt); model.rig.after(person, step); });
     // The camera follows the ground under you (hills, or the car's height) but only a little of each jump.

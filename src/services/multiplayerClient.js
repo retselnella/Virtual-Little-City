@@ -24,12 +24,14 @@ async function supabaseTransport(handlers, config, createClient) {
   try {
     if (createClient) { client = createClient(config.url, config.key, AUTH_OPTIONS); session = await signInGuest(client); }
     else ({ client, session } = await guestClient(config));
-  } catch (error) { handlers.onStatus?.({ mode: 'online', state: 'reconnecting', reason: 'sign-in' }); throw error; }
+  } catch (error) { handlers.onStatus?.({ mode: 'online', state: 'reconnecting', reason: `sign-in: ${error?.message || error}` }); throw error; }
   // Tabs of one browser share the anonymous session, so each tab gets its own presence key or they would hide each other.
   const selfId = session.user.id + '-' + tabNonce();
   await client.realtime.setAuth();
   let profile = null, city = null, cityRoom = null, lobby = null, closed = false, roomReady = false;
-  const status = state => handlers.onStatus?.({ mode: 'online', state });
+  const status = (state, reason) => handlers.onStatus?.({ mode: 'online', state, ...(reason ? { reason } : {}) });
+  // Why a channel failed, as Supabase reports it (shown on the connection chip so the site owner can fix the setup).
+  const why = (state, error) => { const text = error?.message || String(error || '') || (state === 'TIMED_OUT' ? 'timed out' : 'channel error'); console.warn(`Shared world: ${state}`, error || ''); return text; };
   const presenceIds = channel => new Set(Object.keys(channel.presenceState()));
   // Staying online: a channel that errors or times out (a dropped network, a laptop waking up, a sign-in token that
   // expired while the tab slept) is rebuilt after a short, growing pause, with the session refreshed first. Coming
@@ -50,10 +52,10 @@ async function supabaseTransport(handlers, config, createClient) {
     if (lobby) client.removeChannel(lobby);
     const channel = lobby = client.channel(LOBBY_CHANNEL, { config: { private: true, presence: { key: selfId, enabled: true } } })
       .on('presence', { event: 'sync' }, () => handlers.onLobby?.(Object.fromEntries(Object.entries(channel.presenceState()).map(([id, metas]) => [id, metas[0]]))))
-      .subscribe(state => {
+      .subscribe((state, error) => {
         if (channel !== lobby) return;
         if (state === 'SUBSCRIBED') { healthy('lobby'); if (profile) channel.track(profile); }
-        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') retry('lobby', buildLobby); // only the city counts are missing meanwhile
+        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') { why(state, error); retry('lobby', buildLobby); } // only the city counts are missing meanwhile
       });
   }
   function buildRoom() {
@@ -67,10 +69,10 @@ async function supabaseTransport(handlers, config, createClient) {
       .on('presence', { event: 'join' }, ({ key, newPresences }) => { if (key !== selfId) handlers.onProfile?.(key, newPresences?.[0]); })
       // Re-tracking a changed profile arrives as a join plus a leave of the old entry: only an empty key has left.
       .on('presence', { event: 'leave' }, ({ key, currentPresences }) => { if (key !== selfId && !currentPresences?.length) handlers.onLeave?.(key); })
-      .subscribe(state => {
+      .subscribe((state, error) => {
         if (room !== cityRoom) return;
         if (state === 'SUBSCRIBED') { roomReady = true; healthy('room'); status('online'); if (profile) room.track(profile); }
-        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') { roomReady = false; status('reconnecting'); retry('room', buildRoom); }
+        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') { roomReady = false; status('reconnecting', why(state, error)); retry('room', buildRoom); }
         else if (state === 'CLOSED') roomReady = false;
       });
   }

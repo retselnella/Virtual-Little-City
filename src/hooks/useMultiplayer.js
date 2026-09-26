@@ -30,7 +30,7 @@ export function useMultiplayer(session, character, city) {
     }).catch(error => {
       console.warn('Multiplayer unavailable, retrying', error);
       if (!alive) return;
-      setStatus({ mode: 'online', state: 'reconnecting' }); retry = setTimeout(connect, wait); wait = Math.min(30000, wait * 2);
+      setStatus({ mode: 'online', state: 'reconnecting', reason: `sign-in: ${error?.message || error}` }); retry = setTimeout(connect, wait); wait = Math.min(30000, wait * 2);
     });
     connect();
     // Send this player's state: every SEND_INTERVAL while it changes, at least every HEARTBEAT_INTERVAL. Attacks made since

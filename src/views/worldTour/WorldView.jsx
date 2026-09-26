@@ -12,11 +12,18 @@ import { ShopPanel, WeaponBar } from './weaponViews.jsx';
 import { MusicPanel } from './musicViews.jsx';
 import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
 import { MAX_STARS, escapeTime, starsOf } from '../../models/worldTour/wanted.js';
+// A reason that will not go away by retrying: the site's Supabase setup needs a step (README, "Turn on online play").
+function setupProblem(reason = '') {
+  if (/anonymous sign-ins are disabled/i.test(reason)) return 'Offline: turn on anonymous sign-ins in Supabase';
+  if (/unauthori[sz]ed|permission|not allowed|forbidden|row-level|policy/i.test(reason)) return 'Offline: run supabase/realtime-policies.sql';
+  if (/invalid api key|jwt|apikey/i.test(reason)) return 'Offline: check the Supabase URL and anon key';
+  return '';
+}
 // Connection chip: who else is here, and whether this is the shared online world or the same-browser fallback.
 function onlineLabel({ status, peers }) {
   const others = peers.length, players = `${others} other player${others === 1 ? '' : 's'} here`;
   if (status.mode === 'local') return ['local', `Local · ${others} other tab${others === 1 ? '' : 's'}`];
-  if (status.state === 'reconnecting' || status.state === 'error') return ['connecting', globalThis.navigator?.onLine === false ? 'No internet · reconnecting…' : 'Reconnecting to the shared world…'];
+  if (status.state === 'reconnecting' || status.state === 'error') return ['connecting', globalThis.navigator?.onLine === false ? 'No internet · reconnecting…' : setupProblem(status.reason) || 'Reconnecting to the shared world…'];
   if (status.state !== 'online') return ['connecting', 'Connecting to the shared world…'];
   return ['online', `Online · ${players}`];
 }
@@ -105,7 +112,7 @@ export default function WorldView({ controller, onEditCharacter }) {
       <span className="adventure-kicker">{city.country} / {city.region}</span>
       <h1>{city.name}<span>.</span></h1>
       <div><i />{region}<span>FREE ROAM</span></div>
-      <p className={'adventure-online ' + onlineState} role="status" aria-live="polite">{onlineText}</p>
+      <p className={'adventure-online ' + onlineState} role="status" aria-live="polite" title={online.status.reason || undefined}>{onlineText}</p>
     </section>
     <section className="adventure-stats" aria-label="Player status">
       <span className="adventure-player">{playerName.toUpperCase()}</span>

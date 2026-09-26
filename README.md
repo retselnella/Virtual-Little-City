@@ -258,6 +258,8 @@ Attacking anyone, or hitting people with your car, gives you **wanted stars**, u
 - **Arrival**: police arrive a few seconds later in patrol cars that drive through the streets; one car per star, up to five.
 - **Chases**: a patrol car that sees you chases you. Out of sight, police search where you were last seen. Drive away and officers on foot get back in their car and follow.
 - **Helicopters**: a helicopter flies in from beyond the city, circles above you with its searchlight on you, and searches a widening circle around your last known position when it loses you. It sees you from the air unless **tall buildings** are between you or you are **under trees**, and it is slower than your car, so you can outdrive it. It shows on the minimap as a flashing red and blue diamond.
+- **Knocked-out units**: kill a unit's officers and their car is out of action (lights off, parked where it stopped); the police send reinforcements that drive in from out of sight, so the pursuit keeps going. After the pursuit, new crews take the empty cars back and the reinforcements leave the city.
+- **Teaming up**: other wanted players within 150 m of you count as your crew. Each brings two more patrol cars (up to nine) and, at four stars and above, one more helicopter.
 - **The pursuit only ends** when you are busted, wasted, or **get away**. To get away, stop attacking and stay out of sight of every unit (cars, officers and helicopters) once they have started looking for you: **9 seconds at one star, up to 21 seconds at five**. The stars then blink and fade to zero; if they spot you again, the chase is back on. At zero everyone stands down: patrols go back to their beats, the helicopters fly home and the streets calm down.
 
 ## 10. Driving
@@ -285,6 +287,9 @@ The status under the city name shows your connection:
 | --- | --- |
 | **Online · N other players here** | Connected to the shared world. |
 | **Connecting to the shared world…** | Joining; this usually takes a moment. |
+| **Offline: run supabase/realtime-policies.sql** | Supabase refused the game's private channels: the Realtime policies are missing. Run [`supabase/realtime-policies.sql`](supabase/realtime-policies.sql) in the SQL Editor, then reload. Hover the chip for Supabase's exact message. |
+| **Offline: turn on anonymous sign-ins in Supabase** | Authentication → Sign In / Providers → allow anonymous sign-ins. |
+| **Offline: check the Supabase URL and anon key** | The site was built with a wrong URL or key: fix the environment variables in Vercel and redeploy. |
 | **Reconnecting to the shared world…** | The connection dropped (network, a sleeping laptop, an expired sign-in). The game reconnects by itself, retrying every few seconds, and keeps working meanwhile. If it never comes back, see [Turn on online play](#turn-on-online-play-supabase). |
 | **Local · N other tabs** | This site has no online server set up; only other tabs in *this* browser are shared. |
 
@@ -360,7 +365,7 @@ Without this, only tabs of the same browser share the world. Online play uses a 
 7. **The Kaiju event**: in the SQL Editor, also run the whole of [`supabase/world-boss.sql`](supabase/world-boss.sql). It creates the event, damage, weekly board and reward tables (hidden from players; they can only use the game's checked functions) and the reward tiers, which you can change in the `boss_reward_tiers` table. Paste the whole file and click **Run** with nothing highlighted (with text highlighted, Supabase runs only the selection). Run it again whenever the game is updated; it keeps your data. Weeks are closed automatically the first time anyone opens the board after Monday 00:00 PH time; if you have the `pg_cron` extension, the file shows an optional schedule for it. Without this step, online play works but the Kaiju panel says the event server cannot be reached.
 8. **Check it**: the build log shows `Multiplayer: online via SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY`, and the game shows **Online · 0 other players here**.
 
-If it does not connect: a status stuck on **Reconnecting…** usually means anonymous sign-ins are off or the key is wrong (the browser console shows the reason). A status stuck on **Connecting…** usually means step 4 was not run. **Local** means the values were not found by the build.
+If it does not connect, the chip names the problem (hover it for Supabase's exact message; the browser console shows it too): missing Realtime policies, anonymous sign-ins turned off, or a wrong URL or key. Players in a normal and a private window are different guests, so they see each other only once online play works. A status stuck on **Connecting…** usually means step 4 was not run. **Local** means the values were not found by the build.
 
 Usage note: each player sends about 10 position updates per second to every other player in the same city. Check your Supabase plan's Realtime limits before a large event.
 

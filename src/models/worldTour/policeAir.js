@@ -38,7 +38,7 @@ function fly(h, aim, altitude, speed, dt) {
 // marksman's hit. Returns whether any helicopter can see the suspect now.
 export function updateHelicopters(s, at, dt, { hurt } = {}) {
   s.helicopters ||= [];
-  const want = helicoptersFor(s.heat), active = s.helicopters.filter(h => h.state !== 'leaving');
+  const want = helicoptersFor(s.heat, s.crew), active = s.helicopters.filter(h => h.state !== 'leaving');
   s.heliDelay = (s.heliDelay ?? 3) - dt;
   if (active.length < want && s.heliDelay <= 0) { s.helicopters.push(spawn(s, at)); s.heliDelay = 8; }
   for (const h of active.slice(want)) h.state = 'leaving';

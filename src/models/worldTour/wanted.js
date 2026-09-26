@@ -16,7 +16,11 @@ export const starsForKills = kills => KILL_STARS.reduce((best, [n, stars]) => ki
 export const escapeTime = heat => 6 + 3 * starsOf(heat);
 export const FADE_RATE = 0.35; // stars per second once you have got away
 export const unitsFor = heat => Math.min(MAX_STARS, starsOf(heat));
-export const helicoptersFor = heat => starsOf(heat) >= 5 ? 2 : starsOf(heat) >= 4 ? 1 : 0;
+export const helicoptersFor = (heat, crew = 0) => starsOf(heat) >= 5 ? 2 + Math.min(1, crew) : starsOf(heat) >= 4 ? 1 + Math.min(1, crew) : 0;
+// Players teaming up: every other wanted player close by (`crew`, within CREW_RANGE) brings two more patrol cars, and
+// an extra helicopter at four stars and above.
+export const CREW_RANGE = 150;
+export const crewUnits = (heat, crew = 0) => starsOf(heat) ? Math.min(9, unitsFor(heat) + 2 * Math.min(2, crew || 0)) : 0;
 const ANNOUNCE = { 2: 'Wanted ★★: officers will open fire.', 3: 'Wanted ★★★: more units are joining the pursuit.', 4: 'Wanted ★★★★: a police helicopter is on its way.', 5: 'Wanted ★★★★★: every unit and two helicopters are hunting you.' };
 // Raise the wanted level (never above five stars); returns the announcement for a new level, if any.
 export function raiseHeat(s, heat) {
