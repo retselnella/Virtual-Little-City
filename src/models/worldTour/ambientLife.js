@@ -4,7 +4,7 @@
 // circles, and the city comes alive: crowds outside the shops and bars, chatting and dancing under the neon.
 // Everything is laid out from the island and the city seed, so every player sees the same groups. They are background
 // life: drawn only near the camera, not simulated (they do not walk the streets, flee or get hurt).
-import { CINEMA, LOUNGE, SEATS } from './venues.js';
+import { LOUNGE } from './venues.js';
 
 const BEACH = angle => (angle > 40 && angle < 150) || angle > 165 || angle < -170; // the sunny beach stretches, in degrees
 const SKIN = ['#f3cfb0', '#e0ac85', '#c18b63', '#9a6644', '#6d452e', '#4d3122'];
@@ -62,7 +62,7 @@ export function ambientGroups(island, blocks, seed = 1) {
   });
   // Town: café tables by day, and crowds outside the shops and bars at night, in front of the blocks nearest the
   // centre (the shop fronts face the avenue on each block's south side).
-  const fronts = blocks.filter(b => !b.hub && !b.shop && !b.venue && Math.abs(b.x) < 320 && Math.abs(b.z) < 320).map(b => ({ x: b.x, z: b.z + b.depth / 2 + 3.2 }))
+  const fronts = blocks.filter(b => !b.hub && !b.shop && Math.abs(b.x) < 320 && Math.abs(b.z) < 320).map(b => ({ x: b.x, z: b.z + b.depth / 2 + 3.2 }))
     .sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
   fronts.slice(0, 8).forEach((f, i) => {
     const at = { x: f.x + (i % 2 ? 6 : -6), z: f.z };
@@ -73,13 +73,11 @@ export function ambientGroups(island, blocks, seed = 1) {
     for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2, at = { x: f.x + Math.sin(a) * 1.5, z: f.z + Math.cos(a) * 1.2 }; members.push(person('adult', random() < 0.45 ? 'dance' : 'chat', at.x, at.z, facing(at, f), NIGHT)); }
     groups.push({ id: `night-${i}`, kind: 'nightlife', time: 'night', x: f.x, z: f.z, members });
   });
-  // The Lounge: dancers on the floor (a bigger crowd after dark), a bartender and people at the bar. The cinema's
-  // regulars in their seats.
+  // The Lounge: dancers on the floor (a bigger crowd after dark), a bartender and people at the bar.
   const dancers = (n, palette) => Array.from({ length: n }, (_, k) => { const a = k / n * Math.PI * 2 + random(), r = 2 + random() * 5, x = LOUNGE.x + Math.sin(a) * r, z = LOUNGE.z + Math.cos(a) * r; return person('adult', 'dance', x, z, facing({ x, z }, LOUNGE), palette); });
   groups.push({ id: 'lounge-day', kind: 'lounge', time: 'day', x: LOUNGE.x, z: LOUNGE.z, members: dancers(5, SUMMER) });
   groups.push({ id: 'lounge-night', kind: 'lounge', time: 'night', x: LOUNGE.x, z: LOUNGE.z, members: dancers(11, NIGHT) });
   groups.push({ id: 'lounge-bar', kind: 'lounge', time: 'any', x: LOUNGE.x - 22, z: LOUNGE.z, members: [person('adult', 'chat', LOUNGE.x - 24, LOUNGE.z, Math.PI / 2), ...[-6, -3, 3].map(dz => person('adult', 'chat', LOUNGE.x - 19.8, LOUNGE.z + dz, -Math.PI / 2))] });
-  groups.push({ id: 'cinema-regulars', kind: 'cinema', time: 'any', x: CINEMA.x, z: CINEMA.z, members: SEATS.cinema.filter(seat => seat.npc).map(seat => person('adult', 'sit', seat.x, seat.z, seat.heading)) });
   return groups;
 }
 // Which groups are out: by day, or after dark (`night` is 0 in full daylight and 1 at night).

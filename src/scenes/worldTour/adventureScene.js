@@ -145,7 +145,6 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     for (const b of cityBlocks) {
       owner = `block:${++blockIndex}`;
       if (b.hub) { cityHub(b); continue; }
-      if (b.venue) continue; // drawn with its venue (venuesScene.js)
       box([b.width + 3, 0.5, b.depth + 3], '#a6aca8', [b.x, 0.2, b.z]);
       box([b.width, b.height, b.depth], b.color, [b.x, b.height / 2, b.z]);
       box([b.width + 1, 0.8, b.depth + 1], '#d6d3c4', [b.x, b.height, b.z]);
@@ -247,8 +246,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     }
     const hub = session.current.blocks.find(b => b.hub); label('CITY HUB', 8, 12, '#86edcb'); label('CITY HUB', hub.x, hub.z, '#ffffff', hub.height + 5, 1.5);
     buildTeleporter(session.current.teleporter, label);
-    // The Lounge and the Open-Air Cinema by the City Hub.
-    venues = buildVenues(root, { box, label, glowMaterial, geometries, color: city.color });
+    // The Lounge by the City Hub.
+    venues = buildVenues(root, { box, label, glowMaterial, color: city.color });
     const shop = session.current.blocks.find(b => b.shop); if (shop) label('GUN SHOP', shop.x + 9, shop.z + shop.depth / 2 + 3, '#ff8a7a', 7.5, 1.2); label(city.district.toUpperCase(), 0, -32, city.color); label('AIRPORT', -413, -110, '#ffffff'); label('MARINA', MARINA.x0 + 20, MARINA.z - 8, '#9fd6ff');
     const lighthouse = islandData.landmarks.lighthouse; label('LIGHTHOUSE', lighthouse.x + 10, lighthouse.z + 10, '#f8d47a', 40, 1.4);
     if (islandData.landmarks.feature) label(islandData.landmarks.feature.name.toUpperCase(), islandData.landmarks.feature.x, islandData.landmarks.feature.z, '#f3eee5', 16, 1.4);

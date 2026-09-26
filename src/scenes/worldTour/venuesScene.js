@@ -1,11 +1,9 @@
 import * as THREE from 'three';
-import { CINEMA, LOUNGE, SCREEN, SCREEN_WALL, SEATS } from '../../models/worldTour/venues.js';
+import { LOUNGE, SEATS } from '../../models/worldTour/venues.js';
 
-// The Lounge and the Open-Air Cinema (venues.js). Static parts go through the city's batched `box`; the dance floor's
-// changing colours and the cinema screen (a video texture while a film plays, a painted programme board otherwise)
-// are live meshes updated every frame.
-const fmt = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-export function buildVenues(root, { box, label, glowMaterial, geometries, color }) {
+// The Lounge (venues.js). Static parts go through the city's batched `box`; the dance floor's changing colours are live
+// meshes updated every frame.
+export function buildVenues(root, { box, label, glowMaterial, color }) {
   const disposables = [];
   // ---- Lounge: a wooden deck with a lit dance floor, a DJ booth, a bar and sofas round the floor.
   const L = (x, z) => [LOUNGE.x + x, LOUNGE.z + z];
@@ -40,54 +38,11 @@ export function buildVenues(root, { box, label, glowMaterial, geometries, color 
     const m = new THREE.Mesh(tile, mat); m.position.set(LOUNGE.x - 6 + i * 4, 0.22, LOUNGE.z - 6 + j * 4); root.add(m); tiles.push({ m, i, j });
   }
 
-  // ---- Cinema: a paved yard, the screen on its wall, rows of seats facing it and a projection booth at the back.
-  box([84, 0.14, 84], '#4d5359', [CINEMA.x, 0.07, CINEMA.z]);
-  box([SCREEN_WALL.width, SCREEN_WALL.height, SCREEN_WALL.depth], '#1c2530', [SCREEN_WALL.x, SCREEN_WALL.height / 2, SCREEN_WALL.z]);
-  box([SCREEN.width + 2, SCREEN.height + 2, 0.3], '#0b0f14', [SCREEN.x, SCREEN.y, SCREEN.z - 0.3]);
-  const marquee = glowMaterial('#2a2f45', 1.4, '#ffd98a');
-  box([SCREEN_WALL.width, 1.6, 0.6], '#2a2f45', [SCREEN_WALL.x, SCREEN_WALL.height - 0.8, SCREEN_WALL.z + 1.4], 0, marquee);
-  const rows = [...new Set(SEATS.cinema.map(s => s.z))];
-  for (const z of rows) {
-    box([33.5, 0.5, 1], '#7a2e36', [CINEMA.x, 0.3, z]); box([33.5, 1, 0.3], '#6a2830', [CINEMA.x, 0.9, z + 0.6]);
-    for (const x of [-16.9, 16.9]) box([0.3, 0.9, 1.2], '#3a3f47', [CINEMA.x + x, 0.5, z]);
-  }
-  box([8, 5, 5], '#2a2f38', [CINEMA.x, 2.5, CINEMA.z + 32]); box([1.2, 1.2, 0.3], '#fff1c9', [CINEMA.x, 3.6, CINEMA.z + 29.4], 0, glowMaterial('#fff1c9', 2));
-  for (let i = -38; i <= 38; i += 6) for (const x of [-40, 40]) box([0.35, 0.35, 0.35], '#fff1c9', [CINEMA.x + x, 4.2, CINEMA.z + i], 0, bulbs);
-  for (let i = -38; i <= 38; i += 6) for (const x of [-40, 40]) box([0.15, 4.2, 0.15], '#3a3f47', [CINEMA.x + x, 2.1, CINEMA.z + i]);
-  label(CINEMA.name.toUpperCase(), CINEMA.x, CINEMA.z + 40, '#ffd98a', 8.5, 1.2);
-  // The screen: the film's frames while one is playing; otherwise the programme board.
-  const board = document.createElement('canvas'); board.width = 1024; board.height = 576;
-  const boardTexture = new THREE.CanvasTexture(board); boardTexture.colorSpace = THREE.SRGBColorSpace; disposables.push(boardTexture);
-  const screenMaterial = new THREE.MeshBasicMaterial({ map: boardTexture, toneMapped: false }); disposables.push(screenMaterial);
-  const plane = new THREE.PlaneGeometry(SCREEN.width, SCREEN.height); geometries.add(plane);
-  const screen = new THREE.Mesh(plane, screenMaterial); screen.position.set(SCREEN.x, SCREEN.y, SCREEN.z); root.add(screen);
-  let videoTexture = null, boardKey = '';
-  function paint(cinema) {
-    const show = cinema?.show, status = cinema?.status || 'loading';
-    const lines = show ? (show.intermission ? [`Next ${show.item.kind === 'show' ? 'show' : 'movie'}`, show.item.title, `Starts in ${fmt(show.startsIn)}`] : ['Now showing', show.item.title, 'Loading the film…'])
-      : status === 'loading' ? ['Tonight', 'Loading the programme…', ''] : status === 'empty' || status === 'offline' ? ['Coming soon', 'No films yet', 'The site owner adds them in Supabase Storage (cinema)'] : ['Sorry', 'The films could not be loaded', ''];
-    const key = lines.join('|'); if (key === boardKey) return; boardKey = key;
-    const ctx = board.getContext('2d'), g = ctx.createLinearGradient(0, 0, 0, 576);
-    g.addColorStop(0, '#141b2e'); g.addColorStop(1, '#2b1a2e'); ctx.fillStyle = g; ctx.fillRect(0, 0, 1024, 576);
-    ctx.textAlign = 'center'; ctx.fillStyle = '#ffd98a'; ctx.font = 'bold 34px Arial, sans-serif'; ctx.fillText('OPEN-AIR CINEMA', 512, 90);
-    ctx.fillStyle = '#c9d2e0'; ctx.font = '32px Arial, sans-serif'; ctx.fillText(lines[0].toUpperCase(), 512, 220);
-    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 64px Arial, sans-serif'; ctx.fillText(lines[1], 512, 310, 940);
-    ctx.fillStyle = '#9fb0c8'; ctx.font = '30px Arial, sans-serif'; ctx.fillText(lines[2], 512, 390, 940);
-    boardTexture.needsUpdate = true;
-  }
   return {
     update(s, time) {
       // Dance floor: a slow wave of colour across the tiles, brighter at night.
       for (const { m, i, j } of tiles) m.material.color.setHSL(((time * 0.08 + (i + j) * 0.09) % 1 + 1) % 1, 0.75, 0.45 + Math.sin(time * 3 + i * 1.7 + j) * 0.12);
-      const cinema = s.cinema;
-      if (cinema?.live) {
-        if (!videoTexture || videoTexture.image !== cinema.video) { videoTexture?.dispose(); videoTexture = new THREE.VideoTexture(cinema.video); videoTexture.colorSpace = THREE.SRGBColorSpace; }
-        if (screenMaterial.map !== videoTexture) { screenMaterial.map = videoTexture; screenMaterial.needsUpdate = true; }
-      } else {
-        paint(cinema);
-        if (screenMaterial.map !== boardTexture) { screenMaterial.map = boardTexture; screenMaterial.needsUpdate = true; }
-      }
     },
-    dispose() { root.remove(screen, ...tiles.map(t => t.m)); videoTexture?.dispose(); disposables.forEach(d => d.dispose()); },
+    dispose() { root.remove(...tiles.map(t => t.m)); disposables.forEach(d => d.dispose()); },
   };
 }

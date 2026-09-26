@@ -81,18 +81,18 @@ export function generateBlocks(city) {
   Object.assign(blocks.find(b => b.x === 37 && b.z === 37), { hub: true, height: 19, color: '#e4ebe8' });
   // Miami's gun shop takes the ground floor of the block across the avenue.
   if (city.id === GUN_SHOP.city) blocks.find(b => b.x === GUN_SHOP.block.x && b.z === GUN_SHOP.block.z).shop = true;
-  // The Lounge and the Open-Air Cinema take a block each by the City Hub (venues.js).
+  // The Lounge takes a block by the City Hub (venues.js).
   const city_blocks = venueBlocks(blocks);
   Object.defineProperty(city_blocks, 'island', { value: islandFor(city.id) });
   return city_blocks;
 }
-// Sitting on a lounge sofa or a cinema seat: you sit facing the dance floor or the screen; moving (or E) gets you up.
+// Sitting on a lounge sofa: you sit facing the dance floor; moving (or E) gets you up.
 const takenSeats = s => s.remoteSeats || [];
 export const freeSeat = s => onFoot(s) && !s.seated && !s.down && !(s.heat > 0) ? seatNear(s.player, new Set(takenSeats(s).map(p => `${p.x},${p.z}`))) : null;
 export function sitDown(s, seat) {
   s.player = { ...s.player, x: seat.x, z: seat.z, heading: seat.heading, height: 0, moveX: 0, moveZ: 0, kickX: 0, kickZ: 0, speed: 0, seated: true };
   s.seated = { venue: seat.venue, x: seat.x, z: seat.z, heading: seat.heading };
-  notify(s, seat.venue === 'cinema' ? 'Enjoy the show. Move or press E to get up.' : 'Relax and enjoy the music. Move or press E to get up.');
+  notify(s, 'Relax and enjoy the music. Move or press E to get up.');
 }
 export function standUp(s) {
   if (!s.seated) return;
@@ -204,7 +204,7 @@ export function promptFor(s) {
   if (distance(s.player, s.car) < 9) return { key: 'F', action: 'vehicle', text: 'Get in your car' };
   if (atGunShop(s.city, s.player)) return { key: 'E', action: 'interact', text: 'Browse Ocean Drive Arms' };
   if (atTeleporter(s)) return { key: 'E', action: 'interact', text: 'Teleport to another island' };
-  const seat = freeSeat(s); if (seat) return { key: 'E', action: 'interact', text: seat.venue === 'cinema' ? 'Take a seat' : 'Sit on the sofa' };
+  const seat = freeSeat(s); if (seat) return { key: 'E', action: 'interact', text: 'Sit on the sofa' };
   if (distance(s.player, HUB) < 13 && (s.health < 100 || needsAmmo(s))) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
   return null;
 }

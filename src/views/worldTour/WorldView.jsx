@@ -13,7 +13,7 @@ import { MusicPanel } from './musicViews.jsx';
 import { TouchActions, TouchStick } from './touchControls.jsx';
 import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
 import { MAX_STARS, escapeTime, starsOf } from '../../models/worldTour/wanted.js';
-import { CINEMA, LOUNGE, SCREEN } from '../../models/worldTour/venues.js';
+import { LOUNGE } from '../../models/worldTour/venues.js';
 // A reason that will not go away by retrying: the site's Supabase setup needs a step (README, "Turn on online play").
 function setupProblem(reason = '') {
   if (/anonymous sign-ins are disabled/i.test(reason)) return 'Offline: turn on anonymous sign-ins in Supabase';
@@ -59,7 +59,7 @@ const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-wes
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
 export default function WorldView({ controller, onEditCharacter }) {
-  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, bigMap, setBigMap, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, cinema, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
+  const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, bigMap, setBigMap, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [picked, setPicked] = useState(null);
   // Touch screens: the cards fold away so the game stays visible (tap to open them).
   const [infoOpen, setInfoOpen] = useState(false), [policeOpen, setPoliceOpen] = useState(false), [mapHidden, setMapHidden] = useState(false);
@@ -80,7 +80,7 @@ export default function WorldView({ controller, onEditCharacter }) {
   const openMap = () => open('world');
   const canTravel = !hud.mission && !(hud.heat > 0) && !(hud.down > 0) && ready && !error;
   const places = [
-    { label: 'City Hub', x: 8, z: 12 }, { label: 'Teleporter', ...hud.teleporter }, { label: 'Lounge', x: LOUNGE.x, z: LOUNGE.z + 30 }, { label: 'Cinema', x: CINEMA.x, z: CINEMA.z + 30 }, ...(city.id === GUN_SHOP.city ? [{ label: 'Gun shop', ...GUN_SHOP.door }] : []), { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z },
+    { label: 'City Hub', x: 8, z: 12 }, { label: 'Teleporter', ...hud.teleporter }, { label: 'Lounge', x: LOUNGE.x, z: LOUNGE.z + 30 }, ...(city.id === GUN_SHOP.city ? [{ label: 'Gun shop', ...GUN_SHOP.door }] : []), { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z },
     { label: `${STATIONS[nearestStation(p.x, p.z)].name} metro station`, ...STATIONS[nearestStation(p.x, p.z)].exit },
     { label: 'Lighthouse', x: island.landmarks.lighthouse.x + 22, z: island.landmarks.lighthouse.z },
     ...(island.landmarks.feature ? [{ label: island.landmarks.feature.name, ...reachableNear(island, { x: island.landmarks.feature.x, z: island.landmarks.feature.z + island.landmarks.feature.radius + 8 }) }] : []),
@@ -148,7 +148,6 @@ export default function WorldView({ controller, onEditCharacter }) {
       : <div className="adventure-dispatch" aria-label="Police response" onClick={() => touch && setPoliceOpen(false)}><span>POLICE RESPONSE</span><strong>{dispatchTitle}</strong><small>{dispatchHint}</small></div>)}
     <BossBanner boss={boss} city={city} now={now} onOpen={() => open('boss')} onMap={() => openMap()} />
     <BossHits hits={boss.hits} />
-    {cinema.showing && Math.hypot(p.x - SCREEN.x, p.z - SCREEN.z) < 160 && <div className="cinema-now" role="status"><span>{cinema.showing.intermission ? `NEXT ${cinema.showing.kind === 'show' ? 'SHOW' : 'MOVIE'}` : `NOW SHOWING · ${cinema.showing.kind === 'show' ? 'SHOW' : 'MOVIE'}`}</span><b>{cinema.showing.title}</b><small>{cinema.showing.intermission ? `Starts in ${Math.floor(cinema.showing.left / 60)}:${String(Math.floor(cinema.showing.left % 60)).padStart(2, '0')}` : `${Math.ceil(cinema.showing.left / 60)} min left · then ${cinema.showing.next}`}</small></div>}
     {hud.messageTime > 0 && <div className="adventure-toast" role="status">{hud.message}</div>}
     {teleported > 0 && <div key={teleported} className="teleport-flash" aria-hidden="true" />}
     {prompt && ready && !error && <button className={'adventure-prompt' + (prompt.key ? '' : ' passive')} disabled={!prompt.action} onClick={() => prompt.action && action(prompt.action)}>{prompt.key && <kbd>{prompt.key}</kbd>}<span>{prompt.text}</span></button>}

@@ -6,7 +6,7 @@ test('all seven cities have distinct deterministic districts and reachable contr
   assert.equal(CITIES.length, 7);
   for (const city of CITIES) {
     const blocks = generateBlocks(city);
-    assert.equal(blocks.length, 144 - 8 + 1, '144 buildings, less the two venue blocks, plus the cinema screen wall'); assert.deepEqual(blocks, generateBlocks(city));
+    assert.equal(blocks.length, 144 - 4, '144 buildings, less the lounge block'); assert.deepEqual(blocks, generateBlocks(city));
     assert.ok(freePosition(8, 12, blocks));
     for (const mission of CONTRACTS) for (const point of missionSteps(city.id, mission.id)) assert.ok(freePosition(point.x, point.z, blocks, 1), `${city.name} ${mission.id} ${point.label}`);
     assert.ok(!freePosition(blocks[0].x, blocks[0].z, blocks));
