@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { audioType, buildPlaylist, buildPlaylists, cleanTracks, playOrder, stepTrack, storagePath, trackFromFile } from '../../src/models/worldTour/playlist.js';
-import { loadPlaylists } from '../../src/services/musicService.js';
+import { createMusicLoader } from '../../src/services/musicService.js';
 import { readMusicPreference, writeMusicPreference } from '../../src/services/preferences.js';
 
 test('file names become tracks with Storage-safe paths', () => {
@@ -46,21 +46,19 @@ test('play order: in order, or shuffled with every track once; next and previous
   assert.equal(stepTrack([], 0, 1), -1);
 });
 
-test('each folder in the bucket is a playlist; URLs are built from the project address', async () => {
-  const calls = [];
-  // Storage lists folders as entries without an id.
-  const tree = { '': [{ name: 'Classic Rock', id: null }, { name: 'Worship Song', id: null }, { name: '.emptyFolderPlaceholder', id: 'p' }, { name: 'Loose Song.mp3', id: 'a' }],
-    'Classic Rock': [{ name: 'Queen - Bohemian Rhapsody (Official Video).mp3', id: 'b' }, { name: 'ABBA - Dancing Queen.mp3', id: 'c' }], 'Worship Song': [{ name: 'Cebuano Worship Song.mp3', id: 'd' }] };
-  const client = {
-    storage: { from(bucket) { calls.push(['bucket', bucket]); return { list: async folder => { calls.push(['list', folder]); return { data: tree[folder], error: null }; } }; } },
-    from(name) { calls.push(['from', name]); return { select: async () => ({ data: null, error: { message: 'relation "music_tracks" does not exist' } }) }; },
-  };
-  const playlists = await loadPlaylists({ configured: true, client });
-  assert.deepEqual(playlists.map(p => [p.name, p.tracks.map(t => t.title)]), [['Classic Rock', ['Dancing Queen', 'Bohemian Rhapsody (Official Video)']], ['Worship Song', ['Cebuano Worship Song']], ['Music', ['Loose Song']]]);
-  assert.equal(playlists[0].tracks[1].artist, 'Queen', 'no table needed: titles and artists come from file names');
-  assert.match(playlists[0].tracks[1].url, /\/storage\/v1\/object\/public\/music\/Classic%20Rock\/Queen%20-%20Bohemian%20Rhapsody%20\(Official%20Video\)\.mp3$/, 'names are URL-encoded under the project address');
-  await assert.rejects(loadPlaylists({ configured: true, client: { ...client, storage: { from: () => ({ list: async () => ({ data: null, error: new Error('Bucket not found') }) }) } } }), /Bucket not found/);
-  assert.equal(await loadPlaylists({ configured: false }), null, 'no Supabase: no playlists and no requests');
+test('local genre folders load without Supabase and encode song URLs', async () => {
+  const load = createMusicLoader(async url => {
+    assert.equal(url, '/music-manifest.json');
+    return { ok: true, json: async () => ({ version: 1, folders: {
+      'Classic Rock': [{ name: 'Queen - Bohemian Rhapsody.mp3' }],
+      'Worship Song': [{ name: 'Cebuano Worship Song.mp3' }],
+      '': [{ name: 'Loose Song.mp3' }],
+    } }) };
+  });
+  const lists = await load();
+  assert.deepEqual(lists.map(p => p.name), ['Classic Rock', 'Worship Song', 'Music']);
+  assert.equal(lists[0].tracks[0].artist, 'Queen');
+  assert.equal(lists[0].tracks[0].url, '/music/Classic%20Rock/Queen%20-%20Bohemian%20Rhapsody.mp3');
 });
 
 test('folder playlists take titles and order from the table, and skip empty folders', () => {
@@ -103,17 +101,17 @@ test('music.sql: players can list the music bucket and read the playlist, and ca
   }
 });
 
-test('music manifest loads folders and metadata in one shared request without fallback on server errors', async () => {
+test('static manifest shares concurrent reads, caches successes and retries errors', async () => {
   let calls = 0;
-  const client = { rpc: async name => {
-    calls++; assert.equal(name, 'music_manifest');
-    return { data: [{ path: 'Rock/01 - Artist - Song.mp3', title: null, enabled: true },
-      { path: 'Rock/02.mp3', title: 'Opener', position: -1 }, { path: 'Rock/hidden.mp3', title: 'Hidden', enabled: false }] };
-  } };
-  const [a, b] = await Promise.all([loadPlaylists({ configured: true, client }), loadPlaylists({ configured: true, client })]);
-  assert.equal(a, b); assert.equal(calls, 1);
-  assert.deepEqual(a[0].tracks.map(t => t.title), ['Opener', 'Song']);
-  await loadPlaylists({ configured: true, client }); assert.equal(calls, 1);
-  const broken = { rpc: async () => ({ error: { code: '57014', message: 'timeout' } }) };
-  await assert.rejects(loadPlaylists({ configured: true, client: broken }), error => error.code === '57014');
+  const load = createMusicLoader(async () => {
+    calls++;
+    if (calls === 1) return { ok: false, status: 503 };
+    return { ok: true, json: async () => ({ version: 1, folders: { Rock: [{ name: 'Song.mp3' }] } }) };
+  });
+  await assert.rejects(load(), /503/);
+  const [a, b] = await Promise.all([load(), load()]);
+  assert.equal(a, b); assert.equal(calls, 2);
+  await load(); assert.equal(calls, 2);
+  const broken = createMusicLoader(async () => ({ ok: true, json: async () => ({ folders: [] }) }));
+  await assert.rejects(broken(), /invalid/);
 });

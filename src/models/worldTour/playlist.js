@@ -1,5 +1,4 @@
-// The in-game music playlist: the audio files in the public `music` Storage bucket (supabase/music.sql), uploaded from
-// the dashboard or with scripts/upload-music.mjs, with optional titles and order from the `music_tracks` table.
+// Shared playlist parsing for local public/music files and the legacy Supabase upload script.
 export const MUSIC_BUCKET = 'music';
 export const AUDIO_TYPES = Object.freeze({ mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/opus', wav: 'audio/wav', webm: 'audio/webm', flac: 'audio/flac' });
 // A file in the bucket: any name up to 200 characters without control characters, backslashes or '..' parts (names

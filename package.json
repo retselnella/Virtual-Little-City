@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "music:index": "node scripts/build-music-manifest.mjs",
+    "predev": "npm run music:index",
+    "prebuild": "npm run music:index",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",

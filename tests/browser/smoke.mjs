@@ -65,6 +65,20 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Fly up', exact: true }).count(), 0);
   await code.fill('m'); await code.press('Escape');
   assert.equal(await page.locator('dialog[open]').count(), 0, 'Escape closes chat without opening the pause menu');
+  // Local music needs no Supabase: the built index and audio share the site's origin.
+  const manifest = await (await page.request.get(`${base}/music-manifest.json`)).json();
+  const genres = Object.entries(manifest.folders).filter(([, files]) => files.length);
+  await page.keyboard.press('KeyN');
+  if (genres.length) {
+    await page.locator('.music-list button').first().waitFor();
+    if (genres.length > 1) assert.equal(await page.locator('.music-playlists button').count(), genres.length);
+    const audioRequest = page.waitForRequest(r => r.url().includes('/music/') && r.resourceType() === 'media');
+    await page.locator('.music-list button').first().click();
+    assert.ok((await audioRequest).url().startsWith(`${base}/music/`));
+    await button('Pause music').waitFor(); await button('Pause music').click();
+    await page.screenshot({ path: 'test-results/local-music.png' });
+  } else await page.getByText('No music is available yet.', { exact: false }).waitFor();
+  await close();
   // The sky chip shows Philippine time and the shared weather.
   assert.match(await page.locator('.adventure-sky').innerText(), /\d{1,2}:\d{2} (AM|PM)[\s\S]*PH TIME/);
   // The inventory: fists and the pistol to start with; number keys switch.

@@ -3,7 +3,7 @@ import { loadPlaylists } from '../services/musicService.js';
 import { readMusicPreference, writeMusicPreference } from '../services/preferences.js';
 import { playOrder, stepTrack } from '../models/worldTour/playlist.js';
 
-// The in-game music player: loads the playlists (one per folder in the Supabase music bucket) and plays them with one
+// The in-game music player: loads the playlists (one per genre folder in public/music) and plays them with one
 // <audio> element. You browse any playlist; next/previous and the end of a song move through the playlist that is
 // playing. Browsers only allow sound after the player interacts with the page, so music that was on last time resumes
 // on the first click or key press. Music keeps playing when you switch to another tab or minimise the window (the
@@ -36,7 +36,6 @@ export function useMusicPlayer() {
     let alive = true;
     loadPlaylists().then(result => {
       if (!alive) return;
-      if (result === null) { setStatus('offline'); return; }
       lists.current = result; setPlaylists(result);
       const saved = result.findIndex(p => p.id === readMusicPreference().playlist); setView(Math.max(0, saved));
       setStatus(result.length ? 'ready' : 'empty');

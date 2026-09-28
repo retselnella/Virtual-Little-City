@@ -418,22 +418,21 @@ Without Supabase, the Kaiju event runs in the same browser (all tabs share it), 
 
 ### Music playlist
 
-The in-game radio plays the audio files in your Supabase project's Storage. **Each folder is a playlist**, named after the folder (for example *Classic Rock*, *Worship Song*); files outside any folder form one more playlist, *Music*. Set it up once:
+The in-game radio serves audio directly from **`public/music/`**, without Supabase authentication, Storage listing or database requests. Each immediate genre folder becomes a playlist named after it; audio at the root forms a playlist named *Music*.
 
-1. **SQL Editor → New query**: paste the whole of [`supabase/music.sql`](supabase/music.sql) and click **Run** (nothing highlighted). It creates a public bucket named **music** for audio files and lets players list it and read the playlist; only you can add or change files.
-2. **Storage → music**: click **Create folder** for each playlist, open it, and **Upload files** (mp3, m4a, aac, ogg, opus, wav, webm or flac).
-3. **Reload the game** and press **N**. Pick a playlist, then a song or ▶. Songs play in file-name order, titled from their names: `01 - Artist - Title.mp3` shows as **Title** by **Artist**.
+1. Put songs in folders such as `public/music/Classic Rock/` and `public/music/Worship Song/`.
+2. Run `npm run dev` or `npm run build`. Both automatically generate `public/music-manifest.json` from the filenames. The generated index is ignored by Git and rebuilt on deployment.
+3. Press **N**, pick a genre, then a song. `01 - Artist - Title.mp3` displays as **Title** by **Artist**. Spaces and Unicode names are URL-encoded automatically.
 
-Things to know:
+After adding, renaming or removing songs during development, restart the dev server, or run `npm run music:index` and reload the page. For other players to receive the changes, deploy the updated audio files and rebuild the site. Use `npm run build` rather than invoking Vite directly so the index is generated first.
 
-- **File size**: each file must fit your Supabase plan's upload limit: **50 MB per file on the Free plan** (it cannot be raised there). Paid plans can raise it under **Storage → Settings**; the bucket itself sets no lower limit. Long non-stop mixes are often 50–200 MB: split or re-encode them (see below), or use single songs.
-- **Bandwidth**: every play downloads the whole file from your project, and plans include a limited amount of egress per month. Smaller files (128 kbps MP3 is about 1 MB per minute) go much further.
-- **Names**: Storage only accepts plain-ASCII file and folder names. If the dashboard says *Invalid key*, rename the file: replace `–` with `-`, and remove accents and emoji. The upload script does this for you.
-- **Removing**: delete the file in the bucket. To rename a song, hide one or change the order without renaming files, add rows to the `music_tracks` table: `path` is the file's name in the bucket including its folder (`Classic Rock/Queen - Bohemian Rhapsody.mp3`), plus `title`, `artist`, `position` (lower plays first) and `enabled` (untick to hide).
-- **Upload a whole folder of folders from your computer** with `node scripts/upload-music.mjs "C:\Users\you\Downloads\Music"`: each subfolder becomes a playlist (add `--sync` to hide songs no longer in the folder). It needs `SUPABASE_URL` and your **secret** key in `SUPABASE_SECRET_KEY`, set in that terminal only (Command Prompt: `set SUPABASE_SECRET_KEY=sb_secret_...`; PowerShell: `$env:SUPABASE_SECRET_KEY="sb_secret_..."`). Never put the secret key in `.env` files or Vercel.
-- **Splitting or shrinking a long mix** with the free [FFmpeg](https://ffmpeg.org): `ffmpeg -i "Long Mix.mp3" -f segment -segment_time 1200 -c copy "Long Mix part %02d.mp3"` cuts it into 20-minute parts without re-encoding; `ffmpeg -i "Long Mix.mp3" -b:a 96k "Long Mix 96k.mp3"` makes a smaller copy.
-- **Rights**: files in a public bucket can be downloaded by anyone who has their link, and the radio streams them to every player. Only upload music you have the right to share publicly (your own, licensed, or royalty-free); commercial recordings generally need a licence for this.
-
+- Supported files: mp3, m4a, aac, ogg, oga, opus, wav, webm and flac (playback depends on browser codec support).
+- Only the root and immediate genre folders are indexed; nested folders, hidden files and symlinks are skipped.
+- Songs are sorted by filename. Search, pagination, shuffle, volume and playback across cities continue to work.
+- One static index request is shared and cached for the page's lifetime. Audio loads when played, so hosting bandwidth still applies. A page reload refreshes the index.
+- Audio files must be included in your deployment. Large collections increase deployment size and may exceed your Git or hosting limits; keep long mixes small or use separate audio hosting for larger libraries.
+- Existing Supabase music tables, bucket and SQL are unchanged, but the player no longer reads them. `scripts/upload-music.mjs` is a legacy Supabase uploader and is not needed for this setup.
+- Only include music you have permission to distribute publicly.
 
 Tip: a folder named **Lounge** becomes the Skyline Lounge's playlist: it starts when a player walks into the lounge (if nothing else is playing).
 ### Testing the Kaiju event online
@@ -457,12 +456,12 @@ Then open the game with `?bosstest` (colleagues can too; everyone in test mode s
 
 ### Database and API load as the game grows
 
-After updating the app, run the **whole** `supabase/world-boss.sql` and `supabase/music.sql` files again in Supabase's SQL Editor. They preserve existing data. `realtime-policies.sql` is also safe to reapply. On a large live database, apply these files during a quiet period: creating the leaderboard indexes inside the transaction can briefly block writes. Deploy the rebuilt app to enable its request reductions.
+After updating the app, run the **whole** `supabase/world-boss.sql` file again in Supabase's SQL Editor. They preserve existing data. `realtime-policies.sql` is also safe to reapply. On a large live database, apply these files during a quiet period: creating the leaderboard indexes inside the transaction can briefly block writes. Deploy the rebuilt app to enable its request reductions.
 
 - Boss state polls approximately every **60 seconds** outside the event, **15 seconds** during countdown, and **5 seconds** during combat. Polling speeds up at phase boundaries, stops in hidden tabs, never overlaps requests, and backs off to roughly two minutes on repeated errors. Small random delays spread requests across players. At steady state, idle polling falls from about 1,800 to 60 calls per visible player per hour; active state polling falls from 1,800 to 720, plus hit reports when attacking.
 - Leaderboard queries use indexes matching their filter and order, limit candidates before assigning display ranks, and skip personal rank counting for nonparticipants. Total damage comes from HP already maintained by the hit transaction. Exact personal ranks still count players ahead of you, so their cost grows with participation.
 - Event polls no longer process weekly rewards. Opening the weekly board checks finished weeks at most once per five minutes across the database (immediately on a new week); an advisory lock prevents concurrent reward processing. Only the configured winning ranks are processed. Weekly results are cached per client for one minute and invalidated after a claim. The optional `pg_cron` schedule in `world-boss.sql` can still finalize rewards without a player opening the board.
-- Music uses one `music_manifest()` call and a five-minute in-memory cache shared by concurrent loads in the same page. Dashboard uploads and table overrides both work. The manifest returns at most 31,000 root/one-folder file entries, ordered by path; the player retains its 30-folder/1,000-files-per-folder bounds. Reloading the page refreshes the cache. Until `music.sql` is reapplied, the app uses the older listing API with at most four folder requests in flight. Audio streaming remains separate Storage traffic.
+- Music fetches one static `/music-manifest.json` index, cached for the page lifetime. Audio is served from `/music/` on the website; music makes no Supabase requests.
 - Hidden tabs stop sending movement updates. Visible multiplayer traffic still uses a shared channel per city.
 
 These changes reduce normal traffic; they do **not** guarantee unlimited capacity or impose an API rate limit on modified clients. Monitor query time, database CPU, lock waits and Realtime message usage under realistic concurrent load. The shared boss HP row still serializes accepted hits; large fights may require a dedicated aggregation service. City-wide movement broadcasts fan out to every subscriber, so large populations need bounded rooms or area-based subscriptions. The renderer's 24-player display cap does not cap network delivery. Historical event and weekly rows are retained; plan archiving as they grow, preserving unclaimed rewards.

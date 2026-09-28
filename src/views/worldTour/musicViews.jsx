@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const PAGE_SIZE = 50;
 // The music player: what is playing, play/pause, previous/next, shuffle, volume, and the playlists (one per folder in
-// the site's music storage) with their songs to pick from.
+// public/music) with their songs to pick from.
 export function MusicPanel({ music }) {
   const { status, problem, playlists, view, viewed, current, playing, track, playingList, volume, shuffle } = music;
   const [query, setQuery] = useState(''), [page, setPage] = useState(0);
@@ -14,10 +14,9 @@ export function MusicPanel({ music }) {
   }, [viewed, query]);
   const pages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE)), activePage = Math.min(page, pages - 1);
   useEffect(() => { if (list.current) list.current.scrollTop = 0; }, [activePage, query, view]);
-  if (status === 'offline') return <p>Music plays from the site's Supabase project. Once the site owner sets it up and uploads songs (README: "Music playlist"), the playlists appear here for everyone.</p>;
   if (status === 'loading') return <p>Loading the playlists…</p>;
   if (status === 'error') return <><p>The playlists could not be loaded right now.</p>{problem && <p className="boss-problem">{problem}</p>}</>;
-  if (status === 'empty') return <p>No music yet. The site owner can upload songs to the <b>music</b> bucket in Supabase Storage; each folder there becomes a playlist.</p>;
+  if (status === 'empty') return <p>No music is available yet. Check back after the next soundtrack update.</p>;
   return <div className="music-panel">
     <section className="music-now" aria-live="polite">
       <small>{playing ? `NOW PLAYING · ${playingList.name.toUpperCase()}` : track ? 'PAUSED' : `${playlists.length} PLAYLIST${playlists.length > 1 ? 'S' : ''}`}</small>

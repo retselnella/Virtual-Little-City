@@ -1,5 +1,6 @@
 node_modules/
 dist/
+public/music-manifest.json
 .DS_Store
 *.local
 test-results/
