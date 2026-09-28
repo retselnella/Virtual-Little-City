@@ -1,7 +1,19 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+const PAGE_SIZE = 50;
 // The music player: what is playing, play/pause, previous/next, shuffle, volume, and the playlists (one per folder in
 // the site's music storage) with their songs to pick from.
 export function MusicPanel({ music }) {
   const { status, problem, playlists, view, viewed, current, playing, track, playingList, volume, shuffle } = music;
+  const [query, setQuery] = useState(''), [page, setPage] = useState(0);
+  const list = useRef(null);
+  const matches = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    return (viewed?.tracks || []).map((track, index) => ({ track, index }))
+      .filter(({ track }) => `${track.title} ${track.artist || ''}`.toLocaleLowerCase().includes(term));
+  }, [viewed, query]);
+  const pages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE)), activePage = Math.min(page, pages - 1);
+  useEffect(() => { if (list.current) list.current.scrollTop = 0; }, [activePage, query, view]);
   if (status === 'offline') return <p>Music plays from the site's Supabase project. Once the site owner sets it up and uploads songs (README: "Music playlist"), the playlists appear here for everyone.</p>;
   if (status === 'loading') return <p>Loading the playlists…</p>;
   if (status === 'error') return <><p>The playlists could not be loaded right now.</p>{problem && <p className="boss-problem">{problem}</p>}</>;
@@ -13,15 +25,19 @@ export function MusicPanel({ music }) {
       <span>{track?.artist || (track ? playingList.name : 'Plays in every city, on foot, in the car and at sea.')}</span>
     </section>
     <div className="music-controls">
-      <button onClick={music.previous} aria-label="Previous track">⏮</button>
+      <button onClick={music.previous} disabled={!track} aria-label="Previous track">⏮</button>
       <button className="music-play" onClick={music.toggle} aria-label={playing ? 'Pause music' : 'Play music'}>{playing ? '❚❚' : '▶'}</button>
-      <button onClick={music.next} aria-label="Next track">⏭</button>
+      <button onClick={music.next} disabled={!track} aria-label="Next track">⏭</button>
       <button onClick={music.toggleShuffle} aria-pressed={shuffle} className="music-shuffle">Shuffle</button>
       <label className="music-volume"><span>Volume</span><input type="range" min="0" max="1" step="0.05" value={volume} onChange={e => music.setVolume(e.target.value)} aria-label="Music volume" /></label>
     </div>
     {problem && <p className="boss-problem">{problem}</p>}
-    {playlists.length > 1 && <div className="music-playlists" role="tablist" aria-label="Playlists">{playlists.map((p, i) =>
-      <button key={p.id} role="tab" aria-selected={i === view} onClick={() => music.browse(i)}>{playingList === p && playing ? '♫ ' : ''}{p.name} <small>{p.tracks.length}</small></button>)}</div>}
-    <ol className="music-list" aria-label={`${viewed.name} songs`}>{viewed.tracks.map((t, i) => <li key={t.id}><button aria-current={i === current ? 'true' : undefined} onClick={() => music.pick(i)}><b>{i === current && playing ? '♫' : i + 1}</b><span>{t.title}</span><small>{t.artist}</small></button></li>)}</ol>
+    {playlists.length > 1 && <div className="music-playlists" role="group" aria-label="Playlists">{playlists.map((p, i) =>
+      <button key={p.id} aria-pressed={i === view} onClick={() => { music.browse(i); setPage(0); setQuery(''); }}>{playingList === p && playing ? '♫ ' : ''}{p.name} <small>{p.tracks.length}</small></button>)}</div>}
+    <div className="music-search"><label htmlFor="song-search">Search this playlist</label><div><input id="song-search" type="search" placeholder="Song title or artist" value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} />{query && <button onClick={() => { setQuery(''); setPage(0); }}>Clear search</button>}</div></div>
+    <p className="music-count" role="status">{matches.length} {matches.length === 1 ? 'song' : 'songs'}{query.trim() ? ' found' : ` in ${viewed.name}`}</p>
+    {!matches.length && <p className="music-empty">No matching songs. Try another title or artist.</p>}
+    <ol ref={list} className="music-list" aria-label={`${viewed.name} songs`}>{matches.slice(activePage * PAGE_SIZE, (activePage + 1) * PAGE_SIZE).map(({ track: t, index: i }) => <li key={t.id}><button aria-current={i === current ? 'true' : undefined} title={`${t.title}${t.artist ? ` — ${t.artist}` : ''}`} onClick={() => music.pick(i)}><b>{i === current && playing ? '♫' : i + 1}</b><span>{t.title}</span><small>{t.artist}</small></button></li>)}</ol>
+    {pages > 1 && <nav className="music-pages" aria-label="Song pages"><button disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>Previous page</button><span role="status">{activePage + 1} / {pages}</span><button disabled={activePage === pages - 1} onClick={() => setPage(activePage + 1)}>Next page</button></nav>}
   </div>;
 }

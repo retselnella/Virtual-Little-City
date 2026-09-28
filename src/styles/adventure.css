@@ -442,8 +442,15 @@
 @media(max-width:760px){.music-volume{margin-left:0;flex:1 1 100%}.music-volume input{flex:1}.music-list{max-height:34svh}.music-list small{display:none}}
 .music-playlists{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding-right:6px;max-height:min(18svh,120px);flex-shrink:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
 .music-playlists button{border:1px solid #ffffff26;background:#ffffff08;color:#dfe7e3;border-radius:999px;padding:6px 12px;font-size:12px}
-.music-playlists button[aria-selected=true]{background:#bfdcd0;border-color:#bfdcd0;color:#1c393d;font-weight:700}
+.music-playlists button[aria-pressed=true]{background:#bfdcd0;border-color:#bfdcd0;color:#1c393d;font-weight:700}
 .music-playlists small{opacity:.65;margin-left:3px}
+.music-search{flex-shrink:0}.music-search label{display:block;font-size:11px;color:#aabcc1;margin-bottom:5px}.music-search>div{display:flex;gap:8px}
+.music-search input{min-width:0;width:100%;padding:10px 12px;border-radius:8px;border:1px solid #ffffff30;background:#12212b;color:#fff;font:inherit;font-size:16px}
+.music-search button,.music-pages button{flex-shrink:0;border:1px solid #ffffff30;border-radius:8px;background:#ffffff08;color:#dfe7e3;padding:8px 10px;font-size:12px;min-height:40px}
+.music-dialog :focus-visible{outline:2px solid #9ee8d1;outline-offset:2px}.music-dialog button:disabled{opacity:.45;cursor:not-allowed}
+.music-panel .music-count{font-size:11px;color:#aabcc1;margin:8px 0;flex-shrink:0}.music-panel .music-empty{font-size:13px;color:#dfe7e3}
+.music-pages{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-shrink:0}.music-pages span{font-size:12px;color:#aabcc1}
+.contract-confirm{width:100%;padding:10px 12px;border:1px solid #f8d47a55;border-radius:10px;background:#f8d47a08}.contract-confirm p{margin:0 0 8px;font-size:12px}.contract-confirm button+button{margin-left:10px!important}
 /* Teleporter and sailing navigation */
 .world-dialog .destination-grid .trip-buttons{display:flex;gap:6px;margin-top:auto}
 .world-dialog .destination-grid .trip-buttons button{flex:1;margin:0}

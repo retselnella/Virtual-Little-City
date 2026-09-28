@@ -106,8 +106,12 @@ try {
   await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !document.querySelector('.adventure-loading'));
   assert.match(await page.locator('.adventure-location h1').innerText(), /Tokyo/);
   await page.keyboard.press('KeyL'); await page.getByRole('button', { name: /^Accept/ }).first().click();
-  await page.keyboard.press('KeyM'); assert.equal(await page.getByRole('article', { name: 'Philippines Manila' }).getByRole('button', { name: /^Sail/ }).isDisabled(), true); await close();
+  await page.keyboard.press('KeyM'); assert.equal(await page.getByRole('article', { name: 'Philippines Manila' }).getByRole('button', { name: /^Sail/ }).isDisabled(), true);
+  assert.match(await page.locator('.travel-notice').innerText(), /active contract/); await close();
   await page.keyboard.press('KeyL'); await button('Abandon current contract').click();
+  await button('Keep contract').click();
+  assert.equal(await page.getByRole('button', { name: 'In progress', exact: true }).count(), 1);
+  await button('Abandon current contract').click(); await button('Yes, abandon').click();
   // The world boss panel: event status, live ranking and the weekly board.
   await page.keyboard.press('KeyB');
   await page.getByRole('heading', { name: 'Live ranking' }).waitFor(); await page.getByRole('heading', { name: 'This week' }).waitFor();

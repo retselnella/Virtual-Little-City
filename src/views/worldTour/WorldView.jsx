@@ -59,6 +59,15 @@ const TIPS = [
 const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
 const compass = bearing => POINTS[Math.round(((Math.PI - bearing) / (Math.PI * 2)) * 8 + 8) % 8];
 
+function AbandonContract({ onAbandon }) {
+  const [confirming, setConfirming] = useState(false);
+  return confirming ? <div className="contract-confirm" role="group" aria-label="Abandon current contract?">
+    <p>Abandon this contract? Its progress will reset. You can accept it again later.</p>
+    <button className="adventure-secondary" autoFocus onClick={() => setConfirming(false)}>Keep contract</button>
+    <button className="adventure-secondary" onClick={onAbandon}>Yes, abandon</button>
+  </div> : <button className="adventure-secondary" onClick={() => setConfirming(true)}>Abandon current contract</button>;
+}
+
 export default function WorldView({ controller, onEditCharacter }) {
   const { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt, bigMap, setBigMap, teleport, teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse } = controller;
   const [picked, setPicked] = useState(null);
@@ -79,7 +88,8 @@ export default function WorldView({ controller, onEditCharacter }) {
   const target = sailing ? { x: p.x + Math.sin(course.bearing) * 5000, z: p.z + Math.cos(course.bearing) * 5000 } : point;
   const away = point ? Math.hypot(point.x - p.x, point.z - p.z) : 0, edge = target && Math.hypot(target.x - p.x, target.z - p.z) > radius * 0.86 ? Math.atan2(target.z - p.z, target.x - p.x) : null;
   const openMap = () => open('world');
-  const canTravel = !hud.mission && !(hud.heat > 0) && !(hud.down > 0) && ready && !error;
+  const travelBlock = error ? 'Travel is unavailable until the city loads successfully.' : !ready ? 'Travel will be available when the city finishes loading.' : hud.down > 0 ? 'Wait until you return to the City Hub before travelling.' : hud.mission ? 'Finish or abandon your active contract before travelling.' : hud.heat > 0 ? 'Lose your wanted stars before travelling. Stay out of police sight.' : '';
+  const canTravel = !travelBlock;
   const places = [
     { label: 'City Hub', x: 8, z: 12 }, { label: 'Teleporter', ...hud.teleporter }, { label: 'Lounge', x: LOUNGE.x, z: LOUNGE.z + 30 }, ...(city.id === GUN_SHOP.city ? [{ label: 'Gun shop', ...GUN_SHOP.door }] : []), { label: 'Marina pier', x: MARINA.x0 + 40, z: MARINA.z },
     { label: `${STATIONS[nearestStation(p.x, p.z)].name} metro station`, ...STATIONS[nearestStation(p.x, p.z)].exit },
@@ -194,7 +204,7 @@ export default function WorldView({ controller, onEditCharacter }) {
       <p className="world-here"><i aria-hidden="true" /><span>You are on <b>{city.name}</b> island · {city.country} · {region}</span></p>
       <WorldAtlas city={city} event={bossEvent} online={online} selected={picked} course={course} onSelect={setPicked} />
       {course ? <p className="travel-course" role="status">Sailing to <b>{course.name}</b>: {hud.boating ? `${(course.remaining / 1000).toFixed(1)} km of open sea left. Keep the arrow ahead.` : `your boat is at the marina on the east waterfront, ${marina.distance} m ${marina.direction}. Follow the gold marker.`}<button onClick={stopSailing}>Cancel</button></p>
-        : !canTravel && ready && !error ? <p className="travel-notice">Finish or abandon your contract and lose the police before you travel.</p>
+        : !canTravel ? <p className="travel-notice" role="status">{travelBlock}</p>
         : <p className="world-tip"><b>Teleport</b> to arrive instantly at that island's City Hub, or <b>Sail</b> there in your speedboat: it waits at the marina on the <b>east</b> side ({marina.distance} m {marina.direction}).</p>}
       <div className="destination-grid">{CITIES.map(c => {
         const here = city.id === c.id, trip = voyage(city, c);
@@ -214,7 +224,7 @@ export default function WorldView({ controller, onEditCharacter }) {
     {panel === 'contracts' && <ExperienceDialog title="Good work. Better pay." className="adventure-dialog contracts-dialog" onClose={() => open(null)}>
       <p>Available in {city.name} · {hud.completed.filter(key => key.startsWith(city.id + ':')).length}/{CONTRACTS.length} done here, {hud.completed.length}/{CITIES.length * CONTRACTS.length} in the world. Stop and press E at pick-ups and drop-offs; race checkpoints and tour sights count as you pass them.</p>
       <div className="world-contracts">{CONTRACTS.map(m => { const done = hud.completed.includes(`${city.id}:${m.id}`); return <article key={m.id} className={done ? 'done' : ''}><div><small>{m.type}</small><b>${m.reward.toLocaleString()}</b></div><h3>{m.title}</h3><p>{m.description}</p><button disabled={done || !!hud.mission || !ready || error || hud.down > 0} onClick={() => acceptContract(m.id)}>{done ? '✓ Completed' : hud.mission?.id === m.id ? 'In progress' : 'Accept ↗'}</button></article>; })}</div>
-      <footer className="contracts-footer">{hud.mission && <button className="adventure-secondary" onClick={abandonContract}>Abandon current contract</button>}<small>{storage ? 'Progress saves on this browser; an unfinished contract restarts after reloading.' : 'Browser storage is unavailable: progress lasts for this session.'}</small></footer>
+      <footer className="contracts-footer">{hud.mission && <AbandonContract onAbandon={abandonContract} />}<small>{storage ? 'Progress saves on this browser; an unfinished contract restarts after reloading.' : 'Browser storage is unavailable: progress lasts for this session.'}</small></footer>
     </ExperienceDialog>}
     {panel === 'help' && <ExperienceDialog title="Paused." className="adventure-dialog help-dialog" onClose={() => open(null)}>
       <div className="help-layout">
