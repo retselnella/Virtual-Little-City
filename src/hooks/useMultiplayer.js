@@ -36,6 +36,7 @@ export function useMultiplayer(session, character, city) {
     // Send this player's state: every SEND_INTERVAL while it changes, at least every HEARTBEAT_INTERVAL. Attacks made since
     // the last message go with it, renumbered so the sequence keeps rising when travel or recovery starts a new session.
     const sender = setInterval(() => {
+      if (globalThis.document?.hidden) return;
       const client = transport.current; if (!client) return;
       const s = session.current, out = outbox.current;
       if (out.session !== s) { out.session = s; out.cursor = 0; }

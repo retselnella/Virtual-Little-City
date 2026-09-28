@@ -149,10 +149,40 @@ test('test mode runs on the real project without touching real data, and reverts
 test('clients cannot touch the tables or call internal functions', async () => {
   const S = await server();
   for (const sql of ['select * from boss_events', 'update boss_events set hp = 0', "insert into boss_weekly values (1, gen_random_uuid(), 'x', 999999999999)", 'select public.boss_close_weeks()', 'select public.boss_event_now()', 'select * from boss_reward_tiers',
-    "select public.boss_test_clock('12:05')", 'select public.boss_test_clock_off()', 'select public.boss_test_reset()', 'update boss_test_clock set offset_ms = 1', 'select public.boss_clock(true)', 'select public.boss_event_now(true)', 'select * from public.boss_arms()']) {
+    "select public.boss_test_clock('12:05')", 'select public.boss_test_clock_off()', 'select public.boss_test_reset()', 'update boss_test_clock set offset_ms = 1', 'select public.boss_clock(true)', 'select public.boss_event_now(true)', 'select * from public.boss_arms()', 'select * from public.boss_maintenance']) {
     await assert.rejects(S.as(A, at(12, 5), sql), /permission denied/, sql);
   }
   assert.equal((await S.as(null, at(12, 5), `select public.boss_hit('x', '{"pistol":1}'::jsonb, 0, 0, 'miami', 'x') as v`)).v.reason, 'signed-out');
+});
+
+test('large leaderboards keep exact ranks and bounded results; event reads do not run weekly maintenance', async () => {
+  const S = await server(), ev = eventForDay(day), t = at(12, 5), w = weekOf(t);
+  await S.state(A, t);
+  await S.db.query(`insert into boss_damage (event_id, user_id, name, damage, last_at)
+    select $1, md5(i::text)::uuid, 'Player ' || i, 100, now() from generate_series(1, 5000) i`, [ev.id]);
+  await S.db.query(`insert into boss_damage (event_id, user_id, name, damage, last_at) values
+    ($1, $2, 'Ada', 200, now()), ($1, $3, 'Ben', 200, now());
+    `, [ev.id, A, B]);
+  await S.db.query(`update boss_events set hp = max_hp - 500400 where id = $1`, [ev.id]);
+  await S.db.query(`insert into boss_weekly (week, user_id, name, damage)
+    select $1, user_id, name, damage from boss_damage where event_id = $2`, [w, ev.id]);
+  await S.db.query(`insert into boss_weekly select week - 7, user_id, name, damage from boss_weekly where week = $1`, [w]);
+  const state = await S.state(B, t);
+  assert.equal(state.totalDamage, 500400); assert.equal(state.top.length, 10);
+  assert.deepEqual(state.top.slice(0, 2).map(r => r.id), [A, B]); assert.equal(state.me.rank, 2);
+  assert.equal((await S.db.query('select count(*)::int as n from boss_maintenance')).rows[0].n, 0);
+  assert.equal((await S.db.query('select count(*)::int as n from boss_rewards')).rows[0].n, 0);
+  const board = (await S.as(B, t, 'select boss_weekly_state() as v')).v;
+  assert.equal(board.rows.length, 100); assert.equal(board.myRank, 2); assert.equal(board.unclaimed.length, 1);
+  assert.equal((await S.db.query('select count(*)::int as n from boss_rewards')).rows[0].n, 100);
+  const outsider = (await S.as(C, t + 1000, 'select boss_weekly_state() as v')).v;
+  assert.equal(outsider.myRank, null);
+  const checked = (await S.db.query('select boss_ms(checked_at) as t from boss_maintenance')).rows[0].t;
+  assert.equal(Number(checked), t, 'repeat weekly readers do not repeat the maintenance write');
+  await S.db.exec('analyze boss_damage; analyze boss_weekly;');
+  const plan = await S.db.query(`explain (format json) select user_id, name, damage from boss_damage
+    where event_id = $1 and damage > 0 order by damage desc, user_id limit 10`, [ev.id]);
+  assert.match(JSON.stringify(plan.rows), /boss_damage_ranking_idx/, 'the top-ten query uses the ranking index');
 });
 
 test('the kaiju towers over the city, walks its avenues and wrecks it, with every client computing the same ruins', () => {
@@ -235,14 +265,16 @@ test('fire time: honest players get every hit, however they batch them; spammers
   // An SMG fired flat out for a minute (magazine, reload, magazine...), reported every 2 seconds, loses nothing.
   const shots = [], cycle = 39 * 90 + 1800;
   for (let k = 0; k * cycle < 60_000; k++) for (let i = 0; i < 40; i++) shots.push(k * cycle + i * 90);
-  let lastAt = -FIRE_WINDOW_MS, accepted = 0, sent = 0;
-  for (let now = 2000; now <= 62_000; now += 2000) {
-    const n = shots.filter(t => t < now).length - sent; sent += n;
-    const spent = spendFireTime(lastAt, now, { smg: n }); lastAt = spent.lastAt; accepted += spent.accepted.smg || 0;
+  for (const batch of [2000, 5500]) {
+    let lastAt = -FIRE_WINDOW_MS, accepted = 0, sent = 0;
+    for (let now = batch; now <= Math.ceil((shots.at(-1) + 1) / batch) * batch; now += batch) {
+      const n = shots.filter(t => t < now).length - sent; sent += n;
+      const spent = spendFireTime(lastAt, now, { smg: n }); lastAt = spent.lastAt; accepted += spent.accepted.smg || 0;
+    }
+    assert.equal(accepted, shots.length, `all hits accepted with ${batch} ms batches`);
   }
-  assert.equal(accepted, shots.length);
   // Claiming 1000 shots every half second only ever counts one SMG's worth.
-  lastAt = 0; let claimed = 0;
+  let lastAt = 0, claimed = 0;
   for (let now = 500; now <= 60_000; now += 500) { const spent = spendFireTime(lastAt, now, { smg: 1000, rocket: 1000 }); lastAt = spent.lastAt; claimed += spent.damage; }
   assert.ok(claimed <= Math.max(KAIJU_DAMAGE.smg.damage / KAIJU_DAMAGE.smg.costMs, KAIJU_DAMAGE.rocket.damage / KAIJU_DAMAGE.rocket.costMs) * (60_000 + FIRE_GRACE_MS), 'capped at the best sustained rate');
 });

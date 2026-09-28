@@ -6,6 +6,7 @@
 -- so the anon key alone cannot read or write game traffic, and no other topic is usable by these clients.
 -- Only the lobby and the seven city channels are allowed, for Broadcast and Presence messages.
 
+drop policy if exists "little city players receive game channels" on realtime.messages;
 create policy "little city players receive game channels"
 on realtime.messages
 for select
@@ -15,6 +16,7 @@ using (
   and realtime.messages.extension in ('broadcast', 'presence')
 );
 
+drop policy if exists "little city players send on game channels" on realtime.messages;
 create policy "little city players send on game channels"
 on realtime.messages
 for insert

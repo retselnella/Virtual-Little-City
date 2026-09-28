@@ -34,6 +34,15 @@ create table if not exists public.boss_rewards (
   tier text not null, cash integer not null, title text not null, claimed_at timestamptz, primary key (week, user_id)
 );
 create table if not exists public.boss_weeks_closed (week integer primary key, closed_at timestamptz not null default now());
+-- Shared maintenance gate: only one caller checks historical weeks every five minutes.
+create table if not exists public.boss_maintenance (id boolean primary key default true check (id), checked_at timestamptz not null);
+alter table public.boss_maintenance enable row level security;
+revoke all on public.boss_maintenance from anon, authenticated;
+
+-- Match both the equality filter and leaderboard ordering; avoid sorting all participants.
+create index if not exists boss_damage_ranking_idx on public.boss_damage (event_id, damage desc, user_id) where damage > 0;
+create index if not exists boss_weekly_ranking_idx on public.boss_weekly (week, damage desc, user_id) where damage > 0;
+create index if not exists boss_rewards_unclaimed_idx on public.boss_rewards (user_id, week) where claimed_at is null;
 
 -- Rewards are configurable: edit this table (ranks are inclusive).
 insert into public.boss_reward_tiers (rank_from, rank_to, tier, cash, title)
@@ -112,12 +121,22 @@ create or replace function public.boss_phase(ev public.boss_events, t timestampt
 -- Close finished weeks: final ranks and rewards for the top 100 (idempotent). Also safe to schedule with pg_cron:
 --   select cron.schedule('little-city-boss-week', '5 16 * * 0', $$select public.boss_close_weeks()$$);  -- Monday 00:05 PHT
 create or replace function public.boss_close_weeks() returns integer language plpgsql security definer set search_path = public as $$
-declare w integer; closed integer := 0;
+declare w integer; closed integer := 0; checked timestamptz; t timestamptz := boss_now();
 begin
+  select checked_at into checked from boss_maintenance where id;
+  if checked > t - interval '5 minutes' and boss_week(checked) = boss_week(t) then return 0; end if;
+  -- Other readers continue immediately while the winner creates rewards atomically.
+  if not pg_try_advisory_xact_lock(174923, 1) then return 0; end if;
+  select checked_at into checked from boss_maintenance where id;
+  if checked > t - interval '5 minutes' and boss_week(checked) = boss_week(t) then return 0; end if;
+  insert into boss_maintenance (id, checked_at) values (true, t)
+    on conflict (id) do update set checked_at = excluded.checked_at;
   for w in select distinct week from boss_weekly where week < boss_week(boss_now()) and week not in (select week from boss_weeks_closed) order by week loop
     insert into boss_rewards (week, user_id, rank, name, damage, tier, cash, title)
     select r.week, r.user_id, r.rank, r.name, r.damage, t.tier, t.cash, t.title
-    from (select week, user_id, name, damage, row_number() over (order by damage desc, user_id) as rank from boss_weekly where week = w and damage > 0) r
+    from (select week, user_id, name, damage, row_number() over (order by damage desc, user_id) as rank from
+      (select week, user_id, name, damage from boss_weekly where week = w and damage > 0 order by damage desc, user_id
+       limit (select coalesce(max(rank_to), 0) from boss_reward_tiers)) candidates) r
     join boss_reward_tiers t on r.rank between t.rank_from and t.rank_to
     on conflict do nothing;
     insert into boss_weeks_closed (week) values (w) on conflict do nothing;
@@ -130,16 +149,19 @@ end $$;
 create or replace function public.boss_state(p_test boolean default false) returns jsonb language plpgsql security definer set search_path = public as $$
 declare ev public.boss_events := boss_event_now(p_test); t timestamptz := boss_clock(ev.id like 'test-%'); me uuid := auth.uid(); total bigint; mine public.boss_damage; my_rank integer;
 begin
-  perform boss_close_weeks();
-  select coalesce(sum(damage), 0) into total from boss_damage where event_id = ev.id;
+  -- All accepted damage is capped to remaining HP and committed in the same transaction.
+  total := ev.max_hp - ev.hp;
   select * into mine from boss_damage where event_id = ev.id and user_id = me;
-  select count(*) + 1 into my_rank from boss_damage where event_id = ev.id and (damage > coalesce(mine.damage, 0) or (damage = coalesce(mine.damage, 0) and user_id::text < me::text));
+  if mine.damage > 0 then
+    select count(*) + 1 into my_rank from boss_damage where event_id = ev.id and damage > 0
+      and (damage > mine.damage or (damage = mine.damage and user_id < me));
+  end if;
   return jsonb_build_object(
     'id', ev.id, 'test', ev.id like 'test-%', 'city', ev.city, 'seed', ev.seed, 'startsAt', boss_ms(ev.starts_at), 'endsAt', boss_ms(ev.ends_at), 'maxHp', ev.max_hp, 'hp', ev.hp,
     'defeatedAt', case when ev.defeated_at is null then null else boss_ms(ev.defeated_at) end, 'phase', boss_phase(ev, t), 'serverNow', boss_ms(t), 'totalDamage', total,
     'top', coalesce((select jsonb_agg(row_to_json(r) order by r.rank) from (
-      select row_number() over (order by damage desc, user_id::text) as rank, user_id::text as id, name, damage, case when total > 0 then damage::double precision / total else 0 end as share
-      from boss_damage where event_id = ev.id and damage > 0 order by damage desc, user_id::text limit 10) r), '[]'::jsonb),
+      select row_number() over (order by damage desc, user_id) as rank, user_id::text as id, name, damage, case when total > 0 then damage::double precision / total else 0 end as share
+      from (select user_id, name, damage from boss_damage where event_id = ev.id and damage > 0 order by damage desc, user_id limit 10) leaders) r), '[]'::jsonb),
     'me', jsonb_build_object('damage', coalesce(mine.damage, 0), 'hits', coalesce(mine.hits, 0), 'deaths', coalesce(mine.deaths, 0), 'rank', case when coalesce(mine.damage, 0) > 0 then my_rank else null end));
 end $$;
 
@@ -162,7 +184,7 @@ declare test boolean := p_event like 'test-%'; ev public.boss_events; t timestam
 begin
   if me is null then return jsonb_build_object('ok', false, 'reason', 'signed-out'); end if;
   perform boss_event_now(test);
-  select * into ev from boss_events where id = p_event for update;
+  select * into ev from boss_events where id = p_event;
   if not found or (test and not boss_testing()) then return jsonb_build_object('ok', false, 'reason', 'no-event', 'damage', 0); end if;
   if boss_phase(ev, t) <> 'active' then return jsonb_build_object('ok', false, 'reason', boss_phase(ev, t), 'damage', 0, 'hp', ev.hp); end if;
   if p_city is distinct from ev.city then return jsonb_build_object('ok', false, 'reason', 'wrong-city', 'damage', 0, 'hp', ev.hp); end if;
@@ -172,6 +194,10 @@ begin
   end if;
   select * into pos from boss_position(extract(epoch from (t - ev.starts_at)));
   if sqrt(power(p_x - pos.x, 2) + power(p_z - pos.z, 2)) > 220 then return jsonb_build_object('ok', false, 'reason', 'out-of-range', 'damage', 0, 'hp', ev.hp); end if;
+  -- Invalid reports never lock the shared HP row. Recheck after taking the lock: another hit may have killed it.
+  select * into ev from boss_events where id = p_event for update;
+  if not found then return jsonb_build_object('ok', false, 'reason', 'no-event', 'damage', 0); end if;
+  if boss_phase(ev, t) <> 'active' then return jsonb_build_object('ok', false, 'reason', boss_phase(ev, t), 'damage', 0, 'hp', ev.hp); end if;
   clean := left(regexp_replace(coalesce(nullif(trim(p_name), ''), 'Traveller'), '[[:cntrl:]]', '', 'g'), 24);
   insert into boss_damage (event_id, user_id, name, last_at) values (ev.id, me, clean, greatest(ev.starts_at, t - interval '8 seconds')) on conflict do nothing;
   select * into player from boss_damage where event_id = ev.id and user_id = me for update;
@@ -187,9 +213,11 @@ begin
   end loop;
   dmg := least(ev.hp, dmg);
   update boss_damage set name = clean, damage = damage + dmg, hits = hits + n_hits, last_at = to_timestamp((start_ms + used) / 1000.0) where event_id = ev.id and user_id = me;
-  update boss_events set hp = hp - dmg, defeated_at = case when hp - dmg <= 0 then t else defeated_at end where id = ev.id returning * into ev;
+  if dmg > 0 then
+    update boss_events set hp = hp - dmg, defeated_at = case when hp - dmg <= 0 then t else defeated_at end where id = ev.id returning * into ev;
+  end if;
   -- Test damage never reaches the weekly board or rewards.
-  if not test then
+  if not test and dmg > 0 then
     insert into boss_weekly (week, user_id, name, damage) values (boss_week(t), me, clean, dmg)
       on conflict (week, user_id) do update set damage = boss_weekly.damage + excluded.damage, name = excluded.name;
   end if;
@@ -207,13 +235,19 @@ end $$;
 
 -- The weekly leaderboard (top 100), the caller's rank and their unclaimed rewards.
 create or replace function public.boss_weekly_state() returns jsonb language plpgsql security definer set search_path = public as $$
-declare w integer := boss_week(boss_now()); me uuid := auth.uid();
+declare w integer := boss_week(boss_now()); me uuid := auth.uid(); mine bigint; my_rank bigint;
 begin
   perform boss_close_weeks();
+  select damage into mine from boss_weekly where week = w and user_id = me;
+  if mine > 0 then
+    select count(*) + 1 into my_rank from boss_weekly where week = w and damage > 0
+      and (damage > mine or (damage = mine and user_id < me));
+  end if;
   return jsonb_build_object('week', w, 'startsAt', boss_ms(to_timestamp(w::double precision * 86400 - 28800)), 'endsAt', boss_ms(to_timestamp((w + 7)::double precision * 86400 - 28800)),
     'rows', coalesce((select jsonb_agg(row_to_json(r) order by r.rank) from (
-      select row_number() over (order by damage desc, user_id::text) as rank, user_id::text as id, name, damage from boss_weekly where week = w and damage > 0 order by damage desc, user_id::text limit 100) r), '[]'::jsonb),
-    'myRank', (select r.rank from (select user_id, row_number() over (order by damage desc, user_id::text) as rank from boss_weekly where week = w and damage > 0) r where r.user_id = me),
+      select row_number() over (order by damage desc, user_id) as rank, user_id::text as id, name, damage from
+        (select user_id, name, damage from boss_weekly where week = w and damage > 0 order by damage desc, user_id limit 100) leaders) r), '[]'::jsonb),
+    'myRank', my_rank,
     'unclaimed', coalesce((select jsonb_agg(jsonb_build_object('week', week, 'rank', rank, 'tier', tier, 'cash', cash, 'title', title)) from boss_rewards where user_id = me and claimed_at is null), '[]'::jsonb));
 end $$;
 

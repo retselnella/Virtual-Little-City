@@ -67,7 +67,12 @@ export function BossHits({ hits }) {
 // The event and weekly leaderboards, the player's stats and rewards.
 export function BossPanel({ boss, city, now, onClaim }) {
   const ev = boss.event, weekly = boss.weekly, me = boss.playerId;
-  useEffect(() => { boss.loadWeekly(); const timer = setInterval(boss.loadWeekly, 15000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    const refresh = () => { if (!document.hidden) boss.loadWeekly(); };
+    refresh(); const timer = setInterval(refresh, 60000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [boss.status]);
   if (!ev) return boss.status === 'error' ? <div className="boss-panel"><p>The event server cannot be reached right now. {BOSS_NAME}'s schedule and rankings will appear here once it can.</p>{boss.problem && <p className="boss-problem">{boss.problem}</p>}</div> : <p>Connecting to the event server…</p>;
   const status = { scheduled: `Next appearance: ${cityName(ev.city)}, 12:00 PH time (in ${clockText(ev.startsAt - now)}).`, countdown: `Rises off ${cityName(ev.city)} in ${clockText(ev.startsAt - now)}.`,
     active: `Attacking ${cityName(ev.city)} · ${clockText(ev.endsAt - now)} left.`, defeated: `Defeated in ${cityName(ev.city)}.`, ended: `Retreated from ${cityName(ev.city)} when time ran out.` }[ev.phase];

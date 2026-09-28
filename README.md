@@ -435,6 +435,20 @@ select public.boss_test_clock_off();               -- revert: test mode off, all
 
 Then open the game with `?bosstest` (colleagues can too; everyone in test mode shares the same test Kaiju). The test clock keeps running from the time you set; the sky still shows the real time of day. While test mode is off, `?bosstest` does nothing.
 
+### Database and API load as the game grows
+
+After updating the app, run the **whole** `supabase/world-boss.sql` and `supabase/music.sql` files again in Supabase's SQL Editor. They preserve existing data. `realtime-policies.sql` is also safe to reapply. On a large live database, apply these files during a quiet period: creating the leaderboard indexes inside the transaction can briefly block writes. Deploy the rebuilt app to enable its request reductions.
+
+- Boss state polls approximately every **60 seconds** outside the event, **15 seconds** during countdown, and **5 seconds** during combat. Polling speeds up at phase boundaries, stops in hidden tabs, never overlaps requests, and backs off to roughly two minutes on repeated errors. Small random delays spread requests across players. At steady state, idle polling falls from about 1,800 to 60 calls per visible player per hour; active state polling falls from 1,800 to 720, plus hit reports when attacking.
+- Leaderboard queries use indexes matching their filter and order, limit candidates before assigning display ranks, and skip personal rank counting for nonparticipants. Total damage comes from HP already maintained by the hit transaction. Exact personal ranks still count players ahead of you, so their cost grows with participation.
+- Event polls no longer process weekly rewards. Opening the weekly board checks finished weeks at most once per five minutes across the database (immediately on a new week); an advisory lock prevents concurrent reward processing. Only the configured winning ranks are processed. Weekly results are cached per client for one minute and invalidated after a claim. The optional `pg_cron` schedule in `world-boss.sql` can still finalize rewards without a player opening the board.
+- Music uses one `music_manifest()` call and a five-minute in-memory cache shared by concurrent loads in the same page. Dashboard uploads and table overrides both work. The manifest returns at most 31,000 root/one-folder file entries, ordered by path; the player retains its 30-folder/1,000-files-per-folder bounds. Reloading the page refreshes the cache. Until `music.sql` is reapplied, the app uses the older listing API with at most four folder requests in flight. Audio streaming remains separate Storage traffic.
+- Hidden tabs stop sending movement updates. Visible multiplayer traffic still uses a shared channel per city.
+
+These changes reduce normal traffic; they do **not** guarantee unlimited capacity or impose an API rate limit on modified clients. Monitor query time, database CPU, lock waits and Realtime message usage under realistic concurrent load. The shared boss HP row still serializes accepted hits; large fights may require a dedicated aggregation service. City-wide movement broadcasts fan out to every subscriber, so large populations need bounded rooms or area-based subscriptions. The renderer's 24-player display cap does not cap network delivery. Historical event and weekly rows are retained; plan archiving as they grow, preserving unclaimed rewards.
+
+Before a large launch, load-test against your project's actual capacity and enforce request limits at the service/gateway boundary if needed. Supabase documents [query optimization](https://supabase.com/docs/guides/database/query-optimization) and [Realtime limits](https://supabase.com/docs/guides/realtime/limits); SQL tuning alone cannot remove those limits. The automated tests validate SQL behavior and index selection locally, not production throughput.
+
 ### Checks before publishing
 
 ```bash

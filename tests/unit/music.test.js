@@ -97,7 +97,23 @@ test('music.sql: players can list the music bucket and read the playlist, and ca
     try {
       assert.deepEqual((await db.query('select path from public.music_tracks where enabled order by position')).rows.map(r => r.path), ['one.mp3', 'Two by Two.mp3']);
       assert.deepEqual((await db.query('select name from storage.objects')).rows.map(r => r.name), ['song.mp3'], 'players see the music bucket only');
+      assert.deepEqual((await db.query('select public.music_manifest() as v')).rows[0].v.map(r => r.path), ['song.mp3'], 'manifest cannot expose another bucket or tracks with no file');
       for (const write of [`insert into public.music_tracks (path, title) values ('x.mp3', 'X')`, `update public.music_tracks set title = 'Hacked'`, 'delete from public.music_tracks']) await assert.rejects(db.exec(write), /permission denied/, `${role}: ${write}`);
     } finally { await db.exec('reset role'); }
   }
+});
+
+test('music manifest loads folders and metadata in one shared request without fallback on server errors', async () => {
+  let calls = 0;
+  const client = { rpc: async name => {
+    calls++; assert.equal(name, 'music_manifest');
+    return { data: [{ path: 'Rock/01 - Artist - Song.mp3', title: null, enabled: true },
+      { path: 'Rock/02.mp3', title: 'Opener', position: -1 }, { path: 'Rock/hidden.mp3', title: 'Hidden', enabled: false }] };
+  } };
+  const [a, b] = await Promise.all([loadPlaylists({ configured: true, client }), loadPlaylists({ configured: true, client })]);
+  assert.equal(a, b); assert.equal(calls, 1);
+  assert.deepEqual(a[0].tracks.map(t => t.title), ['Opener', 'Song']);
+  await loadPlaylists({ configured: true, client }); assert.equal(calls, 1);
+  const broken = { rpc: async () => ({ error: { code: '57014', message: 'timeout' } }) };
+  await assert.rejects(loadPlaylists({ configured: true, client: broken }), error => error.code === '57014');
 });

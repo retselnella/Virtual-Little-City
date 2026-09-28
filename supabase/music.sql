@@ -41,5 +41,19 @@ create policy "players read the playlist" on public.music_tracks for select to a
 drop policy if exists "players list music files" on storage.objects;
 create policy "players list music files" on storage.objects for select to anon, authenticated using (bucket_id = 'music');
 
+-- One bounded request replaces the table request plus one Storage list per folder. This only exposes names and
+-- playlist metadata from the already-public music bucket; it accepts no bucket or path supplied by the caller.
+-- Scalar JSON avoids PostgREST's table-row response limit. Nested folders remain unsupported by the player.
+create or replace function public.music_manifest() returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object('path', o.name, 'title', t.title, 'artist', t.artist,
+    'position', t.position, 'enabled', coalesce(t.enabled, true)) order by o.name), '[]'::jsonb)
+  from (select name from storage.objects where bucket_id = 'music' and name ~ '^([^/]+/)?[^/]+$'
+        order by name limit 31000) o
+  left join public.music_tracks t on t.path = o.name
+$$;
+revoke all on function public.music_manifest() from public, anon, authenticated;
+grant execute on function public.music_manifest() to anon, authenticated;
+
 -- Tell the API about the new table.
 notify pgrst, 'reload schema';

@@ -3,6 +3,7 @@ import { connectBoss, describeBossError } from '../services/bossService.js';
 import { BOSS_NAME } from '../models/worldTour/bossRules.js';
 import { notify } from '../models/worldTour/worldAdventure.js';
 import { CITIES } from '../models/worldTour/worldAdventure.js';
+import { bossPollDelay, startPolling } from '../services/bossPolling.js';
 
 // The world boss event for this player: polls the server for the event (schedule, HP, ranking), reports the player's
 // hits and deaths, keeps the session's clock in step with the server's, and announces the event to everyone.
@@ -13,13 +14,13 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
   const [status, setStatus] = useState('connecting'), [event, setEvent] = useState(null), [weekly, setWeekly] = useState(null), [hits, setHits] = useState([]), [problem, setProblem] = useState(null);
   const clock = useRef(() => Date.now() + skew.current);
   useEffect(() => {
-    let alive = true, busy = false;
+    let alive = true, busy = false, stopPolling;
     const local = () => Date.now() + (clockOffset.current || 0);
     connectBoss({ clock: local, test }).then(api => {
       if (!alive) return;
       server.current = api; setStatus(api.mode);
       if (api.mode === 'local') clock.current = local;
-      refresh();
+      stopPolling = startPolling(refresh, () => api.mode === 'local' ? 2000 : bossPollDelay(session.current.bossEvent, clock.current()));
     }).catch(error => { console.warn('World boss unavailable', error); if (alive) { setStatus('error'); setProblem(describeBossError(error)); } });
     async function refresh() {
       const api = server.current; if (!api || busy) return;
@@ -31,7 +32,7 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
         const next = normalize(state);
         session.current.bossEvent = next; setEvent(next); setStatus(api.mode); setProblem(null); announce(next);
         await flush(next);
-      } catch (error) { console.warn('World boss state', error); if (alive && !session.current.bossEvent) { setStatus('error'); setProblem(describeBossError(error)); } }
+      } catch (error) { console.warn('World boss state', error); if (alive && !session.current.bossEvent) { setStatus('error'); setProblem(describeBossError(error)); } throw error; }
       finally { busy = false; }
     }
     // Report hits and deaths since the last report; the server answers with the damage it granted.
@@ -42,7 +43,7 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
         const at = s.player;
         for (const [id, n] of Object.entries(hits)) s.bossHits[id] -= n;
         const result = await api.hit({ event: ev.id, hits, x: at.x, z: at.z, city: s.city, name: playerName.current });
-        if (result?.ok && result.damage > 0) setHits(list => [...list.slice(-5), { id: Date.now() + Math.random(), damage: Number(result.damage) }]);
+        if (alive && result?.ok && result.damage > 0) setHits(list => [...list.slice(-5), { id: Date.now() + Math.random(), damage: Number(result.damage) }]);
       } else if (ev.phase !== 'active' || ev.city !== s.city) s.bossHits = {};
       if (s.bossDeaths > reported.current.deaths) { reported.current.deaths = s.bossDeaths; await api.death(ev.id); }
     }
@@ -54,10 +55,9 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
         defeated: `${BOSS_NAME} has been defeated in ${where}!`, ended: `${BOSS_NAME} has retreated from ${where}. The city is rebuilt.` }[ev.phase];
       if (text) notify(session.current, text);
     }
-    const poll = setInterval(refresh, 2000);
-    return () => { alive = false; clearInterval(poll); };
+    return () => { alive = false; stopPolling?.(); server.current = null; };
   }, []);
-  async function loadWeekly() { const api = server.current; if (!api) return; try { setWeekly(normalizeWeekly(await api.weekly())); } catch (error) { console.warn('Weekly board', error); } }
+  async function loadWeekly() { const api = server.current; if (!api || globalThis.document?.hidden) return; try { setWeekly(normalizeWeekly(await api.weekly())); } catch (error) { console.warn('Weekly board', error); } }
   async function claim() { const api = server.current; if (!api) return 0; const cash = Number(await api.claim()) || 0; if (cash) session.current.cash += cash; await loadWeekly(); return cash; }
   return { status, problem, event, weekly, hits, clock, loadWeekly, claim, playerId: server.current?.playerId };
 }

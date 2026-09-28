@@ -4,6 +4,7 @@ import { claimRewards, createBossStore, eventState, reportDeath, submitHits, wee
 import { kaijuPose } from '../models/worldTour/worldBoss.js';
 import { guestClient, localGuestId } from './guestSession.js';
 import { readJson, writeJson } from './storage.js';
+import { cachedRead } from './requestCache.js';
 
 // The world boss server. Online, every call is a Postgres function on Supabase (supabase/world-boss.sql) that decides
 // the schedule, HP, damage and rankings; the browser only reports what the player did. Without Supabase, the same rules
@@ -15,14 +16,15 @@ export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () =
   if (!configured) return localBoss(clock, storage);
   const { client, session } = await guestClient();
   const rpc = async (name, args) => { const { data, error } = await client.rpc(name, args); if (error) throw error; return data; };
+  const weekly = cachedRead(() => rpc('boss_weekly_state'), 60000);
   return {
     mode: 'online', playerId: session.user.id,
     // Always name the argument: a call without it is ambiguous if an older copy of the SQL left boss_state() behind.
     state: () => rpc('boss_state', { p_test: !!test }),
     hit: ({ event, hits, x, z, city, name }) => rpc('boss_hit', { p_event: event, p_hits: hits, p_x: x, p_z: z, p_city: city, p_name: name }),
     death: event => rpc('boss_death', { p_event: event }),
-    weekly: () => rpc('boss_weekly_state'),
-    claim: () => rpc('boss_claim_rewards'),
+    weekly,
+    claim: async () => { const cash = await rpc('boss_claim_rewards'); weekly.clear(); return cash; },
   };
 }
 // A short, fixable explanation of why the event server failed, for the Kaiju panel.
