@@ -3,6 +3,8 @@
 // started, so every player sees the same kaiju in the same place wrecking the same buildings, and a player who joins
 // late sees all the destruction so far. The server uses the same path for its range check (supabase/world-boss.sql).
 export const KAIJU = Object.freeze({ height: 150, bodyRadius: 22, crushRadius: 21, wadeSpeed: 5, walkSpeed: 2.5, attackEvery: 8, firstAttack: 20 });
+// Flat incoming damage, never a percentage of the event's increased player health.
+export const KAIJU_HAZARD_DAMAGE = Object.freeze({ stomp: 8, firePerSecond: 10, laser: 36, slamMin: 10, slamMax: 40, roar: 3, meteor: 24, tail: 26 });
 const ENTRY = { from: { x: 760, z: -240 }, to: { x: 240, z: -240 } }, WADE = (ENTRY.from.x - ENTRY.to.x) / KAIJU.wadeSpeed;
 const LOOP = [{ x: 240, z: -240 }, { x: 240, z: 240 }, { x: -240, z: 240 }, { x: -240, z: -240 }], SIDE = 480;
 
@@ -107,25 +109,25 @@ export function kaijuHazards(seed, t, at, memory, dt) {
   // Its body and feet: you are shoved clear every step, and stamped on (once per footfall) if you linger underfoot.
   if (d < KAIJU.bodyRadius) {
     const id = `stomp:${Math.floor(t / 1.2)}`;
-    hits.push({ id, damage: memory.has(id) ? 0 : 12, from: pose, push: 14, lift: 4, body: KAIJU.bodyRadius - d }); memory.add(id);
+    hits.push({ id, damage: memory.has(id) ? 0 : KAIJU_HAZARD_DAMAGE.stomp, from: pose, push: 14, lift: 4, body: KAIJU.bodyRadius - d }); memory.add(id);
   }
   const a = currentAttack(seed, t);
   if (!a || t < a.impact) return hits;
   if (a.type === 'fire') {
     const zone = blastZones(a)[0];
-    if (inZone(zone, at)) hits.push({ id: `fire:${a.id}`, damage: 14 * dt, from: a.from, push: 1, burning: true });
+    if (inZone(zone, at)) hits.push({ id: `fire:${a.id}`, damage: KAIJU_HAZARD_DAMAGE.firePerSecond * dt, from: a.from, push: 1, burning: true });
   } else if (a.type === 'laser') {
     const u = Math.min(1, (t - a.impact) / (a.end - a.impact)), beam = beamPoint(a, u);
-    if (Math.hypot(at.x - beam.x, at.z - beam.z) < 8) once(`laser:${a.id}`, { damage: 45, from: beam, push: 10, lift: 3 });
+    if (Math.hypot(at.x - beam.x, at.z - beam.z) < 8) once(`laser:${a.id}`, { damage: KAIJU_HAZARD_DAMAGE.laser, from: beam, push: 10, lift: 3 });
   } else if (a.type === 'slam') {
     const r = Math.hypot(at.x - a.target.x, at.z - a.target.z);
-    if (r < 55) once(`slam:${a.id}`, { damage: Math.round(12 + 38 * (1 - r / 55)), from: a.target, push: 18 * (1 - r / 70), lift: 6, knockdown: 1.2 });
+    if (r < 55) once(`slam:${a.id}`, { damage: Math.round(KAIJU_HAZARD_DAMAGE.slamMin + (KAIJU_HAZARD_DAMAGE.slamMax - KAIJU_HAZARD_DAMAGE.slamMin) * (1 - r / 55)), from: a.target, push: 18 * (1 - r / 70), lift: 6, knockdown: 0.8 });
   } else if (a.type === 'roar') {
-    if (d < 260) once(`roar:${a.id}`, { damage: 4, from: pose, push: 3, stun: 1.4 });
+    if (d < 260) once(`roar:${a.id}`, { damage: KAIJU_HAZARD_DAMAGE.roar, from: pose, push: 3, stun: 0.8 });
   } else if (a.type === 'meteors') {
-    a.shells.forEach((s, k) => { if (t >= s.at && t < s.at + 0.4 && Math.hypot(at.x - s.x, at.z - s.z) < 16) once(`meteor:${a.id}:${k}`, { damage: 30, from: s, push: 12, lift: 5 }); });
+    a.shells.forEach((s, k) => { if (t >= s.at && t < s.at + 0.4 && Math.hypot(at.x - s.x, at.z - s.z) < 16) once(`meteor:${a.id}:${k}`, { damage: KAIJU_HAZARD_DAMAGE.meteor, from: s, push: 12, lift: 5 }); });
   } else if (a.type === 'tail') {
-    if (t >= a.impact + 0.4 && Math.hypot(at.x - a.target.x, at.z - a.target.z) < 50) once(`tail:${a.id}`, { damage: 32, from: pose, push: 20, lift: 4 });
+    if (t >= a.impact + 0.4 && Math.hypot(at.x - a.target.x, at.z - a.target.z) < 50) once(`tail:${a.id}`, { damage: KAIJU_HAZARD_DAMAGE.tail, from: pose, push: 20, lift: 4 });
   }
   return hits;
 }

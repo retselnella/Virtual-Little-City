@@ -9,7 +9,7 @@ import { cachedRead } from './requestCache.js';
 // The world boss server. Online, every call is a Postgres function on Supabase (supabase/world-boss.sql) that decides
 // the schedule, HP, damage and rankings; the browser only reports what the player did. Without Supabase, the same rules
 // (bossRules.js) run in this browser, shared by its tabs through storage, so the event still works for solo testing.
-//   { mode, playerId, state(), hit({ event, hits, x, z, city, name }), death(event), weekly(), claim() }
+//   { mode, playerId, state(), hit({ event, hits, x, z, city, name }), death({ event, id, at, city, name }), weekly(), claim() }
 // `hits` counts hits per weapon since the last report, e.g. { rifle: 12, fists: 2 }.
 // `test` asks for the owner's test event (separate from the real one, and not counted on the weekly board).
 export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () => Date.now(), storage, test = false } = {}) {
@@ -22,7 +22,7 @@ export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () =
     // Always name the argument: a call without it is ambiguous if an older copy of the SQL left boss_state() behind.
     state: () => rpc('boss_state', { p_test: !!test }),
     hit: ({ event, hits, x, z, city, name }) => rpc('boss_hit', { p_event: event, p_hits: hits, p_x: x, p_z: z, p_city: city, p_name: name }),
-    death: event => rpc('boss_death', { p_event: event }),
+    death: ({ event, id, at, city, name }) => rpc('boss_record_death', { p_event: event, p_report: id, p_died_at: at, p_city: city, p_name: name }),
     weekly,
     claim: async () => { const cash = await rpc('boss_claim_rewards'); weekly.clear(); return cash; },
   };
@@ -54,7 +54,7 @@ function localBoss(clock, storage) {
       const now = clock(), record = store.events[event], pose = record ? kaijuPose((now - record.startsAt) / 1000) : { x: 0, z: 0 };
       return submitHits(store, { playerId, name, eventId: event, hits, x, z, city, bossX: pose.x, bossZ: pose.z, now });
     }),
-    death: async event => withStore(store => reportDeath(store, { playerId, eventId: event, now: clock() })),
+    death: async ({ event, id, at, city, name }) => withStore(store => reportDeath(store, { playerId, eventId: event, reportId: id, diedAt: at, city, name, now: clock() })),
     weekly: async () => withStore(store => weeklyState(store, clock(), playerId)),
     claim: async () => withStore(store => claimRewards(store, playerId)),
   };

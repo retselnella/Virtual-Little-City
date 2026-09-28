@@ -14,6 +14,7 @@ import { aimFromRay, aimYawFrom } from './aiming.js';
 import { raiseHeat, recordKill } from './wanted.js';
 import { seatNear, venueAt, venueBlocks } from './venues.js';
 import { updateHelicopters } from './policeAir.js';
+import { HEALTH, hurtPlayer, markCombat, regenerateHealth, syncEventHealth } from './playerHealth.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -129,7 +130,8 @@ export function createSession(city, save = {}, appearance = null, arrival = null
   s.pedestrians = createPedestrians(s);
   Object.assign(s, { boat: createBoat(), boating: false, metro: null, riding: false, train: trainAt(0), course: null, waypoint: null, arrival: null, teleporter: teleporterAt(s.blocks), teleporting: false });
   // World boss: the server's event (set by the controller), the kaiju here, hits waiting to be reported, and the ruins.
-  Object.assign(s, { bossEvent: null, boss: null, bossHits: {}, bossDeaths: 0, bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
+  Object.assign(s, { bossEvent: null, boss: null, bossHits: {}, bossDeaths: 0, bossDeathReports: save.bossDeathReports || [], bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
+  Object.assign(s, { maxHealth: HEALTH.base, healthBuffEvent: null, regenQuiet: 0, regenerating: false });
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
     s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
@@ -205,7 +207,7 @@ export function promptFor(s) {
   if (atGunShop(s.city, s.player)) return { key: 'E', action: 'interact', text: 'Browse Ocean Drive Arms' };
   if (atTeleporter(s)) return { key: 'E', action: 'interact', text: 'Teleport to another island' };
   const seat = freeSeat(s); if (seat) return { key: 'E', action: 'interact', text: 'Sit on the sofa' };
-  if (distance(s.player, HUB) < 13 && (s.health < 100 || needsAmmo(s))) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
+  if (distance(s.player, HUB) < 13 && (s.health < s.maxHealth || needsAmmo(s))) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
   return null;
 }
 export function notify(s, message) { s.message = message; s.messageTime = 5; }
@@ -266,7 +268,7 @@ export function interact(s) {
     if (s.heat > 0) { notify(s, 'The shop keeper locks the door: lose the police first.'); return; }
     s.shopping = true; return;
   }
-  if (distance(at, HUB) < 13 && onFoot(s) && s.heat === 0) { s.health = 100; s.mags = fullMagazines(s.owned); s.reload = 0; notify(s, 'City Hub: health and ammunition restored.'); return; }
+  if (distance(at, HUB) < 13 && onFoot(s) && s.heat === 0) { syncEventHealth(s); s.health = s.maxHealth; markCombat(s); s.mags = fullMagazines(s.owned); s.reload = 0; notify(s, 'City Hub: health and ammunition restored.'); return; }
   notify(s, 'Move to the gold marker and stop to interact.');
 }
 export function toggleVehicle(s) {
@@ -365,7 +367,7 @@ function updateKaiju(s, dt) {
   const at = actor(s);
   for (const hit of kaijuHazards(ev.seed, t, at, s.bossMemory, dt)) {
     const dx = at.x - hit.from.x, dz = at.z - hit.from.z, d = Math.hypot(dx, dz) || 1;
-    if (hit.damage) s.health -= hit.damage * (s.driving ? 0.6 : s.boating ? 0.8 : 1) * armorOf(s);
+    if (hit.damage) hurtPlayer(s, hit.damage * (s.driving ? 0.6 : s.boating ? 0.8 : 1) * armorOf(s));
     if (onFoot(s)) {
       if (hit.body) { s.player.x += dx / d * hit.body; s.player.z += dz / d * hit.body; }
       pushCharacter(s.player, dx, dz, hit.push || 0, hit.lift || 0);
@@ -385,6 +387,7 @@ export function attack(s) {
   const w = WEAPONS[s.weapon] || WEAPONS.fists, gun = w.gun;
   if (!onFoot(s) || s.seated || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
   if (gun && !(s.mags[s.weapon] > 0)) { startReload(s); return; }
+  markCombat(s);
   s.cooldown = w.cooldown; if (gun) s.mags[s.weapon]--;
   // Punches chain into a jab, cross and heavier hook when thrown in quick succession.
   if (!gun) { s.combo = s.time - (s.lastPunch ?? -9) < 0.9 ? (s.combo + 1) % 3 : 0; s.lastPunch = s.time; s.punchTime = 0.28; }
@@ -498,7 +501,7 @@ function blast(s, w, at, direct) {
     pushCharacter(e, dx || 0.1, dz, 14 * (1 - d / (w.blast * 1.4)), 4);
   }
   const p = s.player, pd = Math.hypot(p.x - at.x, p.z - at.z);
-  if (pd < w.blast && !s.driving) { s.health -= 30 * (1 - pd / (w.blast * 1.4)) * armorOf(s); pushCharacter(p, p.x - at.x || 0.1, p.z - at.z, 10, 3); }
+  if (pd < w.blast && !s.driving) { hurtPlayer(s, 30 * (1 - pd / (w.blast * 1.4)) * armorOf(s)); pushCharacter(p, p.x - at.x || 0.1, p.z - at.z, 10, 3); }
 }
 // Side effects of a bullet stopped by something other than its target.
 function bulletHit(s, hit, dx, dz) {
@@ -519,6 +522,7 @@ export function setAppearance(s, appearance) {
 export function recover(s) {
   s.player = { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(s.appearance) }; s.car = vehicle('player', 3, 12, Math.PI, 'player'); s.driving = false; s.health = 100; s.mags = fullMagazines(s.owned); s.reload = 0; s.heat = 0; s.down = 0; s.mission = null; s.enemies = []; s.traffic = createTraffic(); s.policeCars = createPatrols(); s.incident = false; s.arrest = 0; s.downReason = ''; s.lastSeen = null; s.alarm = null;
   s.boat = createBoat(); s.boating = false; s.riding = false; s.metro = null; s.arrival = null; s.kills = 0;
+  s.healthBuffEvent = null; syncEventHealth(s); markCombat(s);
   notify(s, 'Back at the City Hub. Any unfinished contract can be restarted.');
 }
 // `aimRay` is the pointer's ray from the camera when the player aims with the mouse (see aiming.js), else null.
@@ -529,6 +533,7 @@ export function stepWorld(s, input, delta, yaw = Math.PI, aimRay = null) {
 }
 function stepSimulation(s, input, dt, yaw) {
   s.time += dt;
+  syncEventHealth(s);
   s.cooldown = Math.max(0, s.cooldown - dt); s.messageTime = Math.max(0, s.messageTime - dt);
   s.aimTime = Math.max(0, s.aimTime - dt); s.punchTime = Math.max(0, s.punchTime - dt);
   if (!s.driving) s.aimYaw = s.aimRay ? aimYawFrom(s.player, s.aimRay) : yaw;
@@ -583,7 +588,7 @@ function stepSimulation(s, input, dt, yaw) {
   const suspect = actor(s);
   s.heliSpotted = updateHelicopters(s, s.driving ? { ...suspect, vx: s.car.vx, vz: s.car.vz } : suspect, dt, { hurt: amount => {
     if (down) return;
-    s.health -= amount * (s.driving ? 0.5 : 1) * armorOf(s);
+    hurtPlayer(s, amount * (s.driving ? 0.5 : 1) * armorOf(s));
     if (s.driving) s.car.damage = Math.min(100, s.car.damage + 2); else addImpact(s, s.player, 0, 1, 'shot', 0.6);
   } }) && !down;
   if (!down) updatePolice(s, p, dt, clearSight);
@@ -621,7 +626,7 @@ function stepSimulation(s, input, dt, yaw) {
       let tx = p.x, tz = p.z;
       if (cover) { tx = cover.x; tz = cover.z; bulletHit(s, cover, p.x - e.x, p.z - e.z); }
       else if (hit) {
-        s.health -= (s.driving ? 2 : 5) * armorOf(s);
+        hurtPlayer(s, (s.driving ? 2 : 5) * armorOf(s));
         if (!s.driving) { pushCharacter(s.player, p.x - e.x, p.z - e.z, 0.6); addImpact(s, p, p.x - e.x, p.z - e.z, 'shot', 0.6); }
       } else {
         const miss = (random(s) < 0.5 ? -1 : 1) * (1.5 + random(s) * 2);
@@ -644,7 +649,7 @@ function stepSimulation(s, input, dt, yaw) {
   for (const { car, other, impact } of physics.impacts) {
     if (impact <= 5 || car.hitCooldown > 0) continue;
     car.damage = Math.min(100, car.damage + impact * (other ? 0.35 : 0.5)); car.impact = Math.min(1, impact / 25); car.hitCooldown = 0.5;
-    if (car === s.car && s.driving) s.health -= impact * (other ? 0.2 : 0.25) * armorOf(s);
+    if (car === s.car && s.driving) hurtPlayer(s, impact * (other ? 0.2 : 0.25) * armorOf(s));
   }
   // People struck by cars: contact normals come from the physics contact manifolds.
   for (const { person, car, nx, nz, sx, sz, closing } of physics.hits) {
@@ -653,7 +658,7 @@ function stepSimulation(s, input, dt, yaw) {
     if (person.child) pushCharacter(person, sx, sz, Math.min(6, closing * 0.3));
     else pushCharacter(person, nx, nz, Math.min(18, closing * 0.8), closing > 8 ? Math.min(6, closing * 0.25) : 0);
     person.hitCooldown = 1;
-    if (person === s.player) { s.health -= closing * 2 * armorOf(s); if (closing > 12) person.knockdown = 1.5; }
+    if (person === s.player) { hurtPlayer(s, closing * 2 * armorOf(s)); if (closing > 12) person.knockdown = 1.5; }
     else { injure(s, person, closing * 4, nx, nz, 'car'); if (closing > 6) person.knockdown = 1.6; }
     car.vx *= 0.9; car.vz *= 0.9;
     if (car === s.car && s.driving && !person.child) { raiseHeat(s, Math.max(1, s.heat)); s.alarm = { x: person.x, z: person.z, time: s.time, radius: 40 }; }
@@ -661,5 +666,15 @@ function stepSimulation(s, input, dt, yaw) {
   if (s.mission?.id === 'bounty' && s.mission.stage === 0 && s.enemies.some(e => e.boss && e.health <= 0)) { s.mission.stage = 1; notify(s, 'The gang boss is down. Lose the heat and report to the City Hub.'); }
   if (s.mission) checkpointMission(s);
   if (s.mission?.id === 'crew' && s.mission.stage === 0 && s.enemies.filter(e => e.kind === 'gang').every(e => e.health <= 0)) { s.mission.stage = 1; notify(s, 'Block cleared. Lose the heat and return to the City Hub.'); }
-  if (!down && s.health <= 0) { if (s.boss?.alive) s.bossDeaths++; s.health = 0; s.down = 4; s.downReason = 'wasted'; notify(s, 'WASTED. Returning to the City Hub...'); }
+  if (!down && s.health <= 0) {
+    if (s.boss?.alive && s.bossEvent) {
+      s.bossDeaths++;
+      s.bossDeathReports.push({ event: s.bossEvent.id, city: s.city, at: Math.floor((s.worldTime ?? s.time) * 1000),
+        id: globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}` });
+    }
+    s.health = 0; s.down = 4; s.downReason = 'wasted'; notify(s, 'WASTED. Returning to the City Hub...');
+  }
+  const canRecover = !s.down && s.health > 0 && s.health < s.maxHealth && !s.heat && !s.healthBuffEvent;
+  const threatened = canRecover && s.enemies.some(e => e.health > 0 && e.kind !== 'police' && distance(e, actor(s)) < 60 && clearSight(e, actor(s), s.blocks));
+  regenerateHealth(s, dt, threatened);
 }

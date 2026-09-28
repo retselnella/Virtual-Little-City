@@ -45,15 +45,17 @@ test('get away from a five-star pursuit and the stars fade to zero; the city cal
   const s = createSession(miami); s.traffic = []; s.pedestrians = [];
   s.heat = 5; s.quiet = 20; s.incident = false; s.lastSeen = { x: 8, z: 12 };
   stepWorld(s, {}, 0.05); assert.equal(starsOf(s.heat), 5);
+  s.health = 40;
   // Run far away from everyone (the search stays around the last sighting) and hide in a wood out of town.
   const tree = islandFor('miami').trees.find(t => t.kind !== 'palm' && (t.scale || 1) > 0.8 && Math.hypot(t.x, t.z) > 500);
   s.player.x = tree.x; s.player.z = tree.z; s.searched = true;
   let messages = new Set();
   for (let i = 0; i < 2400 && s.heat > 0; i++) { stepWorld(s, {}, 0.05); s.quiet = 99; s.player.x = tree.x; s.player.z = tree.z; messages.add(s.message); }
-  assert.equal(s.down, 0, 'not wasted: the helicopters never saw you'); assert.equal(s.health, 100);
+  assert.equal(s.down, 0, 'not wasted: the helicopters never saw you'); assert.equal(s.health, 40, 'no healing before the pursuit is over');
   assert.equal(s.heat, 0, 'the stars faded');
   assert.ok([...messages].some(m => /got away/.test(m)), 'you are told you got away');
   for (let i = 0; i < 600; i++) stepWorld(s, {}, 0.05);
+  assert.equal(s.health, 100, 'health regenerates after escaping and waiting safely');
   assert.equal(s.helicopters.filter(h => h.state !== 'leaving').length, 0, 'no helicopters hunting');
   assert.ok(s.policeCars.every(c => !['responding', 'onscene', 'regroup'].includes(c.state)), 'patrols stood down');
   assert.equal(s.kills, 0);

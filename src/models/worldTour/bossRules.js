@@ -99,10 +99,22 @@ export function submitHits(store, { playerId, name, eventId, hits, x, z, city, b
   weekly[playerId] = { id: playerId, name, damage: (weekly[playerId]?.damage || 0) + damage };
   return { ok: true, damage, accepted: spent.accepted, hp: record.hp };
 }
-export function reportDeath(store, { playerId, eventId, now }) {
-  const player = store.events[eventId]?.players[playerId];
-  if (!player || now - player.lastDeathAt < DEATH_COOLDOWN_MS) return false;
-  player.deaths++; player.lastDeathAt = now; return true;
+export function reportDeath(store, { playerId, eventId, now, reportId = null, diedAt = now, city, name = 'Traveller' }) {
+  const record = store.events[eventId];
+  if (!playerId || !record) return false;
+  const existing = record.players[playerId];
+  if (reportId && existing?.deathReports?.includes(reportId)) return true;
+  if (!Number.isSafeInteger(diedAt) || diedAt < record.startsAt || diedAt >= record.endsAt || diedAt > now
+    || (record.defeatedAt != null && diedAt > record.defeatedAt) || (city !== undefined && city !== record.city)) return false;
+  if (reportId !== null && (typeof reportId !== 'string' || reportId.length < 1 || reportId.length > 80)) return false;
+  const player = existing || (record.players[playerId] = { id: playerId, name, damage: 0, hits: 0, deaths: 0,
+    lastAt: Math.max(record.startsAt, diedAt - FIRE_WINDOW_MS), lastDeathAt: 0 });
+  // Bound stored reports by the event's elapsed time and the four-second respawn, rather than delivery spacing.
+  if (player.deaths >= 1 + Math.floor((Math.min(now, record.endsAt) - record.startsAt) / 4000)) return false;
+  if (!reportId && player.lastDeathAt && now - player.lastDeathAt < DEATH_COOLDOWN_MS) return false;
+  player.deaths++; player.lastDeathAt = Math.max(player.lastDeathAt, diedAt);
+  if (reportId) (player.deathReports ||= []).push(reportId);
+  return true;
 }
 // Live ranking: rank, name, damage and share of all damage dealt in the event.
 export function ranking(players, limit = 10) {

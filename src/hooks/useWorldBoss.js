@@ -4,13 +4,14 @@ import { BOSS_NAME } from '../models/worldTour/bossRules.js';
 import { notify } from '../models/worldTour/worldAdventure.js';
 import { CITIES } from '../models/worldTour/worldAdventure.js';
 import { bossPollDelay, startPolling } from '../services/bossPolling.js';
+import { flushBossDeaths } from '../services/bossDeathReports.js';
 
 // The world boss event for this player: polls the server for the event (schedule, HP, ranking), reports the player's
 // hits and deaths, keeps the session's clock in step with the server's, and announces the event to everyone.
 // `clockOffset` (a ref, ms) is added to the local clock for previews (?clock=) in local mode only. `test` (?bosstest)
 // asks the server for its test event, which it only gives while the owner has test mode on.
 export function useWorldBoss(session, playerName, clockOffset, test = false) {
-  const server = useRef(null), skew = useRef(0), lastPhase = useRef(null), reported = useRef({ deaths: 0 });
+  const server = useRef(null), skew = useRef(0), lastPhase = useRef(null);
   const [status, setStatus] = useState('connecting'), [event, setEvent] = useState(null), [weekly, setWeekly] = useState(null), [hits, setHits] = useState([]), [problem, setProblem] = useState(null);
   const clock = useRef(() => Date.now() + skew.current);
   useEffect(() => {
@@ -26,6 +27,8 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
       const api = server.current; if (!api || busy) return;
       busy = true;
       try {
+        await flushBossDeaths(session.current.bossDeathReports, api, playerName.current);
+        if (!alive) return;
         const state = await api.state();
         if (!alive || !state) return;
         if (api.mode === 'online') skew.current = state.serverNow - Date.now();
@@ -45,7 +48,6 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
         const result = await api.hit({ event: ev.id, hits, x: at.x, z: at.z, city: s.city, name: playerName.current });
         if (alive && result?.ok && result.damage > 0) setHits(list => [...list.slice(-5), { id: Date.now() + Math.random(), damage: Number(result.damage) }]);
       } else if (ev.phase !== 'active' || ev.city !== s.city) s.bossHits = {};
-      if (s.bossDeaths > reported.current.deaths) { reported.current.deaths = s.bossDeaths; await api.death(ev.id); }
     }
     function announce(ev) {
       const before = lastPhase.current; lastPhase.current = `${ev.id}:${ev.phase}`;

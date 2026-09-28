@@ -52,6 +52,7 @@
 .adventure-stats>strong{display:block;font-size:31px;letter-spacing:-1px;margin:8px 0 14px;color:#f3ffe9}
 .adventure-stats label{display:block;text-align:left;font-size:9px;letter-spacing:1.5px}
 .adventure-stats label b{float:right;font-size:11px}
+.health-effect{margin-top:7px;color:#b7ecd5;font-size:8px;letter-spacing:.3px;text-align:left}
 .adventure-stats progress{display:block;width:100%;height:6px;border:0;border-radius:3px;overflow:hidden;margin-top:7px;background:#ffffff1c;accent-color:#a0dec7}
 .adventure-stats progress::-webkit-progress-bar{background:#ffffff1c}
 .adventure-stats progress::-webkit-progress-value{background:linear-gradient(90deg,#7fd3b4,#b7ecd5);border-radius:3px}

@@ -219,7 +219,7 @@ Each city has six contracts, 42 in total:
 - **Aiming without a mouse** (touch screens, or keyboard only): the game locks onto the best target in front of the camera: armed threats first, and bystanders only when they are in front of you. The ring on the ground shows who you will hit.
 - **Cover**: buildings, cars and lamp posts block bullets, for you and for anyone shooting at you. Standing still makes you easier to hit. Sprinting and distance make enemies miss more.
 - **Children** can never be targeted or hurt.
-- **Health**: at zero health you are **WASTED** and wake up at the City Hub. To heal, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills every gun.
+- **Health**: at zero health you are **WASTED** and wake up at the City Hub. Once the police pursuit has ended, spend **8 seconds** without attacking, taking damage or being threatened by a nearby gang member to regenerate **5 HP per second**, up to your normal **100 HP**. New damage or attacks restart the delay. Automatic regeneration is disabled during the Kaiju fight. To heal immediately, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills every gun.
 - **Bodies and blood** are cleared a few seconds (6) after someone falls. Blood effects can be switched off in the pause menu.
 
 ## 8. Kaiju: the world boss
@@ -228,6 +228,7 @@ Every day at **12:00 Philippine time**, a giant Kaiju, taller than the city's to
 
 - **Before**: an hour ahead, a banner announces where it will appear, with a countdown. Sail there in time. The World map marks the city.
 - **The fight**: it wades ashore and stomps through the streets. Point at it with the mouse and fire (click, hold the right button, or **J**); on a touch screen the attack button aims at it for you. Every gun works within its **Kaiju reach** (170 m for most, 70 m for the shotgun, 210 m for the sniper rifle, under its feet for fists), and each deals its own damage per hit (see the table in [Fighting](#7-fighting)). Better guns deal more damage per second, but no gun is more than about twice the free pistol, so the leaderboard rewards time spent fighting. Drag the camera up to look up at it: the view tilts past your character so you can aim at its head. While it attacks, gunfire alone does not bring the police (only hitting people does). It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
+- **Event health buff**: while the Kaiju is alive in your city, you gain **+500 current and maximum HP** (a healthy player goes from **100 to 600 HP**). The bonus is applied once, and the HUD shows it. Respawning and City Hub healing restore the active maximum. Leaving the city, defeating the Kaiju or reaching the event's end removes the buff and caps remaining health at 100 without killing an injured survivor. Kaiju attacks use flat damage: stomp 8, fire 10/second, laser 36, slam 10–40, roar 3, each meteor 24, tail 26, before armour or vehicle protection. Slam knockdown and roar stun last 0.8 seconds.
 - **Destruction**: buildings, trees and lamp posts it hits collapse into rubble and craters. The damage stays for the whole hour and the city is restored when the event ends.
 - **The end**: when its HP reaches zero it is **defeated**. If time runs out first, it **retreats**. Either way, the next day's event is prepared.
 
@@ -236,6 +237,8 @@ Press **B** (or the **Kaiju** button) for the event panel:
 - the event status, the Kaiju's HP, and your damage, rank, hits and deaths
 - the **live ranking**: rank, player, total damage and share of the damage dealt
 - the **weekly leaderboard**, which adds up everyone's damage from Monday 00:00 to Sunday 23:59 Philippine time and then resets
+
+Every death in the event city while the Kaiju is alive counts toward your event deaths, regardless of what killed you or whether you have landed a hit. Recovering or travelling does not discard a queued death. Reports keep their original event and are retried with the same ID after a network failure, so a lost response cannot count twice. Pending reports live in the current page; closing or reloading it before delivery can still lose an unsent report. To enable this fix online, rerun the whole `supabase/world-boss.sql` before deploying the updated app; it adds `boss_record_death()` and a private receipt table while preserving existing counts.
 
 Weekly rewards (claim them from the panel once the week is over; each reward can be claimed once):
 

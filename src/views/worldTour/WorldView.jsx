@@ -136,7 +136,8 @@ export default function WorldView({ controller, onEditCharacter }) {
       <span className="adventure-player">{playerName.toUpperCase()}</span>
       <div className={`wanted${hud.heat > 0 && hud.lostFor > escapeTime(hud.heat) ? ' fading' : ''}`} aria-label={`Wanted level ${starsOf(hud.heat)} of ${MAX_STARS}`}>{Array.from({ length: MAX_STARS }, (_, i) => <span key={i} className={starsOf(hud.heat) > i ? 'lit' : ''}>★</span>)}</div>
       <strong>${hud.cash.toLocaleString()}</strong>
-      <label className={hud.health < 35 ? 'low' : ''}><span>HEALTH</span><b>{Math.ceil(hud.health)}</b><progress max="100" value={hud.health} /></label>
+      <label className={hud.health < hud.maxHealth * 0.35 ? 'low' : ''}><span>HEALTH</span><b>{Math.ceil(hud.health)} / {hud.maxHealth}</b><progress aria-label="Player health" max={hud.maxHealth} value={hud.health} /></label>
+      {hud.healthBuffEvent ? <div className="health-effect">KAIJU BUFF +500 HP</div> : hud.regenerating && <div className="health-effect">RECOVERING +5 HP/s</div>}
       <div className="weapon-status"><span>{vehicle[0]}</span><b>{vehicle[1]}</b></div>
     </section>
     {touch ? <div className={'touch-info' + (infoOpen ? ' open' : '')}>

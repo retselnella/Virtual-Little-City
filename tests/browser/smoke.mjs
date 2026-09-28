@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
+import { eventForDay, phDay } from '../../src/models/worldTour/bossRules.js';
 
 // Builds are tested with the real production CSP, on an unused loopback port.
 const server = await preview({ preview: { host: '127.0.0.1', port: 0, strictPort: false } });
@@ -163,6 +164,22 @@ try {
   for (const selector of ['.touch-stick-base', '.touch-fire', '.adventure-stats']) assert.ok(await inView(selector), `${selector} on screen in portrait`);
   assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await mobile.screenshot({ path: 'test-results/touch-portrait.png' });
+  // The local preview clock exercises the event buff and mobile health HUD without a live Supabase project.
+  const eventCity = eventForDay(phDay(Date.now())).city;
+  await mobile.evaluate(city => {
+    const save = JSON.parse(localStorage.getItem('little-city-world-v1')) || {};
+    localStorage.setItem('little-city-world-v1', JSON.stringify({ ...save, city }));
+  }, eventCity);
+  await mobile.goto(`${base}/?clock=12:05`, { waitUntil: 'networkidle' });
+  await mobile.getByText('KAIJU BUFF +500 HP', { exact: true }).waitFor();
+  const health = mobile.getByRole('progressbar', { name: 'Player health' });
+  assert.equal(await health.getAttribute('max'), '600');
+  assert.equal(await health.getAttribute('value'), '600');
+  assert.ok(await inView('.health-effect'), 'the event buff fits on a phone');
+  await mobile.screenshot({ path: 'test-results/kaiju-health-buff-phone.png' });
+  await mobile.goto(`${base}/?clock=14:00`, { waitUntil: 'networkidle' });
+  await mobile.waitForFunction(() => document.querySelector('progress[aria-label="Player health"]')?.max === 100 && !document.querySelector('.adventure-loading'));
+  assert.equal(await mobile.locator('.health-effect').count(), 0, 'no event buff after the event hour');
   await phone.close();
   console.log('Browser checks passed: production CSP + Rapier, first-launch character creator with live preview, escaped names, saved look, PH-time sky, one world map with your island, sailing from the east marina or the City Hub teleporter, dialogs that fit without scrolling, mouse aiming crosshair, world boss panel, sailing course, teleport from any island, saved island, walking, travel/reload, contract restrictions, preferences, editing the character mid-game, a second player joining, moving and leaving, no third-party requests, mobile layouts, touch controls (joystick, fire button, folding cards).');
 } finally {

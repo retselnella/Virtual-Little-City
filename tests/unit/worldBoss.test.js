@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { BOSS_HP, FIRE_GRACE_MS, FIRE_WINDOW_MS, KAIJU_DAMAGE, REWARDS, claimRewards, createBossStore, currentEvent, eventForDay, eventState, phDay, phaseAt, ranking, reportDeath, spendFireTime, submitHits, weekOf, weeklyState } from '../../src/models/worldTour/bossRules.js';
 import { ATTACKS, KAIJU, attackAt, destructionAt, kaijuHazards, kaijuInReach, kaijuPose, standingBlocks } from '../../src/models/worldTour/worldBoss.js';
-import { CITIES, createSession, equip, generateBlocks, stepWorld, attack } from '../../src/models/worldTour/worldAdventure.js';
+import { CITIES, createSession, equip, generateBlocks, stepWorld, attack, recover } from '../../src/models/worldTour/worldAdventure.js';
+import { flushBossDeaths } from '../../src/services/bossDeathReports.js';
 import { aimFromRay, kaijuRayHit, kaijuRise } from '../../src/models/worldTour/aiming.js';
 import { sceneryLayout } from '../../src/models/worldTour/worldLayout.js';
 
@@ -149,10 +150,77 @@ test('test mode runs on the real project without touching real data, and reverts
 test('clients cannot touch the tables or call internal functions', async () => {
   const S = await server();
   for (const sql of ['select * from boss_events', 'update boss_events set hp = 0', "insert into boss_weekly values (1, gen_random_uuid(), 'x', 999999999999)", 'select public.boss_close_weeks()', 'select public.boss_event_now()', 'select * from boss_reward_tiers',
-    "select public.boss_test_clock('12:05')", 'select public.boss_test_clock_off()', 'select public.boss_test_reset()', 'update boss_test_clock set offset_ms = 1', 'select public.boss_clock(true)', 'select public.boss_event_now(true)', 'select * from public.boss_arms()', 'select * from public.boss_maintenance']) {
+    "select public.boss_test_clock('12:05')", 'select public.boss_test_clock_off()', 'select public.boss_test_reset()', 'update boss_test_clock set offset_ms = 1', 'select public.boss_clock(true)', 'select public.boss_event_now(true)', 'select * from public.boss_arms()', 'select * from public.boss_maintenance', 'select * from public.boss_death_reports']) {
     await assert.rejects(S.as(A, at(12, 5), sql), /permission denied/, sql);
   }
   assert.equal((await S.as(null, at(12, 5), `select public.boss_hit('x', '{"pistol":1}'::jsonb, 0, 0, 'miami', 'x') as v`)).v.reason, 'signed-out');
+});
+
+test('deaths before any hit count once; queued deaths and lost responses agree in SQL and local mode', async () => {
+  const S = await server(), ev = eventForDay(day), t = at(12, 5), store = createBossStore();
+  await S.state(A, t); eventState(store, t, A);
+  const death = async (uid, id, diedAt, now = t + 10000, city = ev.city) => {
+    const sql = (await S.as(uid, now, 'select public.boss_record_death($1, $2, $3, $4, $5) as v', [ev.id, id, diedAt, city, 'Ada'])).v;
+    const local = reportDeath(store, { playerId: uid, eventId: ev.id, reportId: id, diedAt, now, city, name: 'Ada' });
+    assert.equal(sql, local); return sql;
+  };
+  assert.equal(await death(A, 'first', t), true, 'no hit required');
+  assert.equal(await death(A, 'second', t + 4100), true, 'two actual deaths in one polling batch');
+  assert.equal(await death(A, 'first', t), true, 'lost response is acknowledged without recounting');
+  assert.equal(await death(B, 'first', t), true, 'IDs are scoped to the player');
+  assert.equal(await death(A, 'wrong-city', t, t + 10000, 'nowhere'), false);
+  assert.equal(await death(A, 'early', ev.startsAt - 1), false);
+  assert.equal(await death(A, 'future', t + 20000), false);
+  assert.equal(await death(null, 'signed-out', t), false);
+  const state = await S.state(A, t + 10000);
+  assert.deepEqual(state.me, { damage: 0, hits: 0, deaths: 2, rank: null });
+  assert.equal(state.top.length, 0); assert.equal(state.hp, BOSS_HP);
+  assert.equal((await S.db.query('select count(*)::int as n from boss_weekly')).rows[0].n, 0);
+  // A report retains its original event even when delivered after the server starts showing tomorrow's event.
+  assert.equal(await death(A, 'last-second', ev.endsAt - 1, ev.endsAt + 1000), true);
+  assert.equal((await S.state(A, ev.endsAt + 1000)).me.deaths, 0);
+  assert.equal((await S.db.query('select deaths from boss_damage where event_id = $1 and user_id = $2', [ev.id, A])).rows[0].deaths, 3);
+  assert.equal(await death(A, 'after-end', ev.endsAt, ev.endsAt + 1000), false);
+  await S.db.query('update boss_events set defeated_at = to_timestamp($2 / 1000.0) where id = $1', [ev.id, t + 5000]);
+  store.events[ev.id].defeatedAt = t + 5000;
+  assert.equal(await death(A, 'after-defeat', t + 6000), false);
+  await S.db.close();
+});
+
+test('each death in the active event city is queued once and survives recovery and travel', () => {
+  const ev = eventForDay(day), city = CITIES.find(c => c.id === ev.city), s = createSession(city);
+  s.traffic = []; s.pedestrians = []; s.bossEvent = { ...ev, hp: BOSS_HP, defeatedAt: null, phase: 'active' };
+  s.worldTime = ev.startsAt / 1000 + 300;
+  s.health = 0; stepWorld(s, {}, 0.01);
+  assert.equal(s.bossDeathReports.length, 1); assert.equal(s.downReason, 'wasted');
+  assert.equal(s.bossDeathReports[0].event, ev.id); assert.equal(s.bossDeathReports[0].city, ev.city);
+  assert.equal(s.bossDeathReports[0].at, Math.floor(s.worldTime * 1000));
+  stepWorld(s, {}, 0.05); assert.equal(s.bossDeathReports.length, 1, 'down frames are not more deaths');
+  recover(s); s.worldTime += 4.1; s.health = 0; stepWorld(s, {}, 0.01);
+  assert.equal(s.bossDeathReports.length, 2);
+  assert.notEqual(s.bossDeathReports[0].id, s.bossDeathReports[1].id);
+  const next = createSession(CITIES.find(c => c.id !== ev.city), s);
+  assert.equal(next.bossDeathReports, s.bossDeathReports, 'travel retains the same pending queue');
+  next.bossEvent = s.bossEvent; next.worldTime = s.worldTime; next.health = 0; stepWorld(next, {}, 0.01);
+  assert.equal(next.bossDeathReports.length, 2, 'deaths in another city do not count');
+  recover(s); s.bossEvent = { ...s.bossEvent, hp: 0, defeatedAt: s.worldTime * 1000 }; s.health = 0; stepWorld(s, {}, 0.01);
+  assert.equal(s.bossDeathReports.length, 2, 'deaths after the fight do not count');
+});
+
+test('death delivery retries the same report after a lost response without losing later deaths', async () => {
+  const ev = eventForDay(day), t = ev.startsAt + 300000, store = createBossStore(); eventState(store, t, A);
+  const queue = [{ event: ev.id, city: ev.city, at: t, id: 'one' }, { event: ev.id, city: ev.city, at: t + 4100, id: 'two' }];
+  let loseResponse = true;
+  const api = { death: async report => {
+    const result = reportDeath(store, { playerId: A, eventId: report.event, reportId: report.id, diedAt: report.at, city: report.city, name: report.name, now: t + 10000 });
+    if (loseResponse) { loseResponse = false; throw new Error('connection lost after commit'); }
+    return result;
+  } };
+  await assert.rejects(flushBossDeaths(queue, api, 'Ada'), /connection lost/);
+  assert.equal(queue.length, 2); assert.equal(eventState(store, t + 10000, A).me.deaths, 1);
+  await flushBossDeaths(queue, api, 'Ada');
+  assert.equal(queue.length, 0); assert.equal(eventState(store, t + 10000, A).me.deaths, 2);
+  await flushBossDeaths(queue, api, 'Ada'); assert.equal(eventState(store, t + 10000, A).me.deaths, 2);
 });
 
 test('large leaderboards keep exact ranks and bounded results; event reads do not run weekly maintenance', async () => {
@@ -215,7 +283,8 @@ test('the kaiju hurts, knocks back and stuns players, and players can damage it 
   s.bossEvent = { ...eventForDay(day), hp: BOSS_HP, defeatedAt: null, phase: 'active' };
   s.worldTime = (s.bossEvent.startsAt + 500_000) / 1000;
   const boss = kaijuPose(500); s.player = { ...s.player, x: boss.x + 3, z: boss.z + 3 };
-  const health = s.health; for (let i = 0; i < 30; i++) { s.worldTime += 0.05; stepWorld(s, {}, 0.05); }
+  const health = s.health + 500; for (let i = 0; i < 30; i++) { s.worldTime += 0.05; stepWorld(s, {}, 0.05); }
+  assert.equal(s.maxHealth, 600, 'the active event supplies its temporary health bonus');
   assert.ok(s.health < health, 'underfoot, you get stamped on'); assert.ok(Math.hypot(s.player.x - boss.x, s.player.z - boss.z) > 3, 'and shoved away');
   s.health = 100; s.player = { ...s.player, x: boss.x + 90, z: boss.z, moveX: 0, moveZ: 0 }; s.cooldown = 0;
   s.aimYaw = Math.atan2(kaijuPose(s.worldTime - s.bossEvent.startsAt / 1000).x - s.player.x, kaijuPose(s.worldTime - s.bossEvent.startsAt / 1000).z - s.player.z);

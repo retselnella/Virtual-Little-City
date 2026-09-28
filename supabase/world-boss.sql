@@ -34,6 +34,14 @@ create table if not exists public.boss_rewards (
   tier text not null, cash integer not null, title text not null, claimed_at timestamptz, primary key (week, user_id)
 );
 create table if not exists public.boss_weeks_closed (week integer primary key, closed_at timestamptz not null default now());
+-- Idempotency receipts for deaths: retries cannot count twice, including reports from another browser tab.
+create table if not exists public.boss_death_reports (
+  event_id text not null, user_id uuid not null, report_id text not null check (char_length(report_id) between 1 and 80),
+  primary key (event_id, user_id, report_id),
+  foreign key (event_id, user_id) references public.boss_damage (event_id, user_id) on delete cascade
+);
+alter table public.boss_death_reports enable row level security;
+revoke all on public.boss_death_reports from anon, authenticated;
 -- Shared maintenance gate: only one caller checks historical weeks every five minutes.
 create table if not exists public.boss_maintenance (id boolean primary key default true check (id), checked_at timestamptz not null);
 alter table public.boss_maintenance enable row level security;
@@ -224,13 +232,46 @@ begin
   return jsonb_build_object('ok', true, 'damage', dmg, 'hp', ev.hp, 'accepted', accepted);
 end $$;
 
--- A player was wasted during the event (counted at most once every 8 seconds).
-create or replace function public.boss_death(p_event text) returns boolean language plpgsql security definer set search_path = public as $$
-declare t timestamptz := boss_clock(p_event like 'test-%'); n integer;
+-- Each death has a stable report ID and the event/city/time at which it happened. Reports can arrive together or
+-- after the event ends. They create a participant even if the player died before landing a hit; no damage or reward
+-- credit is granted. The report cap follows elapsed event time and the four-second respawn, not network spacing.
+create or replace function public.boss_record_death(p_event text, p_report text, p_died_at bigint, p_city text, p_name text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare t timestamptz := boss_clock(p_event like 'test-%'); me uuid := auth.uid(); ev public.boss_events;
+  died timestamptz; player public.boss_damage; clean text;
 begin
-  update boss_damage set deaths = deaths + 1, last_death_at = t
-  where event_id = p_event and user_id = auth.uid() and (last_death_at is null or last_death_at < t - interval '8 seconds');
-  get diagnostics n = row_count; return n > 0;
+  if me is null or (p_event like 'test-%' and not boss_testing()) then return false; end if;
+  if p_report is not null and char_length(p_report) not between 1 and 80 then return false; end if;
+  if exists (select 1 from boss_death_reports where event_id = p_event and user_id = me and report_id = p_report) then return true; end if;
+  -- Match the hit endpoint's event-then-participant lock order, including first participation inserts.
+  select * into ev from boss_events where id = p_event for key share;
+  if not found then return false; end if;
+  -- Compare milliseconds before converting untrusted input to a timestamp.
+  p_died_at := coalesce(p_died_at, boss_ms(t));
+  if p_died_at < boss_ms(ev.starts_at) or p_died_at >= boss_ms(ev.ends_at) or p_died_at > boss_ms(t)
+    or (ev.defeated_at is not null and p_died_at > boss_ms(ev.defeated_at))
+    or (p_report is not null and p_city is distinct from ev.city) then return false; end if;
+  died := to_timestamp(p_died_at / 1000.0);
+  clean := left(regexp_replace(coalesce(nullif(trim(p_name), ''), 'Traveller'), '[[:cntrl:]]', '', 'g'), 24);
+  insert into boss_damage (event_id, user_id, name, last_at)
+    values (ev.id, me, clean, greatest(ev.starts_at, died - interval '8 seconds')) on conflict do nothing;
+  select * into player from boss_damage where event_id = ev.id and user_id = me for update;
+  -- A concurrent retry may have committed while this request waited on the participant row.
+  if exists (select 1 from boss_death_reports where event_id = p_event and user_id = me and report_id = p_report) then return true; end if;
+  if player.deaths >= 1 + floor(extract(epoch from (least(t, ev.ends_at) - ev.starts_at)) / 4) then return false; end if;
+  if p_report is null and player.last_death_at > t - interval '8 seconds' then return false; end if;
+  if p_report is not null then
+    insert into boss_death_reports (event_id, user_id, report_id) values (ev.id, me, p_report);
+  end if;
+  update boss_damage set deaths = deaths + 1, last_death_at = greatest(last_death_at, died)
+    where event_id = ev.id and user_id = me;
+  return true;
+end $$;
+
+-- Compatibility for older clients, which have no retry ID and keep the original eight-second delivery cooldown.
+create or replace function public.boss_death(p_event text) returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  return boss_record_death(p_event, null, null, null, null);
 end $$;
 
 -- The weekly leaderboard (top 100), the caller's rank and their unclaimed rewards.
@@ -262,9 +303,9 @@ end $$;
 
 -- Only the entry points are callable, and only by signed-in (anonymous) players.
 revoke all on function public.boss_testing(), public.boss_clock(boolean), public.boss_event_now(boolean), public.boss_close_weeks(), public.boss_state(boolean), public.boss_hit(text, jsonb, double precision, double precision, text, text),
-  public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() from public, anon, authenticated;
+  public.boss_death(text), public.boss_record_death(text, text, bigint, text, text), public.boss_weekly_state(), public.boss_claim_rewards() from public, anon, authenticated;
 grant execute on function public.boss_state(boolean), public.boss_hit(text, jsonb, double precision, double precision, text, text),
-  public.boss_death(text), public.boss_weekly_state(), public.boss_claim_rewards() to authenticated;
+  public.boss_death(text), public.boss_record_death(text, text, bigint, text, text), public.boss_weekly_state(), public.boss_claim_rewards() to authenticated;
 
 -- ---- Test mode, safe on the real project. The owner sets a test clock; only players who open the game with ?bosstest
 -- in the address follow it, and they fight separate test events ('test-…') whose damage never counts toward the weekly
