@@ -15,6 +15,7 @@ import { raiseHeat, recordKill } from './wanted.js';
 import { seatNear, venueAt, venueBlocks } from './venues.js';
 import { updateHelicopters } from './policeAir.js';
 import { HEALTH, hurtPlayer, markCombat, regenerateHealth, syncEventHealth } from './playerHealth.js';
+import { CHEAT_MOVEMENT } from './cheatCodes.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -132,6 +133,7 @@ export function createSession(city, save = {}, appearance = null, arrival = null
   // World boss: the server's event (set by the controller), the kaiju here, hits waiting to be reported, and the ruins.
   Object.assign(s, { bossEvent: null, boss: null, bossHits: {}, bossDeaths: 0, bossDeathReports: save.bossDeathReports || [], bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
   Object.assign(s, { maxHealth: HEALTH.base, healthBuffEvent: null, regenQuiet: 0, regenerating: false });
+  s.cheats = { ...(save.cheats || {}) };
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
     s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
@@ -562,6 +564,7 @@ function stepSimulation(s, input, dt, yaw) {
   s.venue = onFoot(s) ? venueAt(s.player.x, s.player.z) : null;
   const p = actor(s), control = !down && !(s.player.knockdown > 0) && !(s.stun > 0) ? input : {};
   const { forward, right } = inputAxes(control);
+  p.flying = onFoot(s) && !s.seated && !down && !(p.knockdown > 0) && !(s.stun > 0) && !!s.cheats.fly;
   if (s.boating) {
     const island = islandFor(s.city);
     stepBoat(s.boat, island, control, dt);
@@ -572,15 +575,20 @@ function stepSimulation(s, input, dt, yaw) {
   if (onFoot(s)) {
     // A joystick walks slower the less it is pushed; keys and buttons are always full speed.
     if (s.seated) { stepCharacterBody(p, 0, 0, dt); p.heading = s.seated.heading; p.speed = 0; }
-    const push = s.seated ? 0 : Math.min(1, Math.hypot(forward, right)), length = push || 1, speed = (control.run ? 15 * (p.look?.speed || 1) : 8) * (control.stick ? Math.max(0.35, push) : 1);
+    const push = s.seated ? 0 : Math.min(1, Math.hypot(forward, right)), length = push || 1, speed = (control.run ? 15 * (p.look?.speed || 1) : 8) * (control.stick ? Math.max(0.35, push) : 1) * (s.cheats.speed ? CHEAT_MOVEMENT.speed : 1);
     const dx = s.seated ? 0 : (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
     const dz = s.seated ? 0 : (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
     if (!s.seated) stepCharacterBody(p, dx, dz, dt);
     if (dx || dz) p.heading = Math.atan2(dx, dz);
     // Jump from anything solid underfoot: the street, a roof, a car or a hillside.
-    if (control.jump && !s.jumpHeld && (!p.height || p.grounded) && (p.velocityY || 0) <= 0) p.velocityY = 8;
-    // Rapier integrates the jump and clears the vertical velocity on landing (roofs and car tops included).
-    s.jumpHeld = !!control.jump; p.velocityY = (p.velocityY || 0) - 22 * dt;
+    if (p.flying) {
+      const rise = control.jump && (p.height || 0) < CHEAT_MOVEMENT.ceiling ? 1 : 0;
+      p.velocityY = (rise - (control.descend ? 1 : 0)) * CHEAT_MOVEMENT.flySpeed;
+    } else {
+      if (control.jump && !s.jumpHeld && (!p.height || p.grounded) && (p.velocityY || 0) <= 0) p.velocityY = 8 * (s.cheats.jump ? CHEAT_MOVEMENT.jump : 1);
+      p.velocityY = (p.velocityY || 0) - 22 * dt;
+    }
+    s.jumpHeld = !!control.jump;
   }
   if (control.attack) attack(s);
   if (s.heat > 0) s.quiet += dt;

@@ -235,7 +235,7 @@ function moveCharacter(P, entry, dt, vertical) {
   }
   // People standing still on the ground (queues, benches, chats) skip the controller's shape casts entirely.
   if (entry.grounded && vertical <= 0 && Math.abs(person.vx || 0) + Math.abs(person.vz || 0) < 0.02 && !entry.push.x && !entry.push.z) return;
-  const desired = { x: (person.vx || 0) * dt + entry.push.x, y: vertical * dt - (vertical <= 0 ? 0.02 : 0), z: (person.vz || 0) * dt + entry.push.z };
+  const desired = { x: (person.vx || 0) * dt + entry.push.x, y: vertical * dt - (vertical <= 0 && !person.flying ? 0.02 : 0), z: (person.vz || 0) * dt + entry.push.z };
   entry.push = { x: 0, z: 0 };
   P.kcc.computeColliderMovement(entry.collider, desired, CHARACTER_FLAGS, CHARACTER_QUERY);
   const m = P.kcc.computedMovement();

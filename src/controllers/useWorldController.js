@@ -16,6 +16,7 @@ import { displayName } from '../models/worldTour/characterProfile.js';
 import { parseEnvironmentOverride, weatherLabel, worldConditions } from '../models/worldTour/worldClock.js';
 import { islandFor } from '../models/worldTour/worldIsland.js';
 import { WEAPONS, atGunShop, buyWeapon, nextWeapon, weaponForSlot } from '../models/worldTour/weapons.js';
+import { applyCheat } from '../models/worldTour/cheatCodes.js';
 
 function sessionFor(city, save, blood = true, appearance = null, arrival = null) { return { ...createSession(city, save, appearance, arrival), cityInfo: city, blood }; }
 
@@ -102,11 +103,12 @@ export function useWorldController(character = null, suspended = false) {
   }
   function equipWeapon(id) { if (equip(session.current, id)) setHud(snapshot(session.current)); }
   function recoverToSafehouse() { recover(session.current); setHud(snapshot(session.current)); open(null); }
+  function runCheat(code) { clear(); const reply = applyCheat(session.current, code); setHud(snapshot(session.current)); return reply; }
   function sail(id) { if (setCourse(session.current, id)) { setHud(snapshot(session.current)); open(null); } }
   function stopSailing() { cancelCourse(session.current); setHud(snapshot(session.current)); }
   function guide(point) { setWaypoint(session.current, point); setHud(snapshot(session.current)); open(null); }
   const island = islandFor(city.id), playerName = displayName(character), region = island.regionAt(p.x, p.z, city.district), weather = weatherLabel(sky);
   async function claimRewards() { const cash = await boss.claim(); if (cash) { notify(session.current, `Weekly boss rewards claimed: +$${cash.toLocaleString()}.`); save(session.current); setHud(snapshot(session.current)); } }
   useVenueSound(hud.venue, music);
-  return { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), bigMap, setBigMap, teleport: id => travel(id, 'teleport'), teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse };
+  return { music, boss, claimRewards, online, playerName, sky, weather, region, island, prompt: promptFor(hud), bigMap, setBigMap, teleport: id => travel(id, 'teleport'), teleported, sail, stopSailing, guide, hud, panel, ready, error, storage, host, city, current, p, point, open, action, toggleBlood, touchControl, setStick, touch, travel, buy, equipWeapon, dispatchTitle, dispatchHint, task, blood, acceptContract, abandonContract, recoverToSafehouse, runCheat, clearControls: clear };
 }

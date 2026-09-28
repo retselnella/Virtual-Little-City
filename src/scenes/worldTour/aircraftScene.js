@@ -68,6 +68,7 @@ export function buildAircraft(root, kit, { color, geometries }) {
       for (const b of beams.values()) b.seen = false;
       const blink = Math.floor(time * 1.2) % 2 === 0, flash = Math.floor(time * 5) % 2;
       for (const a of airTraffic(time)) {
+        if (a.id === 'news' && s.newsHelicopter) continue;
         const m = modelFor(a.id, () => a.kind === 'helicopter' ? helicopter(a.livery) : airliner(a.kind === 'jet' ? 1.3 : 1));
         place(m, a);
         if (m.gear) m.gear.forEach(g => { g.visible = a.y < 60; });
@@ -75,11 +76,12 @@ export function buildAircraft(root, kit, { color, geometries }) {
         m.beacons.forEach(b => { b.visible = blink; });
       }
       // Police helicopters, tilting into their flight, with their searchlight on the ground below.
-      for (const h of s.helicopters || []) {
-        const m = modelFor(h.id, () => helicopter('police')), speed = Math.hypot(h.vx, h.vz);
+      const pursuit = [...(s.helicopters || []), ...(s.newsHelicopter ? [s.newsHelicopter] : [])];
+      for (const h of pursuit) {
+        const m = modelFor(h.id, () => helicopter(h.livery || 'police')), speed = Math.hypot(h.vx, h.vz);
         place(m, { x: h.x, y: h.y, z: h.z, heading: h.heading, pitch: -Math.min(0.28, speed / 110), bank: 0 });
         m.rotor.rotation.y += dt * 32; m.tail.rotation.x += dt * 42;
-        m.bars[0].visible = flash === 0; m.bars[1].visible = flash === 1; m.beacons.forEach(b => { b.visible = blink; });
+        if (m.bars.length) { m.bars[0].visible = flash === 0; m.bars[1].visible = flash === 1; } m.beacons.forEach(b => { b.visible = blink; });
         if (h.light) {
           const b = beamFor(h.id), top = new THREE.Vector3(h.x, h.y - 1.4, h.z), ground = new THREE.Vector3(h.light.x, 0.3, h.light.z), length = top.distanceTo(ground);
           dir.subVectors(top, ground).normalize();
@@ -89,8 +91,8 @@ export function buildAircraft(root, kit, { color, geometries }) {
         }
       }
       for (const [id, m] of models) m.group.visible = m.seen;
-      for (const [id, b] of beams) { b.cone.visible = b.spot.visible = b.seen; if (!b.seen && !(s.helicopters || []).some(h => h.id === id)) { root.remove(b.cone, b.spot); beams.delete(id); } }
-      for (const [id, m] of models) if (!m.seen && id.startsWith('heli-')) { root.remove(m.group); models.delete(id); }
+      for (const [id, b] of beams) { b.cone.visible = b.spot.visible = b.seen; if (!b.seen && !pursuit.some(h => h.id === id)) { root.remove(b.cone, b.spot); beams.delete(id); } }
+      for (const [id, m] of models) if (!m.seen && (id.startsWith('heli-') || id === 'news-chase')) { root.remove(m.group); models.delete(id); }
     },
     dispose() { for (const m of models.values()) root.remove(m.group); for (const b of beams.values()) root.remove(b.cone, b.spot); models.clear(); beams.clear(); materials.forEach(m => m.dispose()); },
   };

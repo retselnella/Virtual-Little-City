@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-const CONTROL_KEYS = { KeyW: 'forward', ArrowUp: 'forward', KeyS: 'backward', ArrowDown: 'backward', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'run', ShiftRight: 'run', Space: 'brake', KeyJ: 'attack' };
+const CONTROL_KEYS = { KeyW: 'forward', ArrowUp: 'forward', KeyS: 'backward', ArrowDown: 'backward', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'run', ShiftRight: 'run', Space: 'brake', ControlLeft: 'descend', ControlRight: 'descend', KeyJ: 'attack' };
 
 export function useWorldInput(paused, action, setPanel) {
   const input = useRef({}), held = useRef(new Set()), touch = useRef({});
@@ -10,7 +10,7 @@ export function useWorldInput(paused, action, setPanel) {
     const mapping = CONTROL_KEYS;
     function update() { refreshControls(); }
     function down(e) {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || paused.current) return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable || paused.current) return;
       if (['BUTTON', 'A'].includes(e.target.tagName) && ['Space', 'Enter'].includes(e.code)) return;
       if (mapping[e.code] || ['KeyF', 'KeyE', 'KeyQ', 'KeyR', 'KeyM', 'KeyL', 'KeyB', 'KeyN', 'KeyV', 'Escape'].includes(e.code)) e.preventDefault();
       held.current.add(e.code); update(); if (e.repeat) return;

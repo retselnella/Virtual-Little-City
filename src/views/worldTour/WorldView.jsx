@@ -10,6 +10,7 @@ import { BOSS_NAME } from '../../models/worldTour/bossRules.js';
 import { BossBanner, BossHits, BossPanel, WorldAtlas } from './bossViews.jsx';
 import { ShopPanel, WeaponBar } from './weaponViews.jsx';
 import { MusicPanel } from './musicViews.jsx';
+import { CheatConsole } from './cheatViews.jsx';
 import { TouchActions, TouchStick } from './touchControls.jsx';
 import { GUN_SHOP, WEAPONS } from '../../models/worldTour/weapons.js';
 import { MAX_STARS, escapeTime, starsOf } from '../../models/worldTour/wanted.js';
@@ -185,6 +186,7 @@ export default function WorldView({ controller, onEditCharacter }) {
     </div>
     {touch && ready && !error && !(hud.down > 0) && <><TouchStick onMove={setStick} /><TouchActions hud={hud} disabled={!ready || !!error} touchControl={touchControl} action={action} /></>}
     {!touch && <div className="adventure-touch" aria-label="Touch movement controls">{[['forward', '↑'], ['left', '←'], ['backward', '↓'], ['right', '→'], ['run', 'Run'], ['brake', hud.driving ? 'Brake' : 'Jump']].map(([key, title]) => <button key={key} className={'control-' + key} aria-label={key} {...touchControl(key)}>{title}</button>)}</div>}
+    <CheatConsole hud={hud} run={controller.runCheat} clearControls={controller.clearControls} touchControl={touchControl} disabled={!ready || error || !!panel} />
     {panel === 'shop' && <ExperienceDialog title={`${GUN_SHOP.name}.`} className="adventure-dialog shop-dialog" onClose={() => open(null)}><ShopPanel hud={hud} onBuy={buy} onEquip={equipWeapon} /></ExperienceDialog>}
     {panel === 'music' && <ExperienceDialog title="Music." className="adventure-dialog music-dialog" onClose={() => open(null)}><MusicPanel music={music} /></ExperienceDialog>}
     {panel === 'boss' && <ExperienceDialog title={`${BOSS_NAME}: the world boss.`} className="adventure-dialog boss-dialog" onClose={() => open(null)}><BossPanel boss={boss} city={city} now={now} onClaim={claimRewards} /></ExperienceDialog>}

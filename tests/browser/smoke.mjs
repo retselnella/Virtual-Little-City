@@ -50,6 +50,21 @@ try {
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('little-city-character-v1')));
   assert.deepEqual({ ...saved, name: undefined }, { name: undefined, kind: 'human', skin: '#9a6644', hair: '#8c3b2b', hairStyle: 'long', shirt: '#4f8a6b', pants: '#1f3a5f', shoes: '#b5523b', build: 'tall' });
   assert.equal(await page.locator('.adventure-canvas canvas').count(), 1);
+  // The local command chat suggests codes; typing does not trigger gameplay shortcuts or network requests.
+  await page.locator('.cheat-toggle').click();
+  assert.equal(await page.locator('.cheat-suggestions button').count(), 6);
+  const code = page.getByRole('textbox', { name: 'Cheat code' });
+  await code.fill('flash'); await code.press('Enter');
+  await page.locator('.cheat-log', { hasText: 'FLASH ON' }).waitFor();
+  await page.getByRole('button', { name: /^MOONBOOTS/ }).click();
+  await page.locator('.cheat-log', { hasText: 'MOONBOOTS ON' }).waitFor();
+  await code.fill('SKYHIGH'); await code.press('Enter');
+  await page.getByRole('button', { name: 'Fly up', exact: true }).waitFor();
+  await page.screenshot({ path: 'test-results/cheat-console-desktop.png' });
+  await page.getByRole('button', { name: /^RESET Turn off/ }).click();
+  assert.equal(await page.getByRole('button', { name: 'Fly up', exact: true }).count(), 0);
+  await code.fill('m'); await code.press('Escape');
+  assert.equal(await page.locator('dialog[open]').count(), 0, 'Escape closes chat without opening the pause menu');
   // The sky chip shows Philippine time and the shared weather.
   assert.match(await page.locator('.adventure-sky').innerText(), /\d{1,2}:\d{2} (AM|PM)[\s\S]*PH TIME/);
   // The inventory: fists and the pistol to start with; number keys switch.
@@ -164,6 +179,13 @@ try {
   for (const selector of ['.touch-stick-base', '.touch-fire', '.adventure-stats']) assert.ok(await inView(selector), `${selector} on screen in portrait`);
   assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await mobile.screenshot({ path: 'test-results/touch-portrait.png' });
+  await mobile.locator('.cheat-toggle').click();
+  assert.ok(await inView('.cheat-console'), 'the command chat fits a phone');
+  await mobile.getByRole('button', { name: /^SKYHIGH/ }).click();
+  assert.ok(await inView('.cheat-flight'), 'flight has reachable touch controls');
+  await mobile.screenshot({ path: 'test-results/cheat-console-phone.png' });
+  await mobile.getByRole('button', { name: /^RESET Turn off/ }).click();
+  await mobile.locator('.cheat-toggle').click();
   // The local preview clock exercises the event buff and mobile health HUD without a live Supabase project.
   const eventCity = eventForDay(phDay(Date.now())).city;
   await mobile.evaluate(city => {

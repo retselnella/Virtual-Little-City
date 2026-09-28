@@ -34,6 +34,36 @@ function fly(h, aim, altitude, speed, dt) {
   h.vy = Math.max(-HELI.climb, Math.min(HELI.climb, (altitude - h.y) * 0.8));
   h.x += h.vx * dt; h.z += h.vz * dt; h.y += h.vy * dt;
 }
+// Radio sightings guide the aircraft, not the beam. Sweep nearby ground until this aircraft sees the player itself.
+function searchlight(h, at, dt) {
+  const target = h.spotting ? at : { x: h.x + Math.sin(h.heading) * 20 + Math.cos(h.search) * 12, z: h.z + Math.cos(h.heading) * 20 + Math.sin(h.search) * 12 };
+  h.light ||= { x: h.x, z: h.z };
+  const blend = 1 - Math.exp(-2 * dt);
+  h.light.x += (target.x - h.light.x) * blend; h.light.z += (target.z - h.light.z) * blend;
+  const dx = h.light.x - h.x, dz = h.light.z - h.z, d = Math.hypot(dx, dz);
+  if (d > HELI.sight) { h.light.x = h.x + dx / d * HELI.sight; h.light.z = h.z + dz / d * HELI.sight; }
+}
+
+// News coverage arrives separately at five stars. It never spots for police or fires at the player.
+function updateNews(s, at, dt) {
+  const wanted = starsOf(s.heat) >= 5 && !s.down;
+  s.newsDelay = wanted ? (s.newsDelay ?? 7) - dt : 7;
+  if (wanted && !s.newsHelicopter && s.newsDelay <= 0) s.newsHelicopter = { ...spawn(s, at), id: 'news-chase', livery: 'news' };
+  const h = s.newsHelicopter; if (!h) return;
+  if (!wanted) h.state = 'leaving';
+  if (h.state === 'leaving') {
+    const dx = h.x - at.x, dz = h.z - at.z, d = Math.hypot(dx, dz) || 1;
+    fly(h, { x: h.x + dx / d * 200, z: h.z + dz / d * 200 }, 150, HELI.speed, dt);
+    h.spotting = false; h.light = null;
+    if (d > HELI.leaveAt) s.newsHelicopter = null;
+  } else {
+    h.spotting = heliSees(s, h, at); h.orbit += dt * 0.25; h.search += dt * 0.35;
+    const last = h.spotting ? at : s.lastSeen || at;
+    const aim = { x: last.x + Math.cos(h.orbit) * 50, z: last.z + Math.sin(h.orbit) * 50 };
+    fly(h, aim, 85, HELI.speed, dt); searchlight(h, at, dt);
+  }
+  if (Math.hypot(h.vx, h.vz) > 3) h.heading = Math.atan2(h.vx, h.vz);
+}
 // One step for every police helicopter. `at` is where the suspect is (on foot or their car); `hurt(amount)` applies a
 // marksman's hit. Returns whether any helicopter can see the suspect now.
 export function updateHelicopters(s, at, dt, { hurt } = {}) {
@@ -61,16 +91,15 @@ export function updateHelicopters(s, at, dt, { hurt } = {}) {
         h.orbit += dt * 0.45;
         const lead = { x: at.x + (at.vx || 0) * 0.8, z: at.z + (at.vz || 0) * 0.8 };
         aim = { x: lead.x + Math.cos(h.orbit) * HELI.orbit, z: lead.z + Math.sin(h.orbit) * HELI.orbit };
-        h.light = { x: at.x, z: at.z };
       } else {
         // Search a widening circle around the last sighting.
         h.search += dt * 0.35;
         const r = Math.min(160, 40 + (s.unseen || 0) * 3);
         aim = { x: last.x + Math.cos(h.search) * r, z: last.z + Math.sin(h.search) * r };
-        h.light = { x: h.x + h.vx * 1.2, z: h.z + h.vz * 1.2 };
       }
       const far = Math.hypot(aim.x - h.x, aim.z - h.z) > 150;
       fly(h, aim, far ? HELI.approach : HELI.altitude, HELI.speed, dt);
+      searchlight(h, at, dt);
       if (marksmen && h.spotting) {
         h.cooldown -= dt;
         if (h.cooldown <= 0) {
@@ -87,5 +116,6 @@ export function updateHelicopters(s, at, dt, { hurt } = {}) {
     else if (h.state !== 'leaving') h.heading = Math.atan2(at.x - h.x, at.z - h.z);
   }
   s.helicopters = s.helicopters.filter(h => !h.gone);
+  updateNews(s, at, dt);
   return sees;
 }

@@ -590,7 +590,8 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     // Far-away pedestrians (beyond the fog) are neither drawn nor animated.
     pedestrians.forEach((model, i) => { const person = s.pedestrians[i]; model.avatar.visible = nearCamera(person) && !bodyGone(person, s.time); if (!model.avatar.visible) return; model.rig.before(person); model.update(person, paused.current ? 0 : dt); model.rig.after(person, step); });
     // The camera follows the ground under you (hills, or the car's height) but only a little of each jump.
-    const surface = s.driving ? Math.max(0, s.car.y || 0) : s.riding ? s.train.y : s.boating ? -0.5 : islandData.terrainHeight(p.x, p.z), lift = onFoot(s) ? Math.max(0, (s.player.height || 0) - surface) * 0.3 : 0;
+    const surface = s.driving ? Math.max(0, s.car.y || 0) : s.riding ? s.train.y : s.boating ? -0.5 : islandData.terrainHeight(p.x, p.z), airborne = Math.max(0, (s.player.height || 0) - surface);
+    const lift = onFoot(s) ? (s.player.flying ? airborne : airborne > 12 ? airborne - 8.4 : airborne * 0.3) : 0;
     followY = followY === null ? surface : followY + (surface - followY) * (1 - Math.exp(-8 * dt));
     follow.set(p.x, 1.8 + followY + lift, p.z); shift.copy(follow).sub(orbit.target); camera.position.add(shift); orbit.target.copy(follow);
     orbit.enabled = !paused.current; orbit.update();

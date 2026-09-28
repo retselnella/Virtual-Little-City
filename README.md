@@ -95,6 +95,22 @@ It works in portrait and landscape, on small phones and large tablets; everythin
 
 Opening any menu pauses the game.
 
+### Local cheat codes
+
+Open **City cheats** at the lower left. Type a code and press Enter, or tap a suggestion to run it. The chat shows your command and the game's reply; it is not sent to other players. Commands run entirely in the current game session with **no extra API/database calls**. Regular multiplayer position broadcasts and event polling continue as usual. Movement modes carry across city travel and reset on page reload.
+
+| Code | Effect |
+| --- | --- |
+| `SKYHIGH` | Toggle flight: Space rises, Ctrl descends, releasing both hovers. Touch players get Rise/Descend buttons. Flight stays below roughly 180 m and still collides with buildings. |
+| `FLASH` | Toggle triple movement speed on foot; hold Shift to sprint even faster. |
+| `MOONBOOTS` | Toggle extra-high jumps. |
+| `PATCHUP` | Refill health to the current maximum, including an active event buff. |
+| `GHOSTED` | Clear wanted stars; police and news aircraft depart normally. |
+| `RESET` | Switch off flight, speed and jump cheats. |
+| `HELP` | List the available codes. |
+
+Enter movement codes while on foot. Codes cannot revive a wasted player. These commands do not directly change money, Kaiju HP, damage records or rewards.
+
 ## 4. Reading the screen
 
 - **Top centre**: the **sky chip**: the time in the Philippines (PH time) and the current weather.
@@ -275,6 +291,7 @@ Attacking anyone, or hitting people with your car, gives you **wanted stars**, u
 - **Arrival**: police arrive a few seconds later in patrol cars that drive through the streets; one car per star, up to five.
 - **Chases**: a patrol car that sees you chases you. Out of sight, police search where you were last seen. Drive away and officers on foot get back in their car and follow.
 - **Helicopters**: a helicopter flies in from beyond the city, circles above you with its searchlight on you, and searches a widening circle around your last known position when it loses you. It sees you from the air unless **tall buildings** are between you or you are **under trees**, and it is slower than your car, so you can outdrive it. It shows on the minimap as a flashing red and blue diamond.
+- **Searchlights and news coverage**: police use radio reports to navigate, but their beams sweep ground near the aircraft until they can personally see you within 90 m. The beam then eases toward you. At five stars a news helicopter also arrives from far away after a short dispatch delay; it follows the story with its own searchlight, never fires, and never spots you for the police. It leaves when you drop below five stars.
 - **Knocked-out units**: kill a unit's officers and their car is out of action (lights off, parked where it stopped); the police send reinforcements that drive in from out of sight, so the pursuit keeps going. After the pursuit, new crews take the empty cars back and the reinforcements leave the city.
 - **Teaming up**: other wanted players within 150 m of you count as your crew. Each brings two more patrol cars (up to nine) and, at four stars and above, one more helicopter.
 - **The pursuit only ends** when you are busted, wasted, or **get away**. To get away, stop attacking and stay out of sight of every unit (cars, officers and helicopters) once they have started looking for you: **9 seconds at one star, up to 21 seconds at five**. The stars then blink and fade to zero; if they spot you again, the chase is back on. At zero everyone stands down: patrols go back to their beats, the helicopters fly home and the streets calm down.
