@@ -44,7 +44,9 @@ function bruteHead(box, head, skin, palette) {
   for (const x of [-0.15, 0.15]) box([0.08, 0.06, 0.025], '#1c2226', [x, 0.03, 0.285], head);
   box([0.14, 0.12, 0.1], shade(skin, 0.9), [0, -0.07, 0.31], head);
   box([0.24, 0.03, 0.02], shade(skin, 0.6), [0, -0.24, 0.31], head);
-  if ((palette.hairStyle || 'short') !== 'bald') box([0.64, 0.1, 0.58], palette.hair || '#46362e', [0, 0.32, -0.01], head);
+  // The same hair styles as a human, widened to fit the bigger head.
+  const scalp = new THREE.Group(); scalp.scale.set(1.08, 1, 1.07); scalp.position.y = 0.01; head.add(scalp);
+  hair(box, scalp, palette.hairStyle || 'short', palette.hair || '#46362e');
 }
 function robotHead(box, head, plate) {
   const light = '#5ee0ff';
@@ -71,8 +73,11 @@ export function createCharacter(scene, kit, palette = {}) {
     box([0.38, 0.24, 0.34], shade(skin, 0.88), [0, 2.34, 0], body);
   } else if (robot) {
     box([0.86, 0.95, 0.52], skin, [0, 1.77, 0], body);
-    box([0.5, 0.5, 0.04], shirt, [0, 1.9, 0.27], body); // chest panel
-    for (const y of [1.75, 1.9, 2.05]) box([0.3, 0.04, 0.02], shade(skin, 0.55), [0, y, 0.3], body);
+    // Chest panel (front and back) and a waist band in the chosen colour, so it reads from any angle.
+    box([0.7, 0.62, 0.04], shirt, [0, 1.86, 0.27], body); box([0.7, 0.62, 0.04], shirt, [0, 1.86, -0.27], body);
+    box([0.9, 0.08, 0.56], shirt, [0, 1.43, 0], body);
+    for (const y of [1.72, 1.86, 2.0]) box([0.36, 0.04, 0.02], shade(skin, 0.55), [0, y, 0.3], body);
+    box([0.1, 0.1, 0.02], '#5ee0ff', [0.24, 2.08, 0.3], body); // status light
     box([0.88, 0.14, 0.54], shade(skin, 0.6), [0, 1.29, 0], body);
     box([0.18, 0.23, 0.18], shade(skin, 0.5), [0, 2.32, 0], body);
   } else {
@@ -103,6 +108,7 @@ export function createCharacter(scene, kit, palette = {}) {
       box([0.36, 0.32, 0.36], skin, [side * 0.06, -0.12, 0], wrist);
     } else if (robot) {
       box([0.3, 0.42, 0.32], skin, [0, -0.19, 0], arm); box([0.2, 0.12, 0.2], shade(skin, 0.5), [0, -0.4, 0], arm);
+      box([0.36, 0.16, 0.38], shirt, [side * 0.02, 0.02, 0], arm); // shoulder pad
       box([0.26, 0.36, 0.29], skin, [0, -0.16, 0], elbow);
       box([0.26, 0.25, 0.26], shade(skin, 0.75), [0, -0.1, 0], wrist);
     } else {

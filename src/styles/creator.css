@@ -1,24 +1,53 @@
 /* Character creator: shown on first launch and from the pause menu. Builds on .adventure-dialog in adventure.css. */
 .creator-dialog{width:min(1040px,calc(100vw - 24px))}
-.creator{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:28px;margin-top:18px}
-.creator-stage{position:relative;min-height:440px;border-radius:14px;background:radial-gradient(circle at 50% 70%,#2f4a57,#132430 72%);border:1px solid #ffffff18;overflow:hidden}
+.creator{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:28px;margin-top:18px;align-items:start}
+/* The preview stays in view while the options scroll, so every pick is visible as it is made. */
+.creator-stage{position:sticky;top:0;z-index:1;height:min(520px,calc(100svh - 190px));min-height:320px;border-radius:14px;background:radial-gradient(circle at 50% 70%,#2f4a57,#132430 72%);border:1px solid #ffffff18;overflow:hidden}
 .creator-preview{position:absolute;inset:0}.creator-preview canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:none}
-.creator-stage small,.creator-fallback{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:10px;letter-spacing:1px;color:#b8c9cb;margin:0;padding:0 16px}
-.creator-options{display:grid;gap:14px;align-content:start}
+.creator-preview canvas:active{cursor:grabbing}
+.creator-stage small,.creator-fallback{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:10px;letter-spacing:1px;color:#b8c9cb;margin:0;padding:0 16px;pointer-events:none}
+.creator-badge{position:absolute;top:12px;left:12px;right:12px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
+.creator-badge strong{font-size:15px;color:#fff1e3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.creator-badge span{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#9ee8d1}
+.creator-options{display:grid;gap:16px;align-content:start;min-width:0}
 .creator-name{display:grid;gap:7px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#afcfcb}
-.creator-name input{width:100%;padding:12px 13px;border-radius:8px;border:1px solid #ffffff30;background:#10212b;color:#f3eee5;font-size:14px;letter-spacing:0;text-transform:none}
+.creator-name input{width:100%;box-sizing:border-box;padding:12px 13px;border-radius:8px;border:1px solid #ffffff30;background:#10212b;color:#f3eee5;font-size:14px;letter-spacing:0;text-transform:none}
 .creator-name input:focus-visible{outline:2px solid #9ee8d1;outline-offset:2px}
-.creator-group{border:0;margin:0;padding:0;min-width:0}.creator-group legend{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#afcfcb;margin-bottom:8px;padding:0}
+.creator-section{display:grid;gap:14px;padding:14px;border-radius:12px;background:#ffffff06;border:1px solid #ffffff14}
+.creator-section h3{margin:0;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#fff1e3}
+.creator-group{border:0;margin:0;padding:0;min-width:0}
+.creator-group legend{float:left;font-size:10px;line-height:16px;letter-spacing:1.5px;text-transform:uppercase;color:#afcfcb;margin:0 0 8px;padding:0}
+.creator-value{float:left;margin-left:8px;font-size:12px;line-height:16px;color:#f8d47a}
+.creator-group>div{clear:both}
 .creator-swatches,.creator-chips{display:flex;flex-wrap:wrap;gap:8px}
-.creator-dialog .creator-swatches button{width:34px;height:34px;border-radius:50%;border:2px solid #ffffff38;background:var(--swatch);padding:0}
-.creator-dialog .creator-swatches button[aria-pressed="true"]{border-color:#f8d47a;box-shadow:0 0 0 3px #f8d47a55}
-.creator-dialog .creator-chips button{border:1px solid #ffffff30;background:#ffffff08;color:#dbe6e3;border-radius:999px;padding:8px 14px;font-size:12px}
-.creator-dialog .creator-chips button[aria-pressed="true"]{background:#bfdcd0;border-color:#bfdcd0;color:#1c393d}
-.creator-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
-.creator-dialog .creator-actions button{border:1px solid #ffffff30;background:transparent;color:#c5d7d6;font-size:12px;padding:11px 16px;border-radius:6px}
+.creator-kinds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.creator-dialog .creator-kinds button{display:grid;justify-items:center;gap:4px;padding:10px 6px;border-radius:10px;border:1px solid #ffffff30;background:#ffffff08;color:#dbe6e3;font-size:12px;cursor:pointer;transition:transform .15s}
+.creator-dialog .creator-kinds button:hover{background:#ffffff14;transform:translateY(-1px)}
+.creator-dialog .creator-kinds button[aria-pressed="true"]{background:#bfdcd0;border-color:#f8d47a;color:#1c393d;box-shadow:0 0 0 2px #f8d47a55}
+.creator-kind-icon{font-size:24px;line-height:1}
+/* A swatch shows its colour; the chosen one gets a gold ring and a tick that reads on light and dark colours. */
+.creator-dialog .creator-swatches button{position:relative;width:34px;height:34px;border-radius:50%;border:2px solid #ffffff38;background:var(--swatch);padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px #0000002e;transition:transform .15s}
+.creator-dialog .creator-swatches button:hover{transform:scale(1.1)}
+.creator-dialog .creator-swatches button[aria-pressed="true"]{border-color:#f8d47a;box-shadow:0 0 0 3px #f8d47a66,inset 0 0 0 1px #0000002e;transform:scale(1.08)}
+.creator-dialog .creator-swatches button[aria-pressed="true"]::after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;font-size:15px;font-weight:700;color:#fff;text-shadow:0 0 2px #000,0 0 4px #000}
+.creator-dialog .creator-chips button{border:1px solid #ffffff30;background:#ffffff08;color:#dbe6e3;border-radius:999px;padding:8px 14px;font-size:12px;cursor:pointer}
+.creator-dialog .creator-chips button:hover{background:#ffffff14}
+.creator-dialog .creator-chips button[aria-pressed="true"]{background:#bfdcd0;border-color:#bfdcd0;color:#1c393d;font-weight:700}
+.creator-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:2px}
+.creator-dialog .creator-actions button{border:1px solid #ffffff30;background:transparent;color:#c5d7d6;font-size:12px;padding:11px 16px;border-radius:6px;cursor:pointer}
+.creator-dialog .creator-actions button:hover{background:#ffffff10}
 .creator-dialog .creator-actions .creator-primary{margin-left:auto;background:#bfdcd0;border-color:#bcd5c5;color:#1c393d;font-weight:700}
-.creator-dialog .creator-swatches button:focus-visible,.creator-dialog .creator-chips button:focus-visible,.creator-dialog .creator-actions button:focus-visible{outline:2px solid #9ee8d1;outline-offset:3px}
+.creator-dialog .creator-actions .creator-primary:hover{background:#d4ece2}
+.creator-dialog .creator-swatches button:focus-visible,.creator-dialog .creator-chips button:focus-visible,.creator-dialog .creator-kinds button:focus-visible,.creator-dialog .creator-actions button:focus-visible{outline:2px solid #9ee8d1;outline-offset:3px}
+.creator-perk{margin:-8px 0 0;font-size:12px;color:#ffd6a0}
 .adventure-player{display:block;font-size:10px;letter-spacing:1.5px;color:#e7e4df;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(max-width:760px){.creator{grid-template-columns:1fr;gap:16px}.creator-stage{min-height:260px;height:38svh}.creator-dialog .creator-swatches button{width:30px;height:30px}.creator-dialog .creator-actions .creator-primary{margin-left:0;flex-basis:100%}.adventure-player{font-size:8px}}
-
-.creator-perk{margin:-6px 0 0;font-size:12px;color:#ffd6a0}
+@media(max-width:760px){
+  .creator{grid-template-columns:1fr;gap:14px}
+  .creator-stage{height:32svh;min-height:200px}
+  .creator-section{padding:12px}
+  .creator-kind-icon{font-size:20px}
+  .creator-dialog .creator-swatches button{width:32px;height:32px}
+  .creator-dialog .creator-actions .creator-primary{margin-left:0;flex-basis:100%}
+  .adventure-player{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.creator-dialog button{transition:none!important;transform:none!important}}

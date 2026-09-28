@@ -46,7 +46,7 @@ The character creator appears before your first game.
   | **Brute** | skin (jade, forest, olive, stone, crimson, tan), hair; a head taller and much broader | Punches hit 40% harder. |
   | **Robot** | plating (chrome, gunmetal, gold, pearl, teal, rust red); visor and antenna | Takes 20% less damage. |
 
-- **Look**: skin, fur or plating, hair style and colour (humans and brutes; a cap takes the hair colour), shirt, trousers and shoes (a robot's shirt is its chest panel).
+- **Look**: skin, fur or plating, hair style and colour (humans and brutes; a cap takes the hair colour), shirt, trousers and shoes. The creator only offers what each kind's model shows: a wolf walks on paws, so it has no shoes; a brute's shirt is a vest; a robot is painted instead of dressed (chest panel, shoulder pads and waist band, leg plating and feet). The name of each current choice appears next to its label.
 - **Build**: compact, average or tall. This changes your size in the game, not just how you look.
 - **Preview**: the 3D model updates as you choose. Drag it to turn it around.
 - **Randomize** picks a random look (it keeps your name). **Reset** returns to the default look.

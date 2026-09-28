@@ -9,7 +9,7 @@ export function mountCharacterPreview(host, onError) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
   renderer.domElement.setAttribute('aria-hidden', 'true'); host.appendChild(renderer.domElement);
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-  camera.position.set(0, 2.2, 9.5); camera.lookAt(0, 1.75, 0);
+  camera.position.set(0, 2.4, 10.5); camera.lookAt(0, 1.95, 0);
   scene.add(new THREE.HemisphereLight('#fff2df', '#54647f', 2.3));
   const sun = new THREE.DirectionalLight('#ffd7b0', 2.6); sun.position.set(-4, 8, 6); scene.add(sun);
   const geometry = new THREE.BoxGeometry(1, 1, 1), materials = new Map();
