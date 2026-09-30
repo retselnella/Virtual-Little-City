@@ -559,9 +559,14 @@
 .cheat-console form button,.cheat-flight button{border:1px solid #9ee8d155;border-radius:7px;background:#9ee8d11a;color:#b7ecd5;padding:8px;font-size:11px;cursor:pointer}
 .cheat-console button:disabled{opacity:.45;cursor:not-allowed}.cheat-console :focus-visible{outline:2px solid #9ee8d1;outline-offset:-2px}
 .cheat-flight{display:flex;align-items:center;gap:6px;padding:0 12px 10px}.cheat-flight span{flex:1;font-size:10px;color:#aabcc1}.cheat-flight button{touch-action:none}
+.hero-power{padding:10px 12px;border-bottom:1px solid #ffffff20}.hero-power button{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:8px 10px;border:1px solid #ffd34e80;border-radius:8px;background:#ffd34e15;color:#fff0ae;font:inherit;font-size:12px;cursor:pointer;touch-action:manipulation}.hero-power button[aria-pressed=true]{background:#ffd34e30}.hero-power strong{margin-left:auto;font-size:10px}.hero-power small{display:block;margin-top:6px;color:#b5c9ce;font-size:10px;line-height:1.4}
 .adventure:not(.touch) .adventure-radar:not(.expanded){margin-bottom:70px}
 .adventure:has(.cheat-console.is-open) .adventure-radar:not(.expanded){visibility:hidden}
 .adventure.touch .cheat-console{left:var(--edge-l);bottom:calc(var(--edge-b) + 185px);width:min(310px,calc(100vw - 24px))}
+.adventure:not(.touch) .cheat-console:has(.hero-power){left:auto;right:38px;bottom:200px;width:260px}
+.adventure.touch .cheat-console:has(.hero-power){bottom:calc(var(--edge-b) + 250px * var(--cluster))}
+.adventure.touch .cheat-console:has(.hero-power) .cheat-flight button{min-height:44px}
 @media(max-width:760px){.cheat-console{left:12px;bottom:12px}.cheat-console input{font-size:16px}}
 @media(orientation:landscape) and (max-height:500px){.adventure.touch .cheat-console{bottom:var(--edge-b);left:calc(var(--edge-l) + 150px);width:min(290px,calc(100vw - 360px))}.cheat-body{max-height:65svh}.cheat-toggle{gap:5px;padding:8px}.cheat-toggle small{display:none}}
+@media(orientation:landscape) and (max-height:500px){.adventure.touch .cheat-console:has(.hero-power){bottom:var(--edge-b)}.hero-power small{display:none}}
 

@@ -16,6 +16,7 @@ import { seatNear, venueAt, venueBlocks } from './venues.js';
 import { updateHelicopters } from './policeAir.js';
 import { HEALTH, hurtPlayer, markCombat, regenerateHealth, syncEventHealth } from './playerHealth.js';
 import { CHEAT_MOVEMENT } from './cheatCodes.js';
+import { activateHeroPower, heroMovement, resetHeroPower, stepHeroPower } from './heroPowers.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -385,6 +386,24 @@ export function startReload(s) {
   if (!w?.gun || (s.mags[s.weapon] ?? 0) >= w.magazine || s.reload > 0 || s.down) return false;
   s.reload = w.reload; notify(s, 'Reloading...'); return true;
 }
+export function useHeroPower(s) {
+  const power = activateHeroPower(s);
+  if (!power) return false;
+  if (power === 'smash') {
+    const p = s.player;
+    markCombat(s);
+    for (const e of s.enemies) {
+      const dx = e.x - p.x, dz = e.z - p.z, distance = Math.hypot(dx, dz);
+      if (e.health <= 0 || e.child || distance > 9 || Math.abs((e.height || 0) - (p.height || 0)) > 3 || !clearSight(p, e, s.blocks)) continue;
+      injure(s, e, 65 * (1 - distance / 18), dx || 0.1, dz, 'punch');
+      pushCharacter(e, dx || 0.1, dz, 14, 3); e.knockdown = 1.4;
+      raiseHeat(s, Math.max(1, s.heat));
+    }
+    notify(s, 'Hulk smash!');
+  } else if (power === 'flight') notify(s, s.player.powerActive ? 'Flight on. Space to rise, Ctrl to descend; G to land.' : 'Flight off. Returning to the ground.');
+  else notify(s, 'Speed burst!');
+  return true;
+}
 export function attack(s) {
   const w = WEAPONS[s.weapon] || WEAPONS.fists, gun = w.gun;
   if (!onFoot(s) || s.seated || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
@@ -520,6 +539,7 @@ function bust(s) {
 export function setAppearance(s, appearance) {
   if (s.appearance === appearance) return;
   s.appearance = appearance; s.player = { ...s.player, look: playerLook(appearance) };
+  resetHeroPower(s.player);
 }
 export function recover(s) {
   s.player = { x: 8, z: 12, heading: Math.PI, speed: 0, height: 0, velocityY: 0, waveTime: 0, look: playerLook(s.appearance) }; s.car = vehicle('player', 3, 12, Math.PI, 'player'); s.driving = false; s.health = 100; s.mags = fullMagazines(s.owned); s.reload = 0; s.heat = 0; s.down = 0; s.mission = null; s.enemies = []; s.traffic = createTraffic(); s.policeCars = createPatrols(); s.incident = false; s.arrest = 0; s.downReason = ''; s.lastSeen = null; s.alarm = null;
@@ -529,7 +549,8 @@ export function recover(s) {
 }
 // `aimRay` is the pointer's ray from the camera when the player aims with the mouse (see aiming.js), else null.
 export function stepWorld(s, input, delta, yaw = Math.PI, aimRay = null) {
-  const duration = Math.min(Math.max(delta, 0), 0.05), steps = Math.max(1, Math.ceil(duration * 120));
+  if (!Number.isFinite(delta) || delta <= 0) return;
+  const duration = Math.min(delta, 0.05), steps = Math.max(1, Math.ceil(duration * 120));
   s.aimRay = aimRay && WEAPONS[s.weapon]?.gun && onFoot(s) ? aimRay : null;
   for (let i = 0; i < steps; i++) stepSimulation(s, input, duration / steps, yaw);
 }
@@ -563,8 +584,10 @@ function stepSimulation(s, input, dt, yaw) {
   }
   s.venue = onFoot(s) ? venueAt(s.player.x, s.player.z) : null;
   const p = actor(s), control = !down && !(s.player.knockdown > 0) && !(s.stun > 0) ? input : {};
+  stepHeroPower(s, dt);
+  const hero = heroMovement(s);
   const { forward, right } = inputAxes(control);
-  p.flying = onFoot(s) && !s.seated && !down && !(p.knockdown > 0) && !(s.stun > 0) && !!s.cheats.fly;
+  s.player.flying = onFoot(s) && !s.seated && !down && !(s.player.knockdown > 0) && !(s.stun > 0) && (!!s.cheats.fly || hero.flight);
   if (s.boating) {
     const island = islandFor(s.city);
     stepBoat(s.boat, island, control, dt);
@@ -575,7 +598,9 @@ function stepSimulation(s, input, dt, yaw) {
   if (onFoot(s)) {
     // A joystick walks slower the less it is pushed; keys and buttons are always full speed.
     if (s.seated) { stepCharacterBody(p, 0, 0, dt); p.heading = s.seated.heading; p.speed = 0; }
-    const push = s.seated ? 0 : Math.min(1, Math.hypot(forward, right)), length = push || 1, speed = (control.run ? 15 * (p.look?.speed || 1) : 8) * (control.stick ? Math.max(0.35, push) : 1) * (s.cheats.speed ? CHEAT_MOVEMENT.speed : 1);
+    const magnitude = Math.hypot(forward, right), length = Math.max(1, magnitude);
+    // Bound combined hero/cheat speeds and normalize diagonals before the swept collision controller.
+    const speed = Math.min(56, (control.run ? 15 * (p.look?.speed || 1) : 8) * (s.cheats.speed ? CHEAT_MOVEMENT.speed : 1) * hero.speed);
     const dx = s.seated ? 0 : (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
     const dz = s.seated ? 0 : (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
     if (!s.seated) stepCharacterBody(p, dx, dz, dt);
@@ -583,9 +608,11 @@ function stepSimulation(s, input, dt, yaw) {
     // Jump from anything solid underfoot: the street, a roof, a car or a hillside.
     if (p.flying) {
       const rise = control.jump && (p.height || 0) < CHEAT_MOVEMENT.ceiling ? 1 : 0;
-      p.velocityY = (rise - (control.descend ? 1 : 0)) * CHEAT_MOVEMENT.flySpeed;
+      const targetY = (rise - (control.descend ? 1 : 0)) * CHEAT_MOVEMENT.flySpeed;
+      p.velocityY = hero.flight ? (p.velocityY || 0) + (targetY - (p.velocityY || 0)) * (1 - Math.exp(-12 * dt)) : targetY;
+      p.velocityY = Math.min(p.velocityY, Math.max(0, CHEAT_MOVEMENT.ceiling - (p.height || 0)) / dt);
     } else {
-      if (control.jump && !s.jumpHeld && (!p.height || p.grounded) && (p.velocityY || 0) <= 0) p.velocityY = 8 * (s.cheats.jump ? CHEAT_MOVEMENT.jump : 1);
+      if (control.jump && !s.jumpHeld && (!p.height || p.grounded) && (p.velocityY || 0) <= 0) p.velocityY = 8 * Math.max(s.cheats.jump ? CHEAT_MOVEMENT.jump : 1, p.look?.jump || 1);
       p.velocityY = (p.velocityY || 0) - 22 * dt;
     }
     s.jumpHeld = !!control.jump;

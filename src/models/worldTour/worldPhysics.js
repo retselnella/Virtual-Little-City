@@ -15,7 +15,7 @@ export function fits(x, z, blocks, radius = 1) {
 // Movement input as two axes, each -1…1: from the touch joystick (analog, `input.stick` = { x: right, y: forward }) or
 // from keys and buttons (full deflection).
 export function inputAxes(input) {
-  if (input.stick) return { forward: Math.max(-1, Math.min(1, input.stick.y)), right: Math.max(-1, Math.min(1, input.stick.x)) };
+  if (input.stick) { const axis = n => Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0; return { forward: axis(input.stick.y), right: axis(input.stick.x) }; }
   return { forward: Number(!!input.forward) - Number(!!input.backward), right: Number(!!input.right) - Number(!!input.left) };
 }
 // Player driving: input becomes throttle, brake, steering and handbrake. Parked cars hold their brakes.

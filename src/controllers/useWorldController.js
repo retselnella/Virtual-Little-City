@@ -17,6 +17,7 @@ import { parseEnvironmentOverride, weatherLabel, worldConditions } from '../mode
 import { islandFor } from '../models/worldTour/worldIsland.js';
 import { WEAPONS, atGunShop, buyWeapon, nextWeapon, weaponForSlot } from '../models/worldTour/weapons.js';
 import { applyCheat } from '../models/worldTour/cheatCodes.js';
+import { useHeroPower } from '../models/worldTour/worldAdventure.js';
 
 function sessionFor(city, save, blood = true, appearance = null, arrival = null) { return { ...createSession(city, save, appearance, arrival), cityInfo: city, blood }; }
 
@@ -71,6 +72,7 @@ export function useWorldController(character = null, suspended = false) {
     if (key === 'minimap') { setBigMap(shown => !shown); return; }
     if (key === 'vehicle') toggleVehicle(s);
     if (key === 'attack') attack(s);
+    if (key === 'power') useHeroPower(s);
     if (key === 'interact') { interact(s); if (s.shopping) { s.shopping = false; open('shop'); return; } if (s.teleporting) { s.teleporting = false; open('world'); return; } }
     if (key === 'weapon') equip(s, nextWeapon(s.weapon, s.owned));
     if (key.startsWith('slot')) { const id = weaponForSlot(Number(key.slice(4))); if (id && !equip(s, id)) notify(s, `You do not own the ${WEAPONS[id].name}. The gun shop is in Miami.`); }

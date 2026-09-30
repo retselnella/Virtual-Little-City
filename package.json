@@ -13,6 +13,7 @@
     "test": "node --test tests/unit/*.test.js",
     "test:architecture": "node --test tests/unit/architecture.test.js",
     "test:browser": "npm run build && node tests/browser/smoke.mjs",
+    "test:heroes": "npm run build && node tests/browser/heroes.mjs",
     "audit:security": "npm audit --audit-level=moderate"
   },
   "dependencies": {

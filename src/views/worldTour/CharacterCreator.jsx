@@ -5,6 +5,10 @@ import { ExperienceDialog } from '../shared/ExperienceDialog.jsx';
 const KIND_ICONS = { human: '🧍', wolf: '🐺', brute: '💪', robot: '🤖' };
 // Only the parts each kind's model actually shows: wolves walk on paws, so they have no shoes.
 const CLOTHES = {
+  hulk: [['pants', 'Trousers']],
+  superman: [['shirt', 'Suit'], ['pants', 'Legs'], ['shoes', 'Boots']],
+  flash: [['shirt', 'Suit and cowl'], ['pants', 'Legs'], ['shoes', 'Boots']],
+  ironman: [['shirt', 'Chest armour'], ['pants', 'Leg armour'], ['shoes', 'Boots']],
   human: [['shirt', 'Shirt'], ['pants', 'Trousers'], ['shoes', 'Shoes']],
   wolf: [['shirt', 'Shirt'], ['pants', 'Trousers']],
   brute: [['shirt', 'Vest'], ['pants', 'Trousers'], ['shoes', 'Boots']],
@@ -23,7 +27,7 @@ function KindPicker({ value, onPick }) {
   return <fieldset className="creator-group"><legend>Character</legend>
     <div className="creator-kinds">{Object.entries(KINDS).map(([id, kind]) =>
       <button key={id} type="button" aria-pressed={value === id} onClick={() => onPick('kind', id)}>
-        <span className="creator-kind-icon" aria-hidden="true">{KIND_ICONS[id]}</span><strong>{kind.name}</strong>
+        <span className="creator-kind-icon" aria-hidden="true">{KIND_ICONS[id] || { hulk: '✊', superman: 'S', flash: 'ϟ', ironman: '◈' }[id]}</span><strong>{kind.name}</strong>
       </button>)}</div>
   </fieldset>;
 }

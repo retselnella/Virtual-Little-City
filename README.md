@@ -45,6 +45,10 @@ The character creator appears before your first game.
   | **Wolf** | fur (grey, timber, arctic, black, red fox, golden); ears, muzzle and tail | Sprints 15% faster. |
   | **Brute** | skin (jade, forest, olive, stone, crimson, tan), hair; a head taller and much broader | Punches hit 40% harder. |
   | **Robot** | plating (chrome, gunmetal, gold, pearl, teal, rust red); visor and antenna | Takes 20% less damage. |
+  | **Hulk** | broad green body, bare feet and purple trousers | Double punch strength, high jumps and a ground smash. |
+  | **Superman** | blue suit, red cape and chest shield | Strong punches and controllable flight. |
+  | **Flash** | red suit and cowl, gold lightning accents | Faster sprinting and a timed speed burst. |
+  | **Iron Man** | armour, gold faceplate and glowing chest reactor | Extra armour and flight with thruster effects. |
 
 - **Look**: skin, fur or plating, hair style and colour (humans and brutes; a cap takes the hair colour), shirt, trousers and shoes. The creator only offers what each kind's model shows: a wolf walks on paws, so it has no shoes; a brute's shirt is a vest; a robot is painted instead of dressed (chest panel, shoulder pads and waist band, leg plating and feet). The name of each current choice appears next to its label.
 - **Build**: compact, average or tall. This changes your size in the game, not just how you look.
@@ -53,6 +57,8 @@ The character creator appears before your first game.
 - Press **Start playing** to begin.
 
 You can change your look at any time: pause the game (**Esc** or the **Ⅱ** button) and choose **Edit character**. The game waits while you edit. Your cash, contracts and position stay as they are. **Cancel** or **Esc** closes the editor without changes.
+
+**Superhero powers:** choose a hero in the creator, then press **G** or tap the power button above **City cheats**. Hulk's ground smash knocks back nearby enemies within 9 metres, respects walls and has a 5-second cooldown; **Space** performs a high jump. Flash's speed burst lasts 4 seconds with an 8-second cooldown measured from activation. Superman and Iron Man toggle flight: **Space** rises, **Ctrl** descends, releasing both settles into a hover, and **G** restores gravity. Rise/Descend buttons are also available for touch. Flight stays below 180 metres and collides with buildings. Powers require being on foot and stop when incapacitated, entering transport, editing the character or changing cities. Costumes are saved and visible to other players; power trails and shockwaves are local visual effects.
 
 ## 3. Controls
 

@@ -4,8 +4,8 @@ import { CHARACTER_OPTIONS, KINDS, cleanCharacter, playerLook, randomCharacter, 
 import { CITIES, attack, createSession, stepWorld } from '../../src/models/worldTour/worldAdventure.js';
 import { cleanProfile, encodeProfile } from '../../src/models/worldTour/multiplayer.js';
 
-test('four kinds of character, each with its own colours; old saves stay human', () => {
-  assert.deepEqual(CHARACTER_OPTIONS.kind.map(([id]) => id), ['human', 'wolf', 'brute', 'robot']);
+test('original and superhero characters have their own colours; old saves stay human', () => {
+  assert.deepEqual(CHARACTER_OPTIONS.kind.map(([id]) => id), ['human', 'wolf', 'brute', 'robot', 'hulk', 'superman', 'flash', 'ironman']);
   assert.equal(cleanCharacter({ skin: '#9a6644' }).kind, 'human', 'saves from before kinds existed');
   assert.equal(cleanCharacter({ kind: 'dragon', skin: '#9a6644' }).kind, 'human', 'unknown kinds are refused');
   const wolf = cleanCharacter({ kind: 'wolf', skin: '#9a6644' });

@@ -46,6 +46,7 @@ function SkyIcon({ sky }) {
 
 // The pause menu: controls, and the few things worth knowing.
 const CONTROLS = [['W A S D', 'Move, drive or steer the boat'], ['Shift / Space', 'Sprint / jump (Space: handbrake)'], ['F', 'Get in or out of your car or boat'], ['Mouse · J', 'Point to aim; click, hold right button or J to fire'],
+  ['G · Space / Ctrl', 'Superpower · rise / descend during flight'],
   ['Q · 1–9 · R', 'Switch weapon · pick one · reload'], ['E', 'Pick up, deliver, metro, gun shop, heal'], ['M · L · B · N', 'Map · contracts · Kaiju · music'], ['Drag · scroll', 'Look around · zoom']];
 const TIPS = [
   ['Other islands.', 'Open the map (M), pick an island and press Sail. Your speedboat waits at the marina on the east waterfront; follow the gold marker to it.'],
@@ -196,7 +197,7 @@ export default function WorldView({ controller, onEditCharacter }) {
     </div>
     {touch && ready && !error && !(hud.down > 0) && <><TouchStick onMove={setStick} /><TouchActions hud={hud} disabled={!ready || !!error} touchControl={touchControl} action={action} /></>}
     {!touch && <div className="adventure-touch" aria-label="Touch movement controls">{[['forward', '↑'], ['left', '←'], ['backward', '↓'], ['right', '→'], ['run', 'Run'], ['brake', hud.driving ? 'Brake' : 'Jump']].map(([key, title]) => <button key={key} className={'control-' + key} aria-label={key} {...touchControl(key)}>{title}</button>)}</div>}
-    <CheatConsole hud={hud} run={controller.runCheat} clearControls={controller.clearControls} touchControl={touchControl} disabled={!ready || error || !!panel} />
+    <CheatConsole hud={hud} action={action} run={controller.runCheat} clearControls={controller.clearControls} touchControl={touchControl} disabled={!ready || error || !!panel} />
     {panel === 'shop' && <ExperienceDialog title={`${GUN_SHOP.name}.`} className="adventure-dialog shop-dialog" onClose={() => open(null)}><ShopPanel hud={hud} onBuy={buy} onEquip={equipWeapon} /></ExperienceDialog>}
     {panel === 'music' && <ExperienceDialog title="Music." className="adventure-dialog music-dialog" onClose={() => open(null)}><MusicPanel music={music} /></ExperienceDialog>}
     {panel === 'boss' && <ExperienceDialog title={`${BOSS_NAME}: the world boss.`} className="adventure-dialog boss-dialog" onClose={() => open(null)}><BossPanel boss={boss} city={city} now={now} onClaim={claimRewards} /></ExperienceDialog>}

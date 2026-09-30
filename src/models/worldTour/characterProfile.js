@@ -1,6 +1,6 @@
 // The player's appearance, chosen in the character creator on first launch and editable from the pause menu.
 // Saved data is rebuilt from known fields only, so a tampered or outdated save can never reach the renderer.
-// Four kinds of character, all modelled in code (no third-party assets): a human, a wolf, a hulking brute and a robot.
+// All characters are modelled in code, using the same animated skeleton.
 // Each kind has its own skin, fur or plating colours, a body size, and one small perk.
 export const KINDS = Object.freeze({
   human: { name: 'Human', skinLabel: 'Skin tone', hair: true, scale: 1, perk: 'Balanced all-rounder: nothing special, nothing lacking.',
@@ -11,6 +11,22 @@ export const KINDS = Object.freeze({
     skin: [['#5f9e4f', 'Jade'], ['#3f6b3a', 'Forest'], ['#7a8a3c', 'Olive'], ['#8a8f96', 'Stone'], ['#a0453e', 'Crimson'], ['#c18b63', 'Tan']] },
   robot: { name: 'Robot', skinLabel: 'Plating', hair: false, scale: 1, armor: 0.8, perk: 'Armour-plated: takes 20% less damage.',
     skin: [['#b8bec6', 'Chrome'], ['#5b636d', 'Gunmetal'], ['#c9a54b', 'Gold'], ['#e8ecef', 'Pearl'], ['#3f8f8f', 'Teal'], ['#8c3b3b', 'Rust red']] },
+  hulk: { name: 'Hulk', skinLabel: 'Skin', hair: true, scale: 1.28, strength: 2, armor: 0.65, jump: 2, power: 'smash',
+    perk: 'Super strength and high jumps. Press G for a ground smash that knocks nearby enemies back.',
+    defaults: { skin: '#5f9e4f', hair: '#161616', shirt: '#4f8a6b', pants: '#7a5aa6', shoes: '#2a2a2a' },
+    skin: [['#5f9e4f', 'Jade'], ['#3f6b3a', 'Forest'], ['#7a8a3c', 'Olive'], ['#8a8f96', 'Stone'], ['#a0453e', 'Crimson'], ['#c18b63', 'Tan']] },
+  superman: { name: 'Superman', skinLabel: 'Skin tone', hair: true, scale: 1.07, strength: 1.8, armor: 0.7, power: 'flight',
+    perk: 'Super strength and flight. G toggles flight; Space rises, Ctrl descends. Release to hover.',
+    defaults: { skin: '#d6a07d', hair: '#161616', shirt: '#496b92', pants: '#1f3a5f', shoes: '#b5523b' },
+    skin: [['#f3cfb0', 'Porcelain'], ['#e0ac85', 'Beige'], ['#d6a07d', 'Honey'], ['#c18b63', 'Tan'], ['#9a6644', 'Bronze'], ['#6d452e', 'Brown'], ['#4d3122', 'Deep brown']] },
+  flash: { name: 'Flash', skinLabel: 'Skin tone', hair: false, scale: 1, speed: 1.5, power: 'speed',
+    perk: 'Fast sprinting. Press G for a four-second speed burst with lightning trails.',
+    defaults: { skin: '#d6a07d', shirt: '#c95b5b', pants: '#c95b5b', shoes: '#e0b04b' },
+    skin: [['#f3cfb0', 'Porcelain'], ['#e0ac85', 'Beige'], ['#d6a07d', 'Honey'], ['#c18b63', 'Tan'], ['#9a6644', 'Bronze'], ['#6d452e', 'Brown'], ['#4d3122', 'Deep brown']] },
+  ironman: { name: 'Iron Man', skinLabel: 'Armour', hair: false, scale: 1.04, armor: 0.6, power: 'flight',
+    perk: 'Armoured flight with thruster effects. G toggles flight; Space rises, Ctrl descends.',
+    defaults: { skin: '#c9a54b', shirt: '#c95b5b', pants: '#c95b5b', shoes: '#b5523b' },
+    skin: [['#b8bec6', 'Chrome'], ['#5b636d', 'Gunmetal'], ['#c9a54b', 'Gold'], ['#e8ecef', 'Pearl'], ['#3f8f8f', 'Teal'], ['#8c3b3b', 'Rust red']] },
 });
 export const CHARACTER_OPTIONS = Object.freeze({
   kind: Object.entries(KINDS).map(([id, k]) => [id, k.name]),
@@ -19,8 +35,8 @@ export const CHARACTER_OPTIONS = Object.freeze({
   hair: [['#161616', 'Black'], ['#46362e', 'Dark brown'], ['#7d532f', 'Chestnut'], ['#c7a266', 'Blonde'], ['#8c3b2b', 'Auburn'], ['#a7a39c', 'Grey'], ['#3d5a8a', 'Blue'], ['#c96b9a', 'Pink']],
   hairStyle: [['short', 'Short'], ['long', 'Long'], ['buzz', 'Buzz cut'], ['bun', 'Bun'], ['cap', 'Cap'], ['bald', 'Bald']],
   shirt: [['#e5ded5', 'Cream'], ['#496b92', 'Denim'], ['#c95b5b', 'Red'], ['#4f8a6b', 'Green'], ['#e0b04b', 'Mustard'], ['#7a5aa6', 'Purple'], ['#2b3240', 'Charcoal'], ['#f08a5d', 'Coral']],
-  pants: [['#344653', 'Slate'], ['#2f3338', 'Black'], ['#1f3a5f', 'Navy'], ['#6b5a48', 'Brown'], ['#7b8793', 'Grey'], ['#a38f72', 'Khaki']],
-  shoes: [['#e8e2d6', 'White'], ['#2a2a2a', 'Black'], ['#b5523b', 'Red'], ['#3d6fa8', 'Blue']],
+  pants: [['#344653', 'Slate'], ['#2f3338', 'Black'], ['#1f3a5f', 'Navy'], ['#6b5a48', 'Brown'], ['#7b8793', 'Grey'], ['#a38f72', 'Khaki'], ['#7a5aa6', 'Purple'], ['#c95b5b', 'Red']],
+  shoes: [['#e8e2d6', 'White'], ['#2a2a2a', 'Black'], ['#b5523b', 'Red'], ['#3d6fa8', 'Blue'], ['#e0b04b', 'Gold']],
   build: [['compact', 'Compact'], ['average', 'Average'], ['tall', 'Tall']],
 });
 export const BUILD_SCALE = Object.freeze({ compact: 0.93, average: 1, tall: 1.07 });
@@ -41,7 +57,7 @@ export function cleanCharacter(value) {
   const character = { name: cleanName(value.name) };
   for (const field of FIELDS) {
     const allowed = (field === 'skin' ? skinOptions(character.kind) : CHARACTER_OPTIONS[field]).map(([id]) => id);
-    character[field] = allowed.includes(value[field]) ? value[field] : field === 'skin' ? allowed[Math.min(2, allowed.length - 1)] : DEFAULT_CHARACTER[field];
+    character[field] = allowed.includes(value[field]) ? value[field] : kindOf(character).defaults?.[field] ?? (field === 'skin' ? allowed[Math.min(2, allowed.length - 1)] : DEFAULT_CHARACTER[field]);
   }
   return character;
 }
@@ -54,6 +70,6 @@ export function randomCharacter(random = Math.random, name = '') {
 // kind's perk (sprint speed, punch strength, armour).
 export function playerLook(character) {
   const kind = kindOf(character);
-  return { scale: (BUILD_SCALE[character?.build] ?? 1) * kind.scale, speed: kind.speed || 1, strength: kind.strength || 1, armor: kind.armor || 1 };
+  return { scale: (BUILD_SCALE[character?.build] ?? 1) * kind.scale, speed: kind.speed || 1, strength: kind.strength || 1, armor: kind.armor || 1, jump: kind.jump || 1 };
 }
 export function displayName(character) { return cleanName(character?.name) || 'Newcomer'; }

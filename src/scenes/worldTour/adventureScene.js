@@ -24,6 +24,7 @@ import { worldConditions } from '../../models/worldTour/worldClock.js';
 import { buildIsland } from './islandScenery.js';
 import { buildAmbient } from './ambientScene.js';
 import { createSky } from './skyWeather.js';
+import { createHeroEffects } from './heroEffects.js';
 
 const BLOOD_DROPS = 360, BLOOD_POOLS = 160;
 const OFFICER_SKIN = ['#e8bd98', '#c18b63', '#8d5a3b', '#5f3b28'];
@@ -43,7 +44,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   const sky = createSky(scene, { hemisphere, sun });
   let kaiju = null, citySlots = new Map(), ruinsShown = '', hiddenOwners = new Map(), rubble = null, craterMesh = null;
   let teleporterFx = null, ambient = null, aircraft = null, venues = null, root, avatar, playerCar, playerBoat, marker, targetRing, dynamic, island, islandData, metro, horizon, clearPools, traffic = [], patrols = new Map(), pedestrians = [], lastTime = 0, uiTime = 0, lastCity, shotLines = [], remoteShots = [], followY = null;
-  let guns, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
+  let heroEffects, guns, bloodDrops, bloodPools, drops = [], pools = [], poolCursor = 0, lastImpact = 0, shake = 0;
   const shakeOffset = new THREE.Vector3(), matrix = new THREE.Matrix4(), hidden = new THREE.Matrix4().makeScale(0, 0, 0), bloodDummy = new THREE.Object3D();
   let postPoles, postLamps;
   const layout = sceneryLayout(), lean = new THREE.Quaternion(), forwardAxis = new THREE.Vector3(0, 0, 1);
@@ -92,6 +93,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   };
   const glow = { glow(mesh, color, strength = 1) { mesh.material = glowMaterial(`#${mesh.material.color.getHexString()}`, strength * 0.7, color); }, light() {} };
   function disposeCity() {
+    heroEffects?.dispose(); heroEffects = null;
     for (const id of [...remotes.keys()]) removeRemote(id);
     if (root) { root.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); scene.remove(root); }
     island?.dispose(); island = null; ambient?.dispose(); ambient = null; aircraft?.dispose(); aircraft = null; venues?.dispose(); venues = null; metro?.dispose(); metro = null; clearPools?.(); clearPools = null; kaiju?.dispose(); kaiju = null;
@@ -105,6 +107,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   }
   function build(city) {
     disposeCity(); lastCity = city.id; root = new THREE.Group(); scene.add(root); dynamic = new THREE.Group(); root.add(dynamic);
+    heroEffects = createHeroEffects(root);
     // Sky colour, fog and light are set every frame by skyWeather.js from the time of day and the weather.
     scene.fog = new THREE.Fog(city.sky, 220, 2000);
     const batches = new Map();
@@ -480,6 +483,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const shot = s.shots.find(x => !x.police);
     guns.flash(!!shot && shot.ttl > 0.07);
     if (s.driving || s.down) return;
+    if ((s.player.flying || (s.appearance?.kind === 'hulk' && s.player.powerActive)) && !s.aimTime && !input.current.attack && !pointer.hold) return;
     const gun = GUN_INFO[s.weapon] ? s.weapon : null;
     poseArms(avatar.avatar, gun, s.aimTime > 0 || (!!gun && (input.current.attack || pointer.hold)), s.punchTime, s.combo, shot ? shot.ttl / 0.12 : 0, s.aimTime > 0 ? s.aimPitch : 0);
   }
@@ -544,6 +548,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
     const p = actor(s), point = guidePoint(s), step = paused.current || document.hidden ? 0 : dt;
     avatar.avatar.visible = onFoot(s); avatar.rig.before(s.player); avatar.update(s.player, paused.current ? 0 : dt); avatar.avatar.position.y = (s.player.seated ? -0.52 : 0.2) * (s.player.look?.scale || 1) + s.player.height; guns.set(s.weapon);
     posePlayer(s); avatar.rig.after(s.player, step);
+    heroEffects.update(s);
     for (const hit of s.impacts) {
       if (hit.id <= lastImpact) continue;
       lastImpact = hit.id;

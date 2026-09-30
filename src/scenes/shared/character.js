@@ -19,7 +19,7 @@ function hair(box, head, style, color) {
 // Heads for each kind of character, on the head group (the human head box is 0.58 x 0.62 x 0.53, centred on it).
 function humanHead(box, head, skin, palette) {
   box([0.58, 0.62, 0.53], skin, [0, 0, 0], head);
-  hair(box, head, palette.hairStyle || 'short', palette.hair || '#46362e');
+  if (palette.kind !== 'flash') hair(box, head, palette.hairStyle || 'short', palette.hair || '#46362e');
   for (const x of [-0.15, 0.15]) box([0.075, 0.08, 0.025], '#293747', [x, 0.015, 0.277], head);
   box([0.1, 0.12, 0.1], shade(skin, 0.92), [0, -0.06, 0.3], head);
   box([0.16, 0.025, 0.02], '#835641', [0, -0.2, 0.279], head);
@@ -48,13 +48,13 @@ function bruteHead(box, head, skin, palette) {
   const scalp = new THREE.Group(); scalp.scale.set(1.08, 1, 1.07); scalp.position.y = 0.01; head.add(scalp);
   hair(box, scalp, palette.hairStyle || 'short', palette.hair || '#46362e');
 }
-function robotHead(box, head, plate) {
+function robotHead(box, head, plate, palette = {}) {
   const light = '#5ee0ff';
   box([0.6, 0.56, 0.54], plate, [0, 0, 0], head);
   box([0.5, 0.15, 0.04], '#10161b', [0, 0.06, 0.275], head); box([0.44, 0.07, 0.03], light, [0, 0.06, 0.29], head); // visor
   box([0.3, 0.1, 0.03], shade(plate, 0.6), [0, -0.17, 0.275], head); // grille
   for (const x of [-0.32, 0.32]) box([0.07, 0.2, 0.2], shade(plate, 0.7), [x, 0, 0], head); // ear bolts
-  box([0.04, 0.3, 0.04], shade(plate, 0.7), [0.18, 0.42, -0.05], head); box([0.09, 0.09, 0.09], '#e2513c', [0.18, 0.6, -0.05], head); // antenna
+  if (palette.kind !== 'ironman') { box([0.04, 0.3, 0.04], shade(plate, 0.7), [0.18, 0.42, -0.05], head); box([0.09, 0.09, 0.09], '#e2513c', [0.18, 0.6, -0.05], head); } // antenna
 }
 
 // The player rig. `palette` takes the character creator's appearance (see models/worldTour/characterProfile.js).
@@ -62,12 +62,13 @@ function robotHead(box, head, plate) {
 export function createCharacter(scene, kit, palette = {}) {
   const { box } = kit, kind = palette.kind || 'human';
   const skin = palette.skin || '#d6a07d', shirt = palette.shirt || '#496b92', pants = palette.pants || '#344653';
-  const brute = kind === 'brute', robot = kind === 'robot', wolf = kind === 'wolf';
+  const hulk = kind === 'hulk', ironman = kind === 'ironman', flash = kind === 'flash', superman = kind === 'superman';
+  const brute = kind === 'brute' || hulk, robot = kind === 'robot' || ironman, wolf = kind === 'wolf';
   const avatar = new THREE.Group(); avatar.visible = false; avatar.scale.setScalar(palette.scale || 1); scene.add(avatar);
   const body = new THREE.Group(); body.name = 'body'; avatar.add(body);
   if (brute) {
     // A barrel chest in a sleeveless top, bare arms, and a thick neck.
-    box([1.08, 1.02, 0.66], shirt, [0, 1.8, 0.02], body);
+    box([1.08, 1.02, 0.66], hulk ? skin : shirt, [0, 1.8, 0.02], body);
     box([0.46, 0.22, 0.03], shade(skin, 0.95), [0, 2.2, 0.36], body); // open neckline
     box([0.98, 0.14, 0.6], shade(pants, 0.85), [0, 1.29, 0], body);
     box([0.38, 0.24, 0.34], shade(skin, 0.88), [0, 2.34, 0], body);
@@ -82,12 +83,35 @@ export function createCharacter(scene, kit, palette = {}) {
     box([0.18, 0.23, 0.18], shade(skin, 0.5), [0, 2.32, 0], body);
   } else {
     box([0.84, 0.95, 0.5], shirt, [0, 1.77, 0], body);
-    box([0.26, 0.7, 0.025], wolf ? shade(skin, 1.15) : '#e6e8df', [0, 1.88, 0.263], body);
+    box([0.26, 0.7, 0.025], wolf ? shade(skin, 1.15) : superman || flash ? shirt : '#e6e8df', [0, 1.88, 0.263], body);
     box([0.88, 0.12, 0.53], shade(pants, 0.85), [0, 1.29, 0], body);
     box([0.23, 0.23, 0.24], shade(skin, 0.88), [0, 2.32, 0], body);
   }
   const head = new THREE.Group(); head.name = 'head'; head.position.y = 2.65; body.add(head);
   (wolf ? wolfHead : brute ? bruteHead : robot ? robotHead : humanHead)(box, head, skin, palette);
+  let cape = null;
+  if (superman) {
+    cape = new THREE.Group(); cape.position.set(0, 2.2, -0.3); body.add(cape);
+    box([1.05, 1.75, 0.06], '#c8323e', [0, -0.8, -0.08], cape);
+    const crest = box([0.34, 0.34, 0.04], '#e0b04b', [0, 1.94, 0.3], body); crest.rotation.z = Math.PI / 4;
+    // Raised red S across the golden chest shield.
+    for (const [x, y, w, h] of [[0, 2.06, 0.24, 0.045], [-0.1, 2, 0.045, 0.12], [0, 1.94, 0.24, 0.045], [0.1, 1.88, 0.045, 0.12], [0, 1.82, 0.24, 0.045]]) box([w, h, 0.025], '#c8323e', [x, y, 0.33], body);
+    box([0.88, 0.09, 0.56], '#e0b04b', [0, 1.3, 0], body);
+  }
+  if (flash) {
+    box([0.62, 0.4, 0.57], shirt, [0, 0.17, 0], head);
+    for (const side of [-1, 1]) {
+      box([0.045, 0.3, 0.12], '#ffd34e', [side * 0.34, 0.1, 0], head).rotation.z = side * 0.4;
+      box([0.09, 0.06, 0.03], '#fff7d5', [side * 0.15, 0.02, 0.3], head);
+    }
+    box([0.36, 0.38, 0.035], '#fff1d1', [0, 1.94, 0.29], body);
+    box([0.09, 0.35, 0.035], '#ffd34e', [0, 1.94, 0.32], body).rotation.z = -0.5;
+  }
+  if (ironman) {
+    box([0.46, 0.42, 0.04], skin, [0, -0.02, 0.3], head);
+    for (const side of [-1, 1]) box([0.14, 0.045, 0.035], '#a8f5ff', [side * 0.13, 0.06, 0.33], head);
+    box([0.23, 0.23, 0.055], '#a8f5ff', [0, 1.94, 0.32], body);
+  }
   // The wolf's tail, from the small of the back; it wags when standing still.
   let tail = null;
   if (wolf) {
@@ -123,10 +147,10 @@ export function createCharacter(scene, kit, palette = {}) {
     box(brute ? [0.4, 0.5, 0.44] : [0.32, 0.5, 0.37], robot ? shade(pants, 0.9) : pants, [0, -0.24, 0], knee);
     if (robot) box([0.2, 0.12, 0.2], shade(skin, 0.5), [0, 0.02, 0], knee);
     if (wolf) box([0.36, 0.2, 0.62], skin, [0, -0.6, 0.12], knee); // paws
-    else box(brute ? [0.44, 0.24, 0.7] : [0.38, 0.23, 0.65], palette.shoes || '#e8e2d6', [0, -0.59, 0.11], knee);
+    else box(brute ? [0.44, 0.24, 0.7] : [0.38, 0.23, 0.65], hulk ? skin : palette.shoes || '#e8e2d6', [0, -0.59, 0.11], knee);
     box([0.39, 0.06, 0.67], wolf ? shade(skin, 0.6) : '#8a8f90', [0, -0.7, 0.11], knee); legs.push(leg);
   }
-  let gait = 0, motion = 0, wave = 0, animationTime = 0;
+  let gait = 0, motion = 0, wave = 0, animationTime = 0, flight = 0;
   return {
     avatar,
     update(player, delta) {
@@ -137,7 +161,8 @@ export function createCharacter(scene, kit, palette = {}) {
       const blend = 1 - Math.exp(-16 * delta);
       motion += (Math.min(player.speed / 5, 1) - motion) * blend;
       wave += ((player.waveTime > 0 ? 1 : 0) - wave) * blend;
-      gait += player.speed * delta * 3.2;
+      gait += Math.min(player.speed, 18) * delta * 3.2;
+      flight += ((player.flying ? 1 : 0) - flight) * blend;
       const amplitude = motion * 0.7;
       legs[0].rotation.x = Math.sin(gait) * amplitude;
       legs[1].rotation.x = -Math.sin(gait) * amplitude;
@@ -161,6 +186,18 @@ export function createCharacter(scene, kit, palette = {}) {
       else if (player.height > 0.03) {
         legs.forEach(leg => { leg.rotation.x = -0.35; }); knees.forEach(knee => { knee.rotation.x = 0.65; });
         arms[0].rotation.z = -0.3; if (wave < 0.1) arms[1].rotation.z = 0.3;
+      }
+      if (!player.seated && flight > 0.001) {
+        legs.forEach(leg => { leg.rotation.x *= 1 - flight; });
+        knees.forEach(knee => { knee.rotation.x *= 1 - flight; });
+        arms.forEach(arm => { arm.rotation.x += ((ironman ? 0.15 : -2.6) - arm.rotation.x) * flight; });
+        body.rotation.x += (0.2 * motion - body.rotation.x) * flight;
+      }
+      if (cape) { cape.rotation.x = 0.12 + motion * 0.45 + flight * 0.3 + Math.sin(animationTime * 6) * (0.025 + motion * 0.06); }
+      if (hulk && player.powerActive && player.powerTime > 0) {
+        const smash = Math.sin(Math.min(1, player.powerTime / 0.65) * Math.PI);
+        body.rotation.x += smash * 0.5;
+        arms.forEach(arm => { arm.rotation.x = -smash * 1.4; });
       }
     },
   };

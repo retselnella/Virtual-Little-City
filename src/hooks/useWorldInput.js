@@ -12,9 +12,9 @@ export function useWorldInput(paused, action, setPanel) {
     function down(e) {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable || paused.current) return;
       if (['BUTTON', 'A'].includes(e.target.tagName) && ['Space', 'Enter'].includes(e.code)) return;
-      if (mapping[e.code] || ['KeyF', 'KeyE', 'KeyQ', 'KeyR', 'KeyM', 'KeyL', 'KeyB', 'KeyN', 'KeyV', 'Escape'].includes(e.code)) e.preventDefault();
+      if (mapping[e.code] || ['KeyG', 'KeyF', 'KeyE', 'KeyQ', 'KeyR', 'KeyM', 'KeyL', 'KeyB', 'KeyN', 'KeyV', 'Escape'].includes(e.code)) e.preventDefault();
       held.current.add(e.code); update(); if (e.repeat) return;
-      const key = { KeyF: 'vehicle', KeyE: 'interact', KeyQ: 'weapon', KeyR: 'reload', KeyJ: 'attack', KeyV: 'minimap', ...(/^Digit[1-9]$/.test(e.code) ? { [e.code]: `slot${e.code.slice(5)}` } : {}) }[e.code]; if (key) actions.current(key);
+      const key = { KeyG: 'power', KeyF: 'vehicle', KeyE: 'interact', KeyQ: 'weapon', KeyR: 'reload', KeyJ: 'attack', KeyV: 'minimap', ...(/^Digit[1-9]$/.test(e.code) ? { [e.code]: `slot${e.code.slice(5)}` } : {}) }[e.code]; if (key) actions.current(key);
       if (e.code === 'KeyM') { clear(); setPanel('world'); }
       if (e.code === 'KeyL') { clear(); setPanel('contracts'); }
       if (e.code === 'KeyB') { clear(); setPanel('boss'); }
