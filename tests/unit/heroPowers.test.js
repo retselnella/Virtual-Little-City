@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { cleanCharacter, playerLook } from '../../src/models/worldTour/characterProfile.js';
-import { CITIES, createSession, recover, setAppearance, stepWorld, useHeroPower } from '../../src/models/worldTour/worldAdventure.js';
+import { CITIES, attack, createSession, equip, recover, setAppearance, stepWorld, useHeroPower, useKaijuPower } from '../../src/models/worldTour/worldAdventure.js';
+import { BOSS_HP, KAIJU_POWERS } from '../../src/models/worldTour/bossRules.js';
+import { kaijuPose } from '../../src/models/worldTour/worldBoss.js';
+import { kaijuPowerTarget, stepHeroPower } from '../../src/models/worldTour/heroPowers.js';
 import { disposePhysics } from '../../src/models/worldTour/physicsEngine.js';
 import { encodeProfile, cleanProfile } from '../../src/models/worldTour/multiplayer.js';
 import { createCharacter } from '../../src/scenes/shared/character.js';
@@ -115,4 +118,70 @@ test('power effects use a bounded pool and dispose their GPU resources', t => {
   assert.deepEqual(group.children, pieces); assert.equal(group.visible, true);
   s.driving = true; effects.update(s); assert.equal(group.visible, false);
   effects.dispose(); assert.equal(parent.children.length, 0); assert.ok(geometryDisposed && materialDisposed);
+});
+
+function eventFight(t, kind) {
+  const s = quiet(t, kind);
+  s.bossEvent = { id: 'boss-test', startsAt: 1000000, endsAt: 4600000, city: s.city, phase: 'active', hp: BOSS_HP, seed: 1 };
+  s.worldTime = 1200; s.boss = { ...kaijuPose(200), t: 200, alive: true };
+  Object.assign(s.player, { x: s.boss.x + (KAIJU_POWERS[kind]?.ground ? 35 : 100), z: s.boss.z, grounded: true });
+  return s;
+}
+
+test('each hero queues a distinct Kaiju hit, shows its effect and shares recovery with guns', t => {
+  for (const [kind, spec] of Object.entries(KAIJU_POWERS)) {
+    const s = eventFight(t, kind), mags = { ...s.mags };
+    const before = { x: s.player.x, z: s.player.z, height: s.player.height };
+    assert.equal(useKaijuPower(s), true, kind);
+    assert.deepEqual(s.bossHits, { [spec.id]: 1 }); assert.deepEqual(s.mags, mags, 'no ammo consumed');
+    assert.equal(s.heroAttackCooldown, spec.costMs / 1000); assert.equal(s.cooldown, spec.costMs / 1000);
+    assert.ok(s.player.kaijuPowerFx); assert.equal(s.heat, 0); assert.equal(s.bossEvent.hp, BOSS_HP, 'only the server changes HP');
+    assert.equal(useKaijuPower(s), false); equip(s, 'fists'); attack(s); assert.deepEqual(s.bossHits, { [spec.id]: 1 });
+    assert.deepEqual({ x: s.player.x, z: s.player.z, height: s.player.height }, before, 'attacks do not teleport the player');
+    stepHeroPower(s, spec.costMs / 1000); s.cooldown = 0;
+    assert.equal(useKaijuPower(s), true, 'next strike after recovery'); assert.equal(s.bossHits[spec.id], 2);
+  }
+  const hulk = eventFight(t, 'hulk'); assert.equal(useHeroPower(hulk), true, 'G smash also hits boss');
+  assert.equal(hulk.bossHits.hulk_smash, 1); assert.equal(useKaijuPower(hulk), false, 'G then H cannot double hit');
+  for (const kind of ['superman', 'flash', 'ironman']) {
+    const s = eventFight(t, kind); useHeroPower(s); assert.deepEqual(s.bossHits, {}, 'movement toggles do not deal damage');
+  }
+});
+
+test('Kaiju powers require an active nearby event, clear sight and a living on-foot hero', t => {
+  for (const change of [s => { s.bossEvent.phase = 'countdown'; }, s => { s.bossEvent.hp = 0; }, s => { s.bossEvent.defeatedAt = 1199000; },
+    s => { s.worldTime = 900; }, s => { s.worldTime = 4600; }, s => { s.bossEvent.city = 'tokyo'; }, s => { s.boss = null; },
+    s => { s.player.x += 300; }, s => { s.down = 3; }, s => { s.stun = 1; }, s => { s.player.knockdown = 1; },
+    s => { s.driving = true; }, s => { s.boating = true; }, s => { s.riding = true; }, s => { s.seated = {}; },
+    s => { s.appearance = cleanCharacter({ kind: 'human' }); },
+    s => { s.blocks = [{ x: s.player.x - 20, z: s.player.z, width: 2, depth: 30, height: 200 }]; }]) {
+    const s = eventFight(t, 'superman'); change(s); assert.equal(useKaijuPower(s), false);
+    assert.deepEqual(s.bossHits, {}); assert.equal(s.heroAttackCooldown, 0, 'misses do not consume recovery');
+  }
+  for (const kind of ['hulk', 'flash']) {
+    const s = eventFight(t, kind); s.player.height = 20; s.player.grounded = false;
+    assert.equal(useKaijuPower(s), false, `${kind} cannot ground-strike in midair`);
+  }
+  const flying = eventFight(t, 'ironman'); flying.player.height = 30; flying.player.flying = true;
+  flying.blocks = [{ x: flying.player.x - 20, z: flying.player.z, width: 2, depth: 30, height: 10 }];
+  assert.ok(kaijuPowerTarget(flying), 'flying beams pass over low cover'); assert.equal(useKaijuPower(flying), true);
+});
+
+test('editing, recovery and city travel retain Kaiju attack recovery; effects stay bounded', t => {
+  const s = eventFight(t, 'superman'); useKaijuPower(s);
+  const cooldown = s.heroAttackCooldown; setAppearance(s, cleanCharacter({ kind: 'ironman' }));
+  assert.equal(s.heroAttackCooldown, cooldown); assert.equal(useKaijuPower(s), false);
+  recover(s); assert.equal(s.heroAttackCooldown, cooldown);
+  const travelled = createSession(CITIES[1], s, s.appearance); assert.equal(travelled.heroAttackCooldown, cooldown);
+  const ammo = travelled.mags.pistol; attack(travelled); assert.equal(travelled.mags.pistol, ammo, 'travel cannot bypass recovery with a gun');
+  const parent = new THREE.Group(), effects = createHeroEffects(parent), pieces = [...parent.children[0].children];
+  for (const kind of Object.keys(KAIJU_POWERS)) {
+    const fight = eventFight(t, kind); useKaijuPower(fight);
+    for (let i = 0; i < 25; i++) { fight.time += 0.01; effects.update(fight); }
+    assert.deepEqual(parent.children[0].children, pieces);
+    parent.traverse(node => assert.ok([...node.position.toArray(), ...node.scale.toArray(), ...node.quaternion.toArray()].every(Number.isFinite)));
+    fight.time += 1; stepHeroPower(fight, 1); effects.update(fight);
+    assert.equal(fight.player.kaijuPowerFx, null); assert.equal(parent.children[0].visible, false);
+  }
+  effects.dispose();
 });

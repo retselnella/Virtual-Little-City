@@ -16,7 +16,7 @@ import { seatNear, venueAt, venueBlocks } from './venues.js';
 import { updateHelicopters } from './policeAir.js';
 import { HEALTH, hurtPlayer, markCombat, regenerateHealth, syncEventHealth } from './playerHealth.js';
 import { CHEAT_MOVEMENT } from './cheatCodes.js';
-import { activateHeroPower, heroMovement, resetHeroPower, stepHeroPower } from './heroPowers.js';
+import { activateHeroPower, heroMovement, kaijuPowerTarget, resetHeroPower, stepHeroPower } from './heroPowers.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -135,6 +135,8 @@ export function createSession(city, save = {}, appearance = null, arrival = null
   Object.assign(s, { bossEvent: null, boss: null, bossHits: {}, bossDeaths: 0, bossDeathReports: save.bossDeathReports || [], bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
   Object.assign(s, { maxHealth: HEALTH.base, healthBuffEvent: null, regenQuiet: 0, regenerating: false });
   s.cheats = { ...(save.cheats || {}) };
+  // Retain recovery across city travel; editing and respawning must not refresh a Kaiju strike.
+  s.heroAttackCooldown = Number.isFinite(save.heroAttackCooldown) ? Math.max(0, Math.min(5, save.heroAttackCooldown)) : 0;
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
     s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
@@ -387,6 +389,10 @@ export function startReload(s) {
   s.reload = w.reload; notify(s, 'Reloading...'); return true;
 }
 export function useHeroPower(s) {
+  if (s.appearance?.kind === 'hulk') {
+    if (s.heroAttackCooldown > 0) return false;
+    if (kaijuPowerTarget(s)) return useKaijuPower(s);
+  }
   const power = activateHeroPower(s);
   if (!power) return false;
   if (power === 'smash') {
@@ -404,9 +410,28 @@ export function useHeroPower(s) {
   else notify(s, 'Speed burst!');
   return true;
 }
+// A dedicated boss attack (H/touch), independent of the held gun and of flight/speed toggles.
+export function useKaijuPower(s) {
+  if (s.heroAttackCooldown > 0 || s.cooldown > 0 || (s.appearance?.kind === 'hulk' && s.player.powerCooldown > 0)) return false;
+  const target = kaijuPowerTarget(s);
+  if (!target) { notify(s, 'Kaiju power needs an active event, clear sight and a target in range. Ground attacks need solid ground.'); return false; }
+  const { power, from, to, heading } = target, p = s.player;
+  if (castShot(s, p, to)) { notify(s, 'Your Kaiju power is blocked by cover.'); return false; }
+  if (s.appearance.kind === 'hulk') {
+    activateHeroPower(s); p.powerPulse.radius = power.reach;
+  }
+  markCombat(s); p.heading = heading;
+  s.heroAttackCooldown = power.costMs / 1000;
+  s.cooldown = Math.max(s.cooldown, s.heroAttackCooldown);
+  s.bossHits[power.id] = (s.bossHits[power.id] || 0) + 1;
+  p.kaijuPowerFx = { from, to, color: power.color, time: s.time, kind: s.appearance.kind };
+  s.kaijuImpact = { ...to, time: s.time, kind: power.id, id: (s.kaijuImpact?.id || 0) + 1 };
+  notify(s, `${power.name} launched at the Kaiju!`);
+  return true;
+}
 export function attack(s) {
   const w = WEAPONS[s.weapon] || WEAPONS.fists, gun = w.gun;
-  if (!onFoot(s) || s.seated || s.down || s.cooldown > 0 || (gun && s.reload > 0)) return;
+  if (!onFoot(s) || s.seated || s.down || s.cooldown > 0 || s.heroAttackCooldown > 0 || (gun && s.reload > 0)) return;
   if (gun && !(s.mags[s.weapon] > 0)) { startReload(s); return; }
   markCombat(s);
   s.cooldown = w.cooldown; if (gun) s.mags[s.weapon]--;

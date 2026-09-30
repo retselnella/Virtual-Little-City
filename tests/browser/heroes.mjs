@@ -3,6 +3,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 import { cleanCharacter } from '../../src/models/worldTour/characterProfile.js';
+import { BOSS_HP, KAIJU_POWERS, eventForDay, phDay } from '../../src/models/worldTour/bossRules.js';
 
 const server = await preview({ preview: { host: '127.0.0.1', port: 0, strictPort: false } });
 const base = `http://127.0.0.1:${server.httpServer.address().port}`;
@@ -62,8 +63,37 @@ try {
   await mobile.screenshot({ path: 'test-results/hero-touch-landscape.png' });
   const landscape = await mobile.locator('.cheat-console').boundingBox();
   assert.ok(landscape.y >= 0 && landscape.y + landscape.height <= 391, 'power controls fit landscape');
+  await page.close(); await mobile.close();
+  // End-to-end boss damage through actual controls and the local event service, without injecting session state.
+  const fight = await browser.newPage({ viewport: { width: 1440, height: 960 } }), event = eventForDay(phDay(Date.now()));
+  fight.setDefaultTimeout(60000); fight.on('pageerror', e => errors.push(e.message));
+  await fight.clock.setFixedTime(new Date(event.startsAt + 200000)); // holds the boss on an open avenue
+  await fight.addInitScript(({ look, city }) => {
+    localStorage.setItem('little-city-character-v1', JSON.stringify(look));
+    localStorage.setItem('little-city-world-v1', JSON.stringify({ city }));
+  }, { look: cleanCharacter({ kind: 'superman' }), city: event.city });
+  await fight.goto(`${base}/?weather=clear`);
+  await fight.waitForFunction(() => !document.querySelector('.adventure-loading') && document.querySelector('.adventure-canvas canvas'));
+  const strike = fight.getByRole('button', { name: 'Kaiju power: Heat vision', exact: true });
+  await strike.waitFor(); assert.equal(await strike.isDisabled(), true, 'spawn is out of range');
+  await fight.keyboard.press('KeyG');
+  await fight.keyboard.down('Space'); await fight.waitForTimeout(1800); await fight.keyboard.up('Space');
+  await fight.keyboard.down('KeyD'); await fight.keyboard.down('ShiftLeft');
+  await fight.waitForFunction(() => document.querySelector('.hero-kaiju') && !document.querySelector('.hero-kaiju').disabled);
+  await fight.keyboard.up('KeyD'); await fight.keyboard.up('ShiftLeft');
+  await fight.keyboard.press('KeyH');
+  await fight.waitForFunction(({ id, damage }) => {
+    const store = JSON.parse(localStorage.getItem('little-city-boss-v1') || '{}');
+    return Object.values(store.events?.[id]?.players || {}).some(p => p.damage >= damage);
+  }, { id: event.id, damage: KAIJU_POWERS.superman.damage });
+  const hp = await fight.evaluate(id => JSON.parse(localStorage.getItem('little-city-boss-v1')).events[id].hp, event.id);
+  assert.equal(hp, BOSS_HP - KAIJU_POWERS.superman.damage, 'one power strike removes the server-balanced HP');
+  await fight.screenshot({ path: 'test-results/hero-kaiju-damage.png' });
+  await fight.setViewportSize({ width: 390, height: 844 });
+  await fight.screenshot({ path: 'test-results/hero-kaiju-phone.png' });
+  await fight.close();
   assert.deepEqual(errors, []);
-  console.log('Hero browser checks passed: creator, keyboard powers, edit/reset, saved hero, and touch flight controls.');
+  console.log('Hero browser checks passed: creator, keyboard powers, edit/reset, saved hero, touch flight, and real Kaiju damage.');
 } finally {
   await browser?.close(); await new Promise(resolve => server.httpServer.close(resolve));
 }

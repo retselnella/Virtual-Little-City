@@ -177,8 +177,9 @@ end $$;
 -- computes the damage itself, per weapon.
 -- Kaiju damage per hit and fire-time cost (ms) per weapon, in the order hits are charged (KAIJU_DAMAGE in bossRules.js).
 create or replace function public.boss_arms() returns table (ord integer, id text, damage bigint, cost_ms integer) language sql immutable as $$
-  values (1, 'fists', 50000::bigint, 450), (2, 'pistol', 34000, 367), (3, 'revolver', 98000, 792), (4, 'smg', 17500, 133), (5, 'shotgun', 145000, 1044),
-    (6, 'rifle', 32000, 225), (7, 'lmg', 26000, 154), (8, 'sniper', 290000, 1680), (9, 'rocket', 330000, 1700)
+  values (1, 'hulk_smash', 1500000::bigint, 5000), (2, 'superman_heat', 1080000, 4000), (3, 'flash_lightning', 780000, 3000), (4, 'ironman_repulsor', 910000, 3500),
+    (5, 'fists', 50000, 450), (6, 'pistol', 34000, 367), (7, 'revolver', 98000, 792), (8, 'smg', 17500, 133), (9, 'shotgun', 145000, 1044),
+    (10, 'rifle', 32000, 225), (11, 'lmg', 26000, 154), (12, 'sniper', 290000, 1680), (13, 'rocket', 330000, 1700)
 $$;
 revoke all on function public.boss_arms() from public, anon, authenticated; -- internal: players cannot call it
 
@@ -196,7 +197,8 @@ begin
   if not found or (test and not boss_testing()) then return jsonb_build_object('ok', false, 'reason', 'no-event', 'damage', 0); end if;
   if boss_phase(ev, t) <> 'active' then return jsonb_build_object('ok', false, 'reason', boss_phase(ev, t), 'damage', 0, 'hp', ev.hp); end if;
   if p_city is distinct from ev.city then return jsonb_build_object('ok', false, 'reason', 'wrong-city', 'damage', 0, 'hp', ev.hp); end if;
-  if p_hits is null or jsonb_typeof(p_hits) <> 'object' or exists (select 1 from jsonb_each(p_hits) e join boss_arms() a on a.id = e.key
+  if p_x is null or p_z is null or p_x::text in ('NaN', 'Infinity', '-Infinity') or p_z::text in ('NaN', 'Infinity', '-Infinity')
+      or p_hits is null or jsonb_typeof(p_hits) <> 'object' or exists (select 1 from jsonb_each(p_hits) e join boss_arms() a on a.id = e.key
       where jsonb_typeof(e.value) <> 'number' or (e.value #>> '{}')::numeric < 0 or (e.value #>> '{}')::numeric <> trunc((e.value #>> '{}')::numeric)) then
     return jsonb_build_object('ok', false, 'reason', 'bad-input', 'damage', 0, 'hp', ev.hp);
   end if;
@@ -213,7 +215,9 @@ begin
   now_ms := boss_ms(t); start_ms := greatest(boss_ms(player.last_at), now_ms - 8000); budget := now_ms - start_ms + 1000;
   for arm in select * from boss_arms() order by ord loop
     claimed := least(coalesce((p_hits ->> arm.id)::numeric, 0), 100000)::bigint;
-    n := greatest(0, least(claimed, floor(budget::numeric / arm.cost_ms)::bigint));
+    -- Powers (ord 1–4) charge recovery after the strike. One can begin with positive credit, then ALL attacks
+    -- repay its debt; mixing hero ids, guns or repeated RPCs cannot grant another independent damage budget.
+    n := greatest(0, least(claimed, (case when arm.ord <= 4 then ceil(budget::numeric / arm.cost_ms) else floor(budget::numeric / arm.cost_ms) end)::bigint));
     if n > 0 then
       accepted := accepted || jsonb_build_object(arm.id, n); budget := budget - n * arm.cost_ms; used := used + n * arm.cost_ms;
       dmg := dmg + n * arm.damage; n_hits := n_hits + n;

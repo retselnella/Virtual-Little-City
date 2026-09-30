@@ -199,6 +199,10 @@ export function createCharacter(scene, kit, palette = {}) {
         body.rotation.x += smash * 0.5;
         arms.forEach(arm => { arm.rotation.x = -smash * 1.4; });
       }
+      if (player.kaijuPowerFx && !hulk && !player.seated) {
+        arms.forEach(arm => { arm.rotation.x = -1.4; arm.rotation.z = 0; });
+        elbows.forEach(elbow => { elbow.rotation.x = 0; });
+      }
     },
   };
 }

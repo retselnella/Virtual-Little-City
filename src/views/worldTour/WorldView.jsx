@@ -46,7 +46,7 @@ function SkyIcon({ sky }) {
 
 // The pause menu: controls, and the few things worth knowing.
 const CONTROLS = [['W A S D', 'Move, drive or steer the boat'], ['Shift / Space', 'Sprint / jump (Space: handbrake)'], ['F', 'Get in or out of your car or boat'], ['Mouse · J', 'Point to aim; click, hold right button or J to fire'],
-  ['G · Space / Ctrl', 'Superpower · rise / descend during flight'],
+  ['G · H · Space / Ctrl', 'Movement power · Kaiju attack · rise / descend'],
   ['Q · 1–9 · R', 'Switch weapon · pick one · reload'], ['E', 'Pick up, deliver, metro, gun shop, heal'], ['M · L · B · N', 'Map · contracts · Kaiju · music'], ['Drag · scroll', 'Look around · zoom']];
 const TIPS = [
   ['Other islands.', 'Open the map (M), pick an island and press Sail. Your speedboat waits at the marina on the east waterfront; follow the gold marker to it.'],

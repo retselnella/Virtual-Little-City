@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { BOSS_HP, FIRE_GRACE_MS, FIRE_WINDOW_MS, KAIJU_DAMAGE, REWARDS, claimRewards, createBossStore, currentEvent, eventForDay, eventState, phDay, phaseAt, ranking, reportDeath, spendFireTime, submitHits, weekOf, weeklyState } from '../../src/models/worldTour/bossRules.js';
+import { BOSS_HP, FIRE_GRACE_MS, FIRE_WINDOW_MS, KAIJU_DAMAGE, KAIJU_POWERS, REWARDS, claimRewards, createBossStore, currentEvent, eventForDay, eventState, kaijuDps, phDay, phaseAt, ranking, reportDeath, spendFireTime, submitHits, weekOf, weeklyState } from '../../src/models/worldTour/bossRules.js';
 import { ATTACKS, KAIJU, attackAt, destructionAt, kaijuHazards, kaijuInReach, kaijuPose, standingBlocks } from '../../src/models/worldTour/worldBoss.js';
 import { CITIES, createSession, equip, generateBlocks, stepWorld, attack, recover } from '../../src/models/worldTour/worldAdventure.js';
 import { flushBossDeaths } from '../../src/services/bossDeathReports.js';
@@ -65,6 +65,69 @@ test('server SQL and local rules agree: schedule, rate limits, range and city ch
   assert.ok((spam.accepted.smg || 0) * KAIJU_DAMAGE.smg.costMs + (spam.accepted.rocket || 0) * KAIJU_DAMAGE.rocket.costMs <= FIRE_GRACE_MS + 1, `nothing banked, only the grace (${JSON.stringify(spam.accepted)})`);
   const after = await S.state(A, t + 4000);
   assert.equal(after.phase, 'active'); assert.equal(Number(after.hp), BOSS_HP - after.top.reduce((sum, r) => sum + Number(r.damage), 0));
+});
+
+test('hero damage is stronger than guns with bounded shared recovery, regardless of batching or spam', () => {
+  const powers = Object.values(KAIJU_POWERS), guns = Object.entries(KAIJU_DAMAGE).filter(([, arm]) => !arm.power);
+  const maxGunHit = Math.max(...guns.map(([, arm]) => arm.damage)), maxGunDps = Math.max(...guns.map(([id]) => kaijuDps(id)));
+  for (const power of powers) {
+    assert.ok(power.damage > maxGunHit);
+    assert.ok(kaijuDps(power.id) > maxGunDps * 1.3 && kaijuDps(power.id) < maxGunDps * 1.6);
+    for (const batch of [2000, 5500]) {
+      const times = Array.from({ length: 15 }, (_, i) => i * power.costMs);
+      let lastAt = 0, sent = 0, accepted = 0;
+      for (let now = batch; now <= Math.ceil((times.at(-1) + 1) / batch) * batch; now += batch) {
+        const n = times.filter(t => t < now).length - sent; sent += n;
+        const result = spendFireTime(lastAt, now, { [power.id]: n }); lastAt = result.lastAt; accepted += result.accepted[power.id] || 0;
+      }
+      assert.equal(accepted, times.length, `${power.id}: honest ${batch}ms batches count every hit`);
+    }
+    const first = spendFireTime(0, 0, { [power.id]: 1 }); assert.equal(first.damage, power.damage, 'first strike at event start counts');
+    const repeat = spendFireTime(first.lastAt, 0, Object.fromEntries(Object.keys(KAIJU_DAMAGE).map(id => [id, 1000])));
+    assert.equal(repeat.damage, 0, 'another power or gun cannot erase recovery debt');
+  }
+  let lastAt = 0, damage = 0;
+  const spam = Object.fromEntries(Object.keys(KAIJU_DAMAGE).map(id => [id, 100000]));
+  for (let now = 0; now <= 60000; now += 100) { const spent = spendFireTime(lastAt, now, spam); lastAt = spent.lastAt; damage += spent.damage; }
+  const maxRate = Math.max(...powers.map(p => p.damage / p.costMs)), maxRecovery = Math.max(...powers.map(p => p.costMs));
+  assert.ok(damage <= maxRate * (60000 + FIRE_GRACE_MS + maxRecovery), 'one shared budget plus at most one borrowed recovery');
+});
+
+test('Postgres and local mode agree on every hero, mixed attacks, malformed reports, HP and rankings', async () => {
+  const S = await server(), store = createBossStore(), ev = eventForDay(day), t = at(12, 3);
+  try {
+    await S.state(A, t); eventState(store, t);
+    const arms = (await S.db.query('select id, damage, cost_ms from boss_arms() order by ord')).rows;
+    assert.deepEqual(arms.map(a => [a.id, Number(a.damage), a.cost_ms]), Object.entries(KAIJU_DAMAGE).map(([id, arm]) => [id, arm.damage, arm.costMs]));
+    async function check(ms, hits, overrides = {}) {
+      const pose = kaijuPose((ms - ev.startsAt) / 1000), x = overrides.x ?? pose.x + 30, z = pose.z, city = overrides.city || ev.city;
+      const sql = await S.hit(A, ms, ev.id, hits, x, z, city);
+      const js = submitHits(store, { playerId: A, name: 'P', eventId: ev.id, hits, x, z, city, bossX: pose.x, bossZ: pose.z, now: ms });
+      assert.equal(sql.ok, js.ok); assert.equal(sql.reason, js.reason); assert.equal(Number(sql.damage), js.damage);
+      if (sql.ok) { assert.deepEqual(sql.accepted, js.accepted); assert.equal(Number(sql.hp), js.hp); }
+      return sql;
+    }
+    let ms = t;
+    for (const power of Object.values(KAIJU_POWERS)) {
+      const hit = await check(ms, { [power.id]: 1 }); assert.equal(Number(hit.damage), power.damage);
+      // The initial bank may pay multiple hits, but a repeated claim exhausts it once and then pays nothing.
+      await check(ms, { [power.id]: 1000, rocket: 1000 });
+      assert.equal(Number((await check(ms, { hulk_smash: 1000, superman_heat: 1000, flash_lightning: 1000, ironman_repulsor: 1000, pistol: 1000 })).damage), 0);
+      ms += 30000;
+    }
+    for (const bad of [-1, 0.5, 'bad', null]) assert.equal((await check(ms, { hulk_smash: bad })).reason, 'bad-input');
+    assert.equal((await check(ms, { hulk_smash: 1 }, { city: 'nowhere' })).reason, 'wrong-city');
+    assert.equal((await check(ms, { superman_heat: 1 }, { x: 5000 })).reason, 'out-of-range');
+    assert.equal((await check(ms, { hulk_smash: 1 }, { x: NaN })).reason, 'bad-input');
+    assert.equal((await S.hit(A, ms, ev.id, { hulk_smash: 1 }, null, 0, ev.city)).reason, 'bad-input');
+    const state = await S.state(A, ms), local = eventState(store, ms, A);
+    assert.equal(Number(state.hp), local.hp); assert.equal(Number(state.me.damage), local.me.damage); assert.equal(state.me.rank, 1);
+    const weekly = await S.as(A, ms, 'select public.boss_weekly_state() as v');
+    assert.equal(Number(weekly.v.rows[0].damage), local.me.damage, 'powers count toward weekly ranking');
+    await S.db.query('update boss_events set hp = 7 where id = $1', [ev.id]); store.events[ev.id].hp = 7;
+    assert.equal(Number((await check(ms + 10000, { hulk_smash: 1 })).damage), 7, 'overkill only credits remaining HP');
+    assert.equal((await check(ms + 20000, { ironman_repulsor: 1 })).reason, 'defeated');
+  } finally { await S.db.close(); }
 });
 
 test('the ranking orders players by damage with their share, and the kaiju can be defeated', async () => {

@@ -564,6 +564,7 @@
 .adventure:has(.cheat-console.is-open) .adventure-radar:not(.expanded){visibility:hidden}
 .adventure.touch .cheat-console{left:var(--edge-l);bottom:calc(var(--edge-b) + 185px);width:min(310px,calc(100vw - 24px))}
 .adventure:not(.touch) .cheat-console:has(.hero-power){left:auto;right:38px;bottom:200px;width:260px}
+.hero-power .hero-kaiju{margin-top:8px;border-color:#ff8b76;background:#ff8b761a;color:#ffe1d8;font-size:11px;gap:5px}
 .adventure.touch .cheat-console:has(.hero-power){bottom:calc(var(--edge-b) + 250px * var(--cluster))}
 .adventure.touch .cheat-console:has(.hero-power) .cheat-flight button{min-height:44px}
 @media(max-width:760px){.cheat-console{left:12px;bottom:12px}.cheat-console input{font-size:16px}}

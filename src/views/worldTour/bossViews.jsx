@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CITIES } from '../../models/worldTour/worldAdventure.js';
-import { BOSS_NAME, REWARDS } from '../../models/worldTour/bossRules.js';
+import { BOSS_NAME, KAIJU_POWERS, REWARDS, kaijuDps } from '../../models/worldTour/bossRules.js';
 
 // The game's world map (the same continents and city names as always), showing the whole world at once: where you are,
 // every city, and where the world boss is.
@@ -79,6 +79,12 @@ export function BossPanel({ boss, city, now, onClaim }) {
   return <div className="boss-panel">
     <p className="boss-status"><b>{status}</b> HP {ev.hp.toLocaleString()} / {ev.maxHp.toLocaleString()} ({(ev.hp / ev.maxHp * 100).toFixed(2)}%). Every day at 12:00 Philippine time {BOSS_NAME} rises off a different city for one hour. The server counts every hit.{city.id === ev.city ? ' It is on your island.' : ''}{ev.test ? ' This is a test event: its damage does not count toward the weekly board or rewards.' : ''}</p>
     <div className="boss-me"><div><small>YOUR DAMAGE</small><b>{ev.me.damage.toLocaleString()}</b></div><div><small>RANK</small><b>{ev.me.rank ? `#${ev.me.rank}` : '—'}</b></div><div><small>HITS</small><b>{ev.me.hits || 0}</b></div><div><small>DEATHS</small><b>{ev.me.deaths || 0}</b></div></div>
+    <details className="boss-power-guide"><summary>Superhero attacks · H or the Kaiju power button</summary>
+      <p>Choose a hero in Edit character. Powers hit harder than any gun, with recovery shared across attacks. Get in range with clear sight; Hulk and Flash need solid ground. G still controls flight, speed or Hulk's smash.</p>
+      <table className="boss-table"><thead><tr><th>Power</th><th>Damage</th><th>Recovery</th><th>Damage / s</th></tr></thead><tbody>
+        {Object.values(KAIJU_POWERS).map(p => <tr key={p.id}><td>{p.name}</td><td>{p.damage.toLocaleString()}</td><td>{p.costMs / 1000}s</td><td>{kaijuDps(p.id).toLocaleString()}</td></tr>)}
+      </tbody></table><p>Rocket launcher: {kaijuDps('rocket').toLocaleString()} damage / s, including reloads. Switching heroes or weapons does not refresh recovery.</p>
+    </details>
     <h3>Live ranking</h3>
     <table className="boss-table"><thead><tr><th>Rank</th><th>Player</th><th>Damage</th><th>Share</th></tr></thead>
       <tbody>{ev.top.length ? ev.top.map(r => <tr key={r.id} className={r.id === me ? 'mine' : ''}><td>{r.rank}</td><td>{r.name}</td><td>{r.damage.toLocaleString()}</td><td>{(r.share * 100).toFixed(1)}%</td></tr>) : <tr><td colSpan="4">No damage dealt yet.</td></tr>}</tbody></table>

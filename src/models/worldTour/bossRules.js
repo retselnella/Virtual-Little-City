@@ -1,4 +1,4 @@
-// World boss rules: the schedule, HP, weapon damage, rate limits, rankings and weekly rewards. These are the rules the
+// World boss rules: the schedule, HP, weapon/power damage, rate limits, rankings and weekly rewards. These are the rules the
 // server enforces (supabase/world-boss.sql implements exactly the same rules in Postgres, and tests check that both
 // agree); the browser only uses them to run the same-browser local mode and to predict what the server will answer.
 // All times are epoch milliseconds; the event follows Philippine time (UTC+8), like the game's clock.
@@ -13,7 +13,16 @@ export const CITY_ORDER = Object.freeze(['miami', 'tokyo', 'manila', 'london', '
 // Balance: sustained damage per second rises with price, from about 93k (the free pistol) to about 194k (the rocket
 // launcher, the most expensive), so the best gun is about twice the free one; fists are free but mean standing under
 // its feet, and the shotgun and fists only reach it up close.
+// Powers trade reach and recovery time for 34–55% more sustained damage than the best gun.
+// The id is sent as a hit count, never a client-provided damage amount. Movement powers remain separate.
+export const KAIJU_POWERS = Object.freeze({
+  hulk: { id: 'hulk_smash', name: 'Titan smash', damage: 1_500_000, costMs: 5000, reach: 40, ground: true, color: '#9dff76' },
+  superman: { id: 'superman_heat', name: 'Heat vision', damage: 1_080_000, costMs: 4000, reach: 180, color: '#ff6255' },
+  flash: { id: 'flash_lightning', name: 'Lightning strike', damage: 780_000, costMs: 3000, reach: 45, ground: true, color: '#ffd34e' },
+  ironman: { id: 'ironman_repulsor', name: 'Repulsor blast', damage: 910_000, costMs: 3500, reach: 160, color: '#8eeaff' },
+});
 export const KAIJU_DAMAGE = Object.freeze({
+  ...Object.fromEntries(Object.values(KAIJU_POWERS).map(p => [p.id, { damage: p.damage, costMs: p.costMs, power: true }])),
   fists: { damage: 50_000, costMs: 450 },
   pistol: { damage: 34_000, costMs: 367 },
   revolver: { damage: 98_000, costMs: 792 },
@@ -55,20 +64,24 @@ export function phaseAt(event, now, hp = event.maxHp, defeatedAt = null) {
   return now >= event.startsAt - EVENT.warningMs ? 'countdown' : 'scheduled';
 }
 
-// A batch of hits: { weaponId: count }. Unknown weapons are ignored; counts must be whole and not negative.
+// A batch of hits: { weaponOrPowerId: count }. Unknown ids are ignored; counts must be whole and not negative.
 export function validHits(hits) {
   if (!hits || typeof hits !== 'object' || Array.isArray(hits)) return false;
   return ARMS.every(id => hits[id] === undefined || (Number.isInteger(hits[id]) && hits[id] >= 0));
 }
 // Charge a batch against the player's fire time. `lastAt` is how far their fire time is used up (ms). Weapons are
-// taken in a fixed order, each accepting as many hits as the time left pays for. Returns the accepted hits, the damage
+// taken in a fixed order, powers first. A power charges its recovery after the hit: it may begin with any positive
+// budget, borrowing at most one recovery period. All weapons and powers repay that same debt before firing again.
+// This counts a first strike immediately even at event start, without adding a separate damage budget for powers.
+// Returns the accepted hits, the damage
 // and the new `lastAt`.
 export function spendFireTime(lastAt, now, hits) {
   const start = Math.max(lastAt, now - FIRE_WINDOW_MS);
   let budget = now - start + FIRE_GRACE_MS, used = 0, damage = 0, count = 0;
   const accepted = {};
   for (const id of ARMS) {
-    const arm = KAIJU_DAMAGE[id], n = Math.max(0, Math.min(Math.min(hits[id] || 0, 100_000), Math.floor(budget / arm.costMs)));
+    const arm = KAIJU_DAMAGE[id], capacity = arm.power ? Math.ceil(budget / arm.costMs) : Math.floor(budget / arm.costMs);
+    const n = Math.max(0, Math.min(Math.min(hits[id] || 0, 100_000), capacity));
     if (!n) continue;
     accepted[id] = n; budget -= n * arm.costMs; used += n * arm.costMs; damage += n * arm.damage; count += n;
   }
@@ -88,7 +101,7 @@ export function submitHits(store, { playerId, name, eventId, hits, x, z, city, b
   const phase = phaseAt(record, now, record.hp, record.defeatedAt);
   if (phase !== 'active') return { ok: false, reason: phase, damage: 0, hp: record.hp };
   if (city !== record.city) return { ok: false, reason: 'wrong-city', damage: 0, hp: record.hp };
-  if (!validHits(hits)) return { ok: false, reason: 'bad-input', damage: 0, hp: record.hp };
+  if (!validHits(hits) || ![x, z].every(Number.isFinite)) return { ok: false, reason: 'bad-input', damage: 0, hp: record.hp };
   if (Math.hypot(x - bossX, z - bossZ) > HIT_RANGE) return { ok: false, reason: 'out-of-range', damage: 0, hp: record.hp };
   const player = record.players[playerId] || (record.players[playerId] = { id: playerId, name, damage: 0, hits: 0, deaths: 0, lastAt: Math.max(record.startsAt, now - FIRE_WINDOW_MS), lastDeathAt: 0 });
   const spent = spendFireTime(player.lastAt, now, hits), damage = Math.min(record.hp, spent.damage);

@@ -270,7 +270,21 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 | #2–10 | $50,000 and the "Kaiju Hunter" title |
 | #11–100 | $10,000 and the "Defender" title |
 
-**Fair play**: the server decides everything that matters. Your game only reports *how many* hits landed with *each weapon*. The server applies each weapon's damage from its own table and charges every hit that weapon's firing time, cooldowns and reloads included. Each player earns one second of firing time per second, can bank up to 8 seconds, and gets one extra second for network delays, so nobody can land more hits than their guns can really fire, however the game is modified. It also checks your distance from where the Kaiju is at that moment (it computes the Kaiju's path itself). The server also owns the schedule, HP, defeat, deaths, rankings and rewards, and the destruction follows from the event's server-issued seed, so it is the same for everyone.
+**Superhero attacks:** during an active event in your city, press **H** or tap the **Kaiju power** button above City cheats. It aims at the Kaiju when you are in range with clear sight. Hulk's **G** smash also uses Titan smash when the boss is in range. Flight and speed toggles themselves do not cause damage. Powers cost no ammo and contribute to boss HP, your damage and rankings through the same server as guns.
+
+| Hero / power | Damage per hit | Recovery | Range to boss centre | Sustained damage / second |
+| --- | ---: | ---: | ---: | ---: |
+| Hulk / Titan smash | 1,500,000 | 5 s | 40 m, on the ground | 300,000 |
+| Superman / Heat vision | 1,080,000 | 4 s | 180 m | 270,000 |
+| Flash / Lightning strike | 780,000 | 3 s | 45 m, on the ground | 260,000 |
+| Iron Man / Repulsor blast | 910,000 | 3.5 s | 160 m | 260,000 |
+| Rocket launcher (comparison) | 330,000 | Firing cycle with reloads | 170 m | 194,118 |
+
+The closest attacks carry more risk; ranged powers give up some damage for reach. All four outperform every gun per hit and by about 34–55% in sustained damage. Guns retain their existing price/damage progression. A strike locks other attacks until recovery finishes; switching weapons, editing a character, respawning or travelling cannot refresh its recovery. Flying and moving still work during recovery. Power effects are local; HP and rankings are shared online.
+
+**Online update required:** rerun the whole `supabase/world-boss.sql` in the Supabase SQL Editor before deploying this version. It updates the existing hit function and damage table without deleting event progress or rankings. Local play works immediately. Older server functions do not recognise superhero hit IDs.
+
+**Fair play**: the game reports hit counts by weapon or power, never damage amounts. The server calculates damage from its own table and charges every hit against one shared firing-time budget, including cooldowns and reloads. Each player earns one second per second, banks up to 8 seconds, and gets one second for network jitter. A power can start with positive credit and charges its recovery afterward; all attacks must repay that same recovery debt. Mixing powers, guns or repeated requests cannot create extra budgets. The server also checks the active event, city and distance to its own computed Kaiju position, caps damage to remaining HP, and owns HP, defeat, deaths, rankings and rewards.
 
 ### Music
 

@@ -482,7 +482,7 @@ export function mountAdventure(host, session, input, paused, onUpdate, onError, 
   function posePlayer(s) {
     const shot = s.shots.find(x => !x.police);
     guns.flash(!!shot && shot.ttl > 0.07);
-    if (s.driving || s.down) return;
+    if (s.driving || s.down || s.player.kaijuPowerFx) return;
     if ((s.player.flying || (s.appearance?.kind === 'hulk' && s.player.powerActive)) && !s.aimTime && !input.current.attack && !pointer.hold) return;
     const gun = GUN_INFO[s.weapon] ? s.weapon : null;
     poseArms(avatar.avatar, gun, s.aimTime > 0 || (!!gun && (input.current.attack || pointer.hold)), s.punchTime, s.combo, shot ? shot.ttl / 0.12 : 0, s.aimTime > 0 ? s.aimPitch : 0);
