@@ -5,9 +5,9 @@ import { cleanCharacter, playerLook } from '../../src/models/worldTour/character
 import { CITIES, attack, createSession, equip, recover, setAppearance, stepWorld, useHeroPower, useKaijuPower } from '../../src/models/worldTour/worldAdventure.js';
 import { BOSS_HP, KAIJU_POWERS } from '../../src/models/worldTour/bossRules.js';
 import { kaijuPose } from '../../src/models/worldTour/worldBoss.js';
-import { kaijuPowerTarget, stepHeroPower } from '../../src/models/worldTour/heroPowers.js';
+import { FLASH_MOVEMENT, kaijuPowerTarget, stepHeroPower } from '../../src/models/worldTour/heroPowers.js';
 import { disposePhysics } from '../../src/models/worldTour/physicsEngine.js';
-import { encodeProfile, cleanProfile } from '../../src/models/worldTour/multiplayer.js';
+import { encodeProfile, cleanProfile, encodeState, cleanState, samplePlayer } from '../../src/models/worldTour/multiplayer.js';
 import { createCharacter } from '../../src/scenes/shared/character.js';
 import { createHeroEffects } from '../../src/scenes/worldTour/heroEffects.js';
 
@@ -71,7 +71,7 @@ test('speed burst and flight cannot tunnel through a thin wall, even with stacke
     s.cheats.speed = true; useHeroPower(s);
     run(s, 2, { forward: true, run: true, jump: kind === 'superman' }, 0.05);
     assert.ok(s.player.z < 24.5, `${kind} stopped before wall: ${s.player.z}`);
-    assert.ok(s.player.speed <= 56.001);
+    assert.ok(s.player.speed <= (kind === 'flash' ? FLASH_MOVEMENT.maxSpeed : 56) + 0.001);
     run(s, 0.75); assert.ok(s.player.speed < 0.02, 'releasing controls brakes smoothly');
   }
 });
@@ -91,6 +91,60 @@ test('movement speed is consistent across diagonals, analog input and frame rate
   assert.equal(straight.time, before);
   stepWorld(straight, { stick: { x: NaN, y: Infinity } }, 0.05);
   assert.ok([straight.player.x, straight.player.z, straight.player.height].every(Number.isFinite));
+});
+
+test('Flash has a faster sprint and burst, a bounded cheat stack, and smooth braking and expiry', t => {
+  const s = quiet(t, 'flash');
+  run(s, 1, { forward: true, run: true });
+  assert.ok(Math.abs(s.player.speed - 36) < 0.01, 'normal sprint is 60% faster than the old 22.5');
+  useHeroPower(s); run(s, 1, { forward: true, run: true });
+  assert.ok(Math.abs(s.player.speed - 108) < 0.01, 'burst is nearly twice the old 56 cap');
+  s.cheats.speed = true; run(s, 0.5, { forward: true, right: true, run: true });
+  assert.ok(s.player.speed <= 108.001, 'cheats and diagonals cannot exceed the cap');
+  const stopped = { x: s.player.x, z: s.player.z };
+  run(s, 0.8);
+  assert.ok(s.player.speed < 0.01);
+  assert.ok(Math.hypot(s.player.x - stopped.x, s.player.z - stopped.z) < 10, 'braking travel stays bounded');
+  s.cheats.speed = false; run(s, 2.5, { forward: true, run: true });
+  assert.equal(s.player.powerActive, false);
+  assert.ok(Math.abs(s.player.speed - 36) < 0.1, 'expiry returns to the normal sprint');
+});
+
+test('full-speed Flash cannot cross thin walls, corners or parked cars during long frames', t => {
+  for (const diagonal of [false, true]) {
+    const s = quiet(t, 'flash', [
+      { x: 8, z: 130, width: 400, depth: 0.2, height: 30 },
+      { x: -110, z: 12, width: 0.2, depth: 400, height: 30 },
+    ]);
+    s.cheats.speed = true; useHeroPower(s);
+    run(s, 2.5, { forward: true, right: diagonal, run: true }, 0.05);
+    assert.ok(s.player.z < 129.5 && s.player.x > -109.5, 'swept capsule stays outside the walls');
+    const before = { x: s.player.x, z: s.player.z };
+    stepWorld(s, { forward: true, right: diagonal, run: true }, 5, 0);
+    assert.ok(Math.hypot(s.player.x - before.x, s.player.z - before.z) <= 5.41, 'a stalled frame never teleports the player');
+    run(s, 0.5, { backward: true, run: true });
+    assert.ok(s.player.z < before.z - 20, 'reversing gets away from the wall without sticking');
+  }
+  const car = quiet(t, 'flash'); Object.assign(car.car, { x: 8, z: 130 });
+  useHeroPower(car); run(car, 2, { forward: true, run: true }, 0.05);
+  assert.ok(car.player.z < car.car.z - 2, 'parked cars remain solid');
+  assert.ok([car.player.x, car.player.z, car.player.height, car.player.speed].every(Number.isFinite));
+});
+
+test('Flash covers the same distance across frame rates and keeps his speed in shared-world snapshots', t => {
+  const distances = [];
+  for (const dt of [1 / 20, 1 / 30, 1 / 60, 1 / 120]) {
+    const s = quiet(t, 'flash'); useHeroPower(s);
+    run(s, 1, { forward: true, run: true }, dt);
+    distances.push(s.player.z - 12);
+    const state = cleanState(encodeState(s, 1000));
+    assert.equal(state.s, 108, 'remote animation receives the full burst speed');
+    const pose = samplePlayer({ snapshots: [{ ...state, at: 1000, z: 100 }, { ...state, at: 1100, z: 110.8 }] }, 1170);
+    assert.ok(Math.abs(pose.z - 105.4) < 0.001, 'remote positions interpolate without snapping');
+    assert.equal(pose.s, 108);
+  }
+  assert.ok(Math.min(...distances) > 95, 'the speed increase translates to actual travel');
+  assert.ok(Math.max(...distances) - Math.min(...distances) < 0.1, 'travel does not depend on frame rate');
 });
 
 test('vehicles, stun, death, edits, recovery and city travel cannot leave powers stuck on', t => {

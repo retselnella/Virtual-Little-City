@@ -630,7 +630,7 @@ function stepSimulation(s, input, dt, yaw) {
     if (s.seated) { stepCharacterBody(p, 0, 0, dt); p.heading = s.seated.heading; p.speed = 0; }
     const magnitude = Math.hypot(forward, right), length = Math.max(1, magnitude);
     // Bound combined hero/cheat speeds and normalize diagonals before the swept collision controller.
-    const speed = Math.min(56, (control.run ? 15 * (p.look?.speed || 1) : 8) * (s.cheats.speed ? CHEAT_MOVEMENT.speed : 1) * hero.speed);
+    const speed = Math.min(hero.maxSpeed, (control.run ? 15 * (p.look?.speed || 1) : 8) * (s.cheats.speed ? CHEAT_MOVEMENT.speed : 1) * hero.speed);
     const dx = s.seated ? 0 : (Math.sin(yaw) * forward - Math.cos(yaw) * right) / length * speed;
     const dz = s.seated ? 0 : (Math.cos(yaw) * forward + Math.sin(yaw) * right) / length * speed;
     if (!s.seated) stepCharacterBody(p, dx, dz, dt);

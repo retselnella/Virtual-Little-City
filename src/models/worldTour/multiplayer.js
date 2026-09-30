@@ -2,6 +2,7 @@ import { CITIES, LIMIT } from './worldAdventure.js';
 import { cleanCharacter, cleanName, DEFAULT_CHARACTER, playerLook } from './characterProfile.js';
 import { WEAPON_ORDER } from './weapons.js';
 import { MAX_STARS, starsOf } from './wanted.js';
+import { FLASH_MOVEMENT } from './heroPowers.js';
 
 // Shared-world presence: every player broadcasts where they are, how they look and the attacks they make; everyone
 // renders the others as "ghosts" (visible, not collidable) that aim, punch and fire. Traffic, pedestrians, police and
@@ -23,14 +24,14 @@ export function encodeState(s, now, actions = []) {
   const driving = !!s.driving, body = driving ? s.car : s.boating ? s.boat : s.riding ? s.train : s.player, q = s.car.q || [0, Math.sin(s.car.heading / 2), 0, Math.cos(s.car.heading / 2)];
   return {
     v: 1, t: Math.round(now), x: round(body.x), z: round(body.z), y: round(driving ? s.car.y || 0 : s.riding ? s.train.y + 0.4 : s.boating ? 0 : s.player.height || 0), h: round(body.heading || 0, 3),
-    s: round(Math.min(80, Math.abs(body.speed || 0)), 1), d: driving ? 1 : 0, ...(s.boating ? { b: 1 } : {}),
+    s: round(Math.min(FLASH_MOVEMENT.maxSpeed, Math.abs(body.speed || 0)), 1), d: driving ? 1 : 0, ...(s.boating ? { b: 1 } : {}),
     ...(driving ? { q: q.map(n => round(n, 3)) } : {}), k: s.down > 0 ? 1 : 0, w: Math.max(0, WEAPON_ORDER.indexOf(s.weapon)), a: s.aimTime > 0 ? 1 : 0, ...(s.heat > 0 ? { st: starsOf(s.heat) } : {}), ...(s.seated ? { si: 1 } : {}),
     ...(actions.length ? { e: actions.slice(-MAX_ACTIONS).map(a => ({ i: a.id, k: a.kind === 'shot' ? 's' : 'p', c: a.combo, x: round(a.x), z: round(a.z), b: a.blood ? 1 : 0 })) } : {}),
   };
 }
 export function cleanState(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== 1) return null;
-  const x = finite(raw.x, LIMIT), z = finite(raw.z, LIMIT), y = finite(raw.y, 300), h = finite(raw.h, 1e4), speed = finite(raw.s, 80);
+  const x = finite(raw.x, LIMIT), z = finite(raw.z, LIMIT), y = finite(raw.y, 300), h = finite(raw.h, 1e4), speed = finite(raw.s, FLASH_MOVEMENT.maxSpeed);
   if ([x, z, y, h, speed].includes(null)) return null;
   const state = { x, z, y: Math.max(0, y), h: Math.atan2(Math.sin(h), Math.cos(h)), s: Math.abs(speed), d: raw.d === 1, b: raw.b === 1 && raw.d !== 1, k: raw.k === 1, w: Number.isInteger(raw.w) && raw.w > 0 && raw.w < WEAPON_ORDER.length ? WEAPON_ORDER[raw.w] : null, a: raw.a === 1, st: Number.isInteger(raw.st) && raw.st >= 0 && raw.st <= MAX_STARS ? raw.st : 0, si: raw.si === 1 && raw.d !== 1 && raw.b !== 1 };
   if (state.d) {

@@ -47,7 +47,7 @@ The character creator appears before your first game.
   | **Robot** | plating (chrome, gunmetal, gold, pearl, teal, rust red); visor and antenna | Takes 20% less damage. |
   | **Hulk** | broad green body, bare feet and purple trousers | Double punch strength, high jumps and a ground smash. |
   | **Superman** | blue suit, red cape and chest shield | Strong punches and controllable flight. |
-  | **Flash** | red suit and cowl, gold lightning accents | Faster sprinting and a timed speed burst. |
+  | **Flash** | red suit and cowl, gold lightning accents | 36 m/s sprint; G boosts sprinting to 108 m/s for 4 seconds. Combined cheats stay capped at 108 m/s. |
   | **Iron Man** | armour, gold faceplate and glowing chest reactor | Extra armour and flight with thruster effects. |
 
 - **Look**: skin, fur or plating, hair style and colour (humans and brutes; a cap takes the hair colour), shirt, trousers and shoes. The creator only offers what each kind's model shows: a wolf walks on paws, so it has no shoes; a brute's shirt is a vest; a robot is painted instead of dressed (chest panel, shoulder pads and waist band, leg plating and feet). The name of each current choice appears next to its label.

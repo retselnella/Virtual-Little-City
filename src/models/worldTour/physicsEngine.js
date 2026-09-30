@@ -19,6 +19,7 @@ const groups = (member, filter) => (member << 16) | filter;
 const SOLID = GROUP.GROUND | GROUP.STATIC | GROUP.PROP;
 const WHEEL_RAYS = groups(GROUP.VEHICLE, GROUP.GROUND | GROUP.STATIC);
 const CHARACTER_QUERY = groups(GROUP.CHARACTER, SOLID);
+const FAST_CHARACTER_QUERY = groups(GROUP.CHARACTER, SOLID | GROUP.VEHICLE);
 const SHOT_QUERY = groups(GROUP.QUERY, SOLID | GROUP.VEHICLE | GROUP.RAGDOLL);
 const CHARACTER_FLAGS = RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC | RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC | RAPIER.QueryFilterFlags.EXCLUDE_SENSORS;
 
@@ -237,7 +238,13 @@ function moveCharacter(P, entry, dt, vertical) {
   if (entry.grounded && vertical <= 0 && Math.abs(person.vx || 0) + Math.abs(person.vz || 0) < 0.02 && !entry.push.x && !entry.push.z) return;
   const desired = { x: (person.vx || 0) * dt + entry.push.x, y: vertical * dt - (vertical <= 0 && !person.flying ? 0.02 : 0), z: (person.vz || 0) * dt + entry.push.z };
   entry.push = { x: 0, z: 0 };
-  P.kcc.computeColliderMovement(entry.collider, desired, CHARACTER_FLAGS, CHARACTER_QUERY);
+  // At superhero speed, contact push-out alone can let a runner pass through a car between steps.
+  // Sweep against vehicle chassis too; loose props and other characters still cannot trap the runner.
+  const fast = person.speed > 56;
+  P.kcc.computeColliderMovement(entry.collider, desired,
+    fast ? CHARACTER_FLAGS & ~RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC : CHARACTER_FLAGS,
+    fast ? FAST_CHARACTER_QUERY : CHARACTER_QUERY,
+    fast ? collider => !collider.parent()?.isDynamic() || P.byCollider.get(collider.handle)?.kind === 'vehicle' : undefined);
   const m = P.kcc.computedMovement();
   entry.grounded = P.kcc.computedGrounded();
   body.setNextKinematicTranslation({ x: t.x + m.x, y: Math.max(entry.half + entry.radius, t.y + m.y), z: t.z + m.z });

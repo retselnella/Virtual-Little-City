@@ -3,6 +3,8 @@ import { KAIJU_POWERS } from './bossRules.js';
 import { blockHit, kaijuRise } from './aiming.js';
 import { kaijuPose } from './worldBoss.js';
 
+export const FLASH_MOVEMENT = Object.freeze({ burst: 3, maxSpeed: 108 });
+
 export const HERO_POWERS = Object.freeze({
   smash: { name: 'Ground smash', cooldown: KAIJU_POWERS.hulk.costMs / 1000, duration: 0.65, color: '#9dff76' },
   flight: { name: 'Flight', cooldown: 0, duration: 0, color: '#8eeaff' },
@@ -40,7 +42,7 @@ export function stepHeroPower(s, dt) {
 
 export function heroMovement(s) {
   const power = kindOf(s.appearance).power, active = !!s.player.powerActive;
-  return { flight: active && power === 'flight', speed: active && power === 'speed' ? 2.5 : 1 };
+  return { flight: active && power === 'flight', speed: active && power === 'speed' ? FLASH_MOVEMENT.burst : 1, maxSpeed: power === 'speed' ? FLASH_MOVEMENT.maxSpeed : 56 };
 }
 
 export const kaijuPower = s => Object.hasOwn(KAIJU_POWERS, s.appearance?.kind) ? KAIJU_POWERS[s.appearance.kind] : null;

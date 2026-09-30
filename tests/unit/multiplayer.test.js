@@ -14,7 +14,7 @@ test('states round-trip from a session and hostile values are clamped or rejecte
   s.driving = true; const driving = cleanState(encodeState(s, 1100)); assert.equal(driving.d, true); assert.equal(driving.q.length, 4);
   for (const bad of [null, 'x', { v: 2 }, { v: 1, x: NaN, z: 0, y: 0, h: 0, s: 0 }, { v: 1, x: '1', z: 0, y: 0, h: 0, s: 0 }]) assert.equal(cleanState(bad), null);
   const wild = cleanState({ v: 1, x: 1e9, z: -1e9, y: -5, h: 99, s: 1e6, d: 1, q: [9, 9, 9, 9] });
-  assert.equal(wild.x, 6000); assert.equal(wild.z, -6000); assert.equal(wild.y, 0); assert.equal(wild.s, 80); assert.ok(Math.abs(wild.h) <= Math.PI);
+  assert.equal(wild.x, 6000); assert.equal(wild.z, -6000); assert.equal(wild.y, 0); assert.equal(wild.s, 108); assert.ok(Math.abs(wild.h) <= Math.PI);
   assert.ok(Math.abs(Math.hypot(...wild.q) - 1) < 1e-9);
 });
 
