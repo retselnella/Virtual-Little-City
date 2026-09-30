@@ -17,7 +17,7 @@ try {
   mkdirSync('test-results', { recursive: true });
   await page.goto(base);
   const button = name => page.getByRole('button', { name, exact: true });
-  for (const kind of ['Hulk', 'Superman', 'Flash', 'Iron Man']) {
+  for (const kind of ['Hulk', 'Superman', 'Flash', 'Iron Man', 'Thor', 'Wonder Woman', 'Doctor Strange']) {
     await button(kind).click();
     assert.equal(await button(kind).getAttribute('aria-pressed'), 'true');
     await page.screenshot({ path: `test-results/hero-${kind.toLowerCase().replaceAll(' ', '-')}.png` });
@@ -44,6 +44,16 @@ try {
   assert.equal(await button('Superpower: Speed burst').getAttribute('aria-pressed'), 'false');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('little-city-character-v1')));
   assert.equal(saved.kind, 'flash');
+  for (const [name, power] of [['Thor', 'Thunder pulse'], ['Wonder Woman', 'Bracelet guard'], ['Doctor Strange', 'Flight']]) {
+    await button('Controls and pause menu').click(); await button('Edit character').click();
+    await button(name).click(); await button('Save look').click();
+    await button(`Superpower: ${power}`).click();
+    await page.waitForFunction(() => document.querySelector('.hero-power button')?.getAttribute('aria-pressed') === 'true');
+    await page.screenshot({ path: `test-results/power-${name.toLowerCase().replaceAll(' ', '-')}.png` });
+  }
+  await page.reload(); await page.waitForFunction(() => !document.querySelector('.adventure-loading') && document.querySelector('.adventure-canvas canvas'));
+  assert.equal(await button('Superpower: Flight').getAttribute('aria-pressed'), 'false');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('little-city-character-v1')).kind), 'strange');
   // A real touch viewport gets the same activation and flight controls, with no keyboard required.
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   mobile.setDefaultTimeout(45000); mobile.on('pageerror', e => errors.push(e.message));
@@ -63,6 +73,15 @@ try {
   await mobile.screenshot({ path: 'test-results/hero-touch-landscape.png' });
   const landscape = await mobile.locator('.cheat-console').boundingBox();
   assert.ok(landscape.y >= 0 && landscape.y + landscape.height <= 391, 'power controls fit landscape');
+  await mobile.getByRole('button', { name: 'Controls and pause menu', exact: true }).tap();
+  await mobile.getByRole('button', { name: 'Edit character', exact: true }).tap();
+  await mobile.getByRole('button', { name: 'Wonder Woman', exact: true }).tap();
+  await mobile.getByRole('button', { name: 'Save look', exact: true }).tap();
+  const guard = mobile.getByRole('button', { name: 'Superpower: Bracelet guard', exact: true });
+  await guard.tap();
+  await mobile.waitForFunction(() => document.querySelector('.hero-power button')?.getAttribute('aria-pressed') === 'true');
+  assert.equal(await mobile.getByRole('button', { name: 'Fly up', exact: true }).count(), 0, 'guard does not retain the previous hero flight');
+  await mobile.screenshot({ path: 'test-results/hero-guard-touch.png' });
   await page.close(); await mobile.close();
   // End-to-end boss damage through actual controls and the local event service, without injecting session state.
   const fight = await browser.newPage({ viewport: { width: 1440, height: 960 } }), event = eventForDay(phDay(Date.now()));
@@ -74,7 +93,7 @@ try {
   }, { look: cleanCharacter({ kind: 'superman' }), city: event.city });
   await fight.goto(`${base}/?weather=clear`);
   await fight.waitForFunction(() => !document.querySelector('.adventure-loading') && document.querySelector('.adventure-canvas canvas'));
-  const strike = fight.getByRole('button', { name: 'Kaiju power: Heat vision', exact: true });
+  const strike = fight.getByRole('button', { name: 'Hero attack: Heat vision', exact: true });
   await strike.waitFor(); assert.equal(await strike.isDisabled(), true, 'spawn is out of range');
   await fight.keyboard.press('KeyG');
   await fight.keyboard.down('Space'); await fight.waitForTimeout(1800); await fight.keyboard.up('Space');

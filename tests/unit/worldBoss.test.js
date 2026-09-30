@@ -2,19 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { BOSS_HP, FIRE_GRACE_MS, FIRE_WINDOW_MS, KAIJU_DAMAGE, KAIJU_POWERS, REWARDS, claimRewards, createBossStore, currentEvent, eventForDay, eventState, kaijuDps, phDay, phaseAt, ranking, reportDeath, spendFireTime, submitHits, weekOf, weeklyState } from '../../src/models/worldTour/bossRules.js';
+import { BOSS_HP, FIRE_GRACE_MS, FIRE_WINDOW_MS, KAIJU_DAMAGE, KAIJU_POWERS, REWARDS, claimRewards, createBossStore, currentEvent, eventForDay, eventsForDay, eventState, kaijuDps, phDay, phaseAt, ranking, reportDeath, spendFireTime, submitHits, weekOf, weeklyState } from '../../src/models/worldTour/bossRules.js';
 import { ATTACKS, KAIJU, attackAt, destructionAt, kaijuHazards, kaijuInReach, kaijuPose, standingBlocks } from '../../src/models/worldTour/worldBoss.js';
 import { CITIES, createSession, equip, generateBlocks, stepWorld, attack, recover } from '../../src/models/worldTour/worldAdventure.js';
 import { flushBossDeaths } from '../../src/services/bossDeathReports.js';
 import { aimFromRay, kaijuRayHit, kaijuRise } from '../../src/models/worldTour/aiming.js';
 import { sceneryLayout } from '../../src/models/worldTour/worldLayout.js';
 
-const PH = 8 * 3600_000, day = phDay(Date.UTC(2026, 8, 24, 4)), at = (h, m = 0, s = 0, d = day) => d * 86_400_000 - PH + ((h * 60 + m) * 60 + s) * 1000;
+const PH = 8 * 3600_000, day = phDay(Date.UTC(2026, 8, 24, 4)), at = (h, m = 0, s = 0, d = day) => eventForDay(d).startsAt + (((h - 12) * 60 + m) * 60 + s) * 1000;
 const A = '00000000-0000-4000-8000-00000000000a', B = '00000000-0000-4000-8000-00000000000b', C = '00000000-0000-4000-8000-00000000000c';
 
 // The real server SQL, in an in-memory Postgres, with Supabase's auth.uid() and API roles stubbed.
 async function server() {
   const db = new PGlite();
+  test.after(async () => { if (!db.closed) await db.close(); });
   await db.exec(`create role anon; create role authenticated; create schema auth;
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
     grant usage on schema public, auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;
@@ -32,13 +33,48 @@ async function server() {
     hit: (uid, ms, event, hits, x, z, city, name = 'P') => as(uid, ms, 'select public.boss_hit($1, $2::jsonb, $3, $4, $5, $6) as v', [event, JSON.stringify(hits), x, z, city, name]).then(r => r.v) };
 }
 
-test('the kaiju arrives at 12:00 Philippine time, on each city in turn, for one hour', () => {
-  const event = eventForDay(day);
-  assert.equal(new Date(event.startsAt).toISOString(), new Date(Date.UTC(2026, 8, 24, 4)).toISOString(), '12:00 PHT is 04:00 UTC');
-  assert.equal(event.endsAt - event.startsAt, 3600_000); assert.equal(event.maxHp, BOSS_HP);
-  assert.equal(phaseAt(event, at(9)), 'scheduled'); assert.equal(phaseAt(event, at(11, 30)), 'countdown'); assert.equal(phaseAt(event, at(12, 0, 1)), 'active');
-  assert.equal(phaseAt(event, at(13, 0, 1)), 'ended'); assert.equal(currentEvent(at(13, 5)).day, day + 1, 'after the hour, the next event is tomorrow');
-  assert.equal(new Set(Array.from({ length: 7 }, (_, k) => eventForDay(day + k).city)).size, 7, 'a week visits every city');
+test('three shared random spawns per Philippine day, spaced apart with exact transitions', () => {
+  const minutes = new Set();
+  for (let d = day - 30; d <= day + 30; d++) {
+    const events = eventsForDay(d);
+    assert.equal(new Set(events.map(e => e.id)).size, 3);
+    for (const [slot, event] of events.entries()) {
+      const minute = (event.startsAt - (d * 86400000 - PH)) / 60000;
+      minutes.add(minute % 180);
+      assert.ok(minute >= (8 + slot * 6) * 60 && minute < (11 + slot * 6) * 60);
+      assert.equal(phDay(event.startsAt), d);
+      assert.equal(event.endsAt - event.startsAt, 3600000);
+      assert.equal(event.maxHp, BOSS_HP);
+      assert.deepEqual(eventForDay(d, slot), event);
+      assert.equal(phaseAt(event, event.startsAt - 3600001), 'scheduled');
+      assert.equal(phaseAt(event, event.startsAt - 3600000), 'countdown');
+      assert.equal(phaseAt(event, event.startsAt), 'active');
+      assert.equal(phaseAt(event, event.endsAt), 'ended');
+      assert.equal(currentEvent(event.endsAt - 1).id, event.id);
+      assert.equal(currentEvent(event.endsAt).id, slot === 2 ? eventForDay(d + 1).id : events[slot + 1].id);
+    }
+    assert.equal(currentEvent(d * 86400000 - PH).id, events[0].id);
+  }
+  assert.ok(minutes.size > 60, 'spawn minutes vary across days and slots');
+  assert.equal(new Set(Array.from({ length: 7 }, (_, k) => eventForDay(day + k).city)).size, 7);
+});
+
+test('Postgres matches all randomized slots and countdown boundaries, and migration preserves history', async () => {
+  const S = await server();
+  try {
+    for (let d = day - 7; d <= day + 7; d++) for (const ev of eventsForDay(d)) {
+      const start = (await S.db.query('select boss_ms(boss_spawn_start($1, $2)) as t', [d, ev.slot])).rows[0].t;
+      assert.equal(Number(start), ev.startsAt);
+      for (const now of [ev.startsAt - 3600001, ev.startsAt - 1, ev.startsAt, ev.endsAt - 1, ev.endsAt]) {
+        const sql = await S.state(A, now), local = eventState(createBossStore(), now, A);
+        for (const key of ['id', 'city', 'seed', 'startsAt', 'endsAt', 'nextStartsAt', 'nextCity', 'phase']) assert.equal(sql[key], local[key], key);
+      }
+    }
+    const oldId = 'boss-' + day;
+    await S.db.query('insert into boss_events values ($1,$2,$3,$2,to_timestamp($4),to_timestamp($4 + 3600),1000000000,12345,null)', [oldId, day, 'manila', at(12) / 1000]);
+    await S.db.exec(readFileSync(new URL('../../supabase/world-boss.sql', import.meta.url), 'utf8'));
+    assert.equal(Number((await S.db.query('select hp from boss_events where id=$1', [oldId])).rows[0].hp), 12345);
+  } finally { await S.db.close(); }
 });
 
 test('server SQL and local rules agree: schedule, rate limits, range and city checks, damage', async () => {
@@ -153,7 +189,7 @@ test('the event ends on its own after an hour and the next one is prepared', asy
   const S = await server(), event = eventForDay(day);
   await S.state(A, at(12, 1));
   const late = await S.state(A, at(13, 0, 30));
-  assert.equal(late.id, eventForDay(day + 1).id); assert.equal(late.phase, 'scheduled'); assert.notEqual(late.city, event.city);
+  assert.equal(late.id, eventForDay(day, 1).id); assert.equal(late.phase, 'scheduled'); assert.notEqual(late.city, event.city);
   assert.equal((await S.hit(A, at(13, 0, 30), event.id, { pistol: 1 }, 0, 0, event.city)).reason, 'ended');
 });
 
@@ -192,7 +228,7 @@ test('test mode runs on the real project without touching real data, and reverts
   assert.equal((await testState(B, at(12, 3, 6))).id, real.id);
   // The owner moves the test clock to 12:05 on another city's day: only ?bosstest players follow it.
   const target = CITIES.find(c => c.id !== real.city && c.id !== eventForDay(day + 1).city).id;
-  assert.match(await owner(at(12, 3), `select public.boss_test_clock('12:05', '${target}') as v`), /test kaiju attacks/);
+  assert.match(await owner(at(12, 3), `select public.boss_test_clock('active', '${target}') as v`), /Aegis Titan/);
   const fight = await testState(B, at(12, 3, 10));
   assert.equal(fight.test, true); assert.match(fight.id, /^test-/); assert.equal(fight.phase, 'active'); assert.equal(fight.city, target); assert.equal(Number(fight.hp), BOSS_HP);
   const everyone = await S.state(A, at(12, 3, 10));
@@ -442,7 +478,7 @@ test('free aim: point at any part of the kaiju, from its feet to its head, and t
   assert.equal(line.kind, 'person'); assert.equal(line.target.id, 'g');
 });
 
-test('the aiming body follows the kaiju model: its walk, its tail and its attacks', async () => {
+test('the aiming body follows the kaiju model: its walk, its armor and its attacks', async () => {
   // The scene's sound hooks need a page; a bare stand-in is enough to build the model here.
   globalThis.document ??= { addEventListener() {}, removeEventListener() {}, hidden: false };
   globalThis.addEventListener ??= () => {}; globalThis.removeEventListener ??= () => {};
@@ -463,4 +499,21 @@ test('the aiming body follows the kaiju model: its walk, its tail and its attack
     assert.ok(extra / model < 0.15, `t=${t}: and few that miss it do (${extra})`);
     kaiju.dispose();
   }
+});
+
+test('Titan renders every attack phase with finite transforms and releases its scene objects', async () => {
+  const THREE = await import('three'), { createKaiju } = await import('../../src/scenes/worldTour/kaijuScene.js');
+  const root = new THREE.Group(), titan = createKaiju(root), types = new Set();
+  try {
+    for (let i = 0; i < 40; i++) {
+      const a = attackAt(3, i); types.add(a.type);
+      for (const t of [a.start + 0.1, a.impact + 0.1, a.end - 0.01]) {
+        titan.update({ boss: { ...kaijuPose(t), t, alive: true }, bossEvent: { seed: 3, startsAt: 0 }, ruins: null, time: t }, 0.016, new THREE.PerspectiveCamera(), []);
+        root.updateMatrixWorld(true);
+        root.traverse(object => assert.ok(object.matrixWorld.elements.every(Number.isFinite), a.type));
+      }
+    }
+    assert.equal(types.size, Object.keys(ATTACKS).length);
+  } finally { titan.dispose(); }
+  assert.equal(root.children.length, 0);
 });

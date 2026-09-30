@@ -11,11 +11,12 @@ export function createHeroEffects(parent) {
     update(s) {
       const p = s.player, kind = s.appearance?.kind, pulse = p.powerPulse, strike = p.kaijuPowerFx;
       const beam = strike && kind !== 'hulk' && s.time - strike.time < 0.4;
-      const smash = kind === 'hulk' && pulse && s.time - pulse.time < 0.65;
-      const active = p.powerActive && (kind === 'flash' ? p.speed > 2 : p.flying);
+      const smash = pulse && s.time - pulse.time < 0.65;
+      const guard = kind === 'wonderwoman' && p.powerActive && p.powerTime > 0;
+      const active = p.powerActive && (kind === 'flash' ? p.speed > 2 : guard || p.flying);
       group.visible = canUsePower(s) && !!(beam || smash || active);
       if (!group.visible) return;
-      material.color.set(beam ? strike.color : smash ? '#9dff76' : kind === 'flash' ? '#ffd34e' : '#8eeaff');
+      material.color.set(beam ? strike.color : smash ? pulse.color || '#9dff76' : guard ? '#ffe18b' : kind === 'strange' ? '#c299ff' : kind === 'flash' ? '#ffd34e' : '#8eeaff');
       const age = smash ? Math.max(0, (s.time - pulse.time) / 0.65) : 0;
       material.opacity = beam ? Math.max(0, 1 - (s.time - strike.time) / 0.4) : smash ? 0.8 * (1 - age) : 0.65;
       for (let i = 0; i < pieces.length; i++) {
@@ -24,11 +25,15 @@ export function createHeroEffects(parent) {
         if (beam) {
           const a = strike.from, b = strike.to, segment = kind === 'superman' ? i % 12 : i, count = kind === 'superman' ? 12 : 24;
           const u = (segment + 0.5) / count, length = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-          const offset = kind === 'flash' ? Math.sin(segment * 2.4) * 0.6 : kind === 'superman' ? (i < 12 ? -0.14 : 0.14) * (1 - u) : 0;
+          const offset = kind === 'flash' || kind === 'thor' ? Math.sin(segment * 2.4) * 0.6 : kind === 'superman' ? (i < 12 ? -0.14 : 0.14) * (1 - u) : 0;
           piece.position.set(a.x + (b.x - a.x) * u + offset, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u);
           piece.lookAt(b.x, b.y, b.z);
           const width = kind === 'ironman' ? 0.24 : 0.09;
           piece.scale.set(width, width, length / count + (kind === 'flash' ? 0.6 : 0.03));
+        } else if (guard) {
+          const angle = phase * Math.PI * 2 + s.time * 0.5;
+          piece.position.set(p.x + Math.sin(angle) * 1.4, p.height + 1.6 + Math.sin(angle * 3) * 0.25, p.z + Math.cos(angle) * 1.4);
+          piece.rotation.y = angle; piece.scale.set(0.3, 0.12, 0.07);
         } else if (smash) {
           const angle = phase * Math.PI * 2, radius = 1 + age * ((pulse.radius || 9) - 1);
           piece.position.set(pulse.x + Math.sin(angle) * radius, pulse.y + 0.18, pulse.z + Math.cos(angle) * radius);

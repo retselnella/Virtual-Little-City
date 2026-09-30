@@ -6,7 +6,7 @@ import { IslandLayers, PlayerArrow, SeaChart, mapView } from './islandMap.jsx';
 import { THEMES, MARINA } from '../../models/worldTour/worldIsland.js';
 import { STATIONS, nearestStation } from '../../models/worldTour/metro.js';
 import { voyage } from '../../models/worldTour/worldBoat.js';
-import { BOSS_NAME } from '../../models/worldTour/bossRules.js';
+import { BOSS_NAME, bossTimeText } from '../../models/worldTour/bossRules.js';
 import { BossBanner, BossHits, BossPanel, WorldAtlas } from './bossViews.jsx';
 import { ShopPanel, WeaponBar } from './weaponViews.jsx';
 import { MusicPanel } from './musicViews.jsx';
@@ -47,8 +47,8 @@ function SkyIcon({ sky }) {
 // The pause menu: controls, and the few things worth knowing.
 const CONTROLS = [['W A S D', 'Move, drive or steer the boat'], ['Shift / Space', 'Sprint / jump (Space: handbrake)'], ['F', 'Get in or out of your car or boat'], ['Mouse · J', 'Point to aim; click, hold right button or J to fire'],
   ['T', 'Talk to a nearby resident'],
-  ['G · H · Space / Ctrl', 'Movement power · Kaiju attack · rise / descend'],
-  ['Q · 1–9 · R', 'Switch weapon · pick one · reload'], ['E', 'Pick up, deliver, metro, gun shop, heal'], ['M · L · B · N', 'Map · contracts · Kaiju · music'], ['Drag · scroll', 'Look around · zoom']];
+  ['G · H · Space / Ctrl', 'Special power · hero attack · rise / descend'],
+  ['Q · 1–9 · R', 'Switch weapon · pick one · reload'], ['E', 'Pick up, deliver, metro, gun shop, heal'], ['M · L · B · N', 'Map · contracts · Aegis Titan · music'], ['Drag · scroll', 'Look around · zoom']];
 const TIPS = [
   ['Other islands.', 'Open the map (M), pick an island and press Sail. Your speedboat waits at the marina on the east waterfront; follow the gold marker to it.'],
   ['Police.', 'Attacks bring wanted stars. At one star officers try to arrest you; at two they shoot. Stop attacking and stay out of sight to lose them.'],
@@ -140,7 +140,7 @@ export default function WorldView({ controller, onEditCharacter }) {
       <nav aria-label="World navigation">
         <button onClick={() => openMap()}>◎ <span>Map</span><kbd>M</kbd></button>
         <button onClick={() => open('contracts')}>◇ <span>Contracts</span><kbd>L</kbd></button>
-        <button onClick={() => open('boss')} className={bossEvent?.phase === 'active' ? 'boss-live' : ''}>✸ <span>{BOSS_NAME}</span><kbd>B</kbd></button>
+        <button onClick={() => open('boss')} aria-label={`${BOSS_NAME} event and rankings`} className={bossEvent?.phase === 'active' ? 'boss-live' : ''}>✸ <span>{BOSS_NAME}</span><kbd>B</kbd></button>
         <button onClick={() => open('music')} className={music.playing ? 'music-live' : ''} title={music.track ? `${music.track.title}${music.track.artist ? ` · ${music.track.artist}` : ''}` : 'Music'}>♫ <span>Music</span><kbd>N</kbd></button>
         <button onClick={() => open('help')} aria-label="Controls and pause menu">Ⅱ</button>
       </nav>
@@ -150,7 +150,7 @@ export default function WorldView({ controller, onEditCharacter }) {
       <div className={`wanted${hud.heat > 0 && hud.lostFor > escapeTime(hud.heat) ? ' fading' : ''}`} aria-label={`Wanted level ${starsOf(hud.heat)} of ${MAX_STARS}`}>{Array.from({ length: MAX_STARS }, (_, i) => <span key={i} className={starsOf(hud.heat) > i ? 'lit' : ''}>★</span>)}</div>
       <strong>${hud.cash.toLocaleString()}</strong>
       <label className={hud.health < hud.maxHealth * 0.35 ? 'low' : ''}><span>HEALTH</span><b>{Math.ceil(hud.health)} / {hud.maxHealth}</b><progress aria-label="Player health" max={hud.maxHealth} value={hud.health} /></label>
-      {hud.healthBuffEvent ? <div className="health-effect">KAIJU BUFF +500 HP</div> : hud.regenerating && <div className="health-effect">RECOVERING +5 HP/s</div>}
+      {hud.healthBuffEvent ? <div className="health-effect">TITAN BUFF +500 HP</div> : hud.regenerating && <div className="health-effect">RECOVERING +5 HP/s</div>}
       <div className="weapon-status"><span>{vehicle[0]}</span><b>{vehicle[1]}</b></div>
     </section>
     {touch ? <div className={'touch-info' + (infoOpen ? ' open' : '')}>
@@ -221,11 +221,11 @@ export default function WorldView({ controller, onEditCharacter }) {
         : <p className="world-tip"><b>Teleport</b> to arrive instantly at that island's City Hub, or <b>Sail</b> there in your speedboat: it waits at the marina on the <b>east</b> side ({marina.distance} m {marina.direction}).</p>}
       <div className="destination-grid">{CITIES.map(c => {
         const here = city.id === c.id, trip = voyage(city, c);
-        const bossHere = bossEvent && (bossEvent.phase === 'active' || bossEvent.phase === 'countdown') && bossEvent.city === c.id;
+        const bossHere = bossEvent && (bossEvent.phase === 'active' || bossEvent.phase === 'countdown' || bossEvent.phase === 'scheduled') && bossEvent.city === c.id;
         return <article key={c.id} className={(here ? 'selected' : '') + (picked === c.id ? ' picked' : '')} style={{ '--destination-color': c.color }} aria-label={`${c.country} ${c.name}`} title={THEMES[c.id].summary} onMouseEnter={() => setPicked(c.id)}>
           <small>{c.country}</small><strong>{c.name}</strong>
           <span className="progress">{hud.completed.filter(key => key.startsWith(c.id + ':')).length}/{CONTRACTS.length} contracts{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</span>
-          {bossHere && <span className="boss-tag">{BOSS_NAME} {bossEvent.phase === 'active' ? 'attacking now' : 'at 12:00'}</span>}
+          {bossHere && <span className="boss-tag">{BOSS_NAME} {bossEvent.phase === 'active' ? 'attacking now' : bossTimeText(bossEvent.startsAt)}</span>}
           {here ? <span className="here-tag">● You are here</span> : <div className="trip-buttons">
             <button className="teleport" disabled={!canTravel} onClick={() => teleport(c.id)}>Teleport</button>
             <button disabled={!canTravel || course?.to === c.id} onClick={() => sail(c.id)}>{course?.to === c.id ? 'Course set' : `Sail · ${(trip.total / 1000).toFixed(1)} km`}</button>

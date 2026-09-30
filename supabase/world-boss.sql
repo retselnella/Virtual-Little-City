@@ -2,8 +2,7 @@
 -- highlighted, or it runs only the selection), after realtime-policies.sql. Safe to run again after updates; it keeps
 -- your data. See README.md, section 15.
 --
--- The server decides everything that matters: when the kaiju appears (12:00 Philippine time every day, on each city in
--- turn), its HP (1,000,000,000), how much damage each weapon's hit does, how many hits a player can land per second, whether
+-- The server decides everything that matters: when Aegis Titan appears (three shared randomized times daily in Philippine time), its HP (1,000,000,000), how much damage each weapon's hit does, how many hits a player can land per second, whether
 -- the kaiju is in range, when it dies, the live ranking, the weekly leaderboard and weekly rewards. Clients can only
 -- call the functions below (they cannot read or write the tables), and they only ever send *what they did* (how many
 -- hits with each weapon since their last report, and where they are), never damage numbers or HP.
@@ -54,8 +53,11 @@ create index if not exists boss_rewards_unclaimed_idx on public.boss_rewards (us
 
 -- Rewards are configurable: edit this table (ranks are inclusive).
 insert into public.boss_reward_tiers (rank_from, rank_to, tier, cash, title)
-select * from (values (1, 1, 'Champion', 100000, 'Kaiju Slayer'), (2, 10, 'Top 10', 50000, 'Kaiju Hunter'), (11, 100, 'Top 100', 10000, 'Defender')) as t
+select * from (values (1, 1, 'Champion', 100000, 'Titan Slayer'), (2, 10, 'Top 10', 50000, 'Titan Hunter'), (11, 100, 'Top 100', 10000, 'Defender')) as t
 where not exists (select 1 from public.boss_reward_tiers);
+-- Rename only the old default titles; retain custom rewards and previously earned titles.
+update public.boss_reward_tiers set title = 'Titan Slayer' where title = 'Kaiju Slayer';
+update public.boss_reward_tiers set title = 'Titan Hunter' where title = 'Kaiju Hunter';
 
 -- No direct access: row level security with no policies, and no table privileges for API roles.
 alter table public.boss_events enable row level security;
@@ -91,9 +93,18 @@ create or replace function public.boss_week(t timestamptz) returns integer langu
   select public.boss_ph_day(t) - (((public.boss_ph_day(t) + 3) % 7) + 7) % 7 $$;
 create or replace function public.boss_city(day integer) returns text language sql immutable as $$
   select (array['miami','tokyo','manila','london','dubai','rio','cape'])[((day % 7) + 7) % 7 + 1] $$;
--- The event for a Philippine day starts at 12:00 PHT and lasts an hour.
+-- Three deterministic random minutes in 08:00-10:59, 14:00-16:59 and 20:00-22:59 PHT.
+create or replace function public.boss_spawn_start(day integer, slot integer) returns timestamptz language plpgsql immutable as $$
+declare r bigint;
+begin
+  if slot < 0 or slot > 2 then raise exception 'Invalid boss slot'; end if;
+  r := (((day::bigint % 2147483647 + 2147483647) % 2147483647) * 48271 + (slot + 1) * 69621) % 2147483647;
+  r := (r * 48271) % 2147483647;
+  return to_timestamp(day::double precision * 86400 - 28800 + ((8 + slot * 6) * 60 + r % 180) * 60);
+end $$;
+-- Retain the original helper signature for existing installations.
 create or replace function public.boss_event_start(day integer) returns timestamptz language sql immutable as $$
-  select to_timestamp(day::double precision * 86400 - 28800 + 12 * 3600) $$;
+  select public.boss_spawn_start(day, 0) $$;
 
 -- The kaiju's path (same as kaijuPose in worldBoss.js): it wades in from the east, then walks the avenues.
 create or replace function public.boss_position(t double precision, out x double precision, out z double precision) language plpgsql immutable as $$
@@ -110,13 +121,16 @@ end $$;
 -- Today's event (or tomorrow's once today's has ended); creates its row when it starts. Test events ('test-…') are
 -- separate rows on the test clock, so they never touch the real event.
 create or replace function public.boss_event_now(p_test boolean default false) returns public.boss_events language plpgsql security definer set search_path = public as $$
-declare testing boolean := p_test and boss_testing(); t timestamptz := boss_clock(testing); d integer := boss_ph_day(t); ev public.boss_events;
+declare testing boolean := p_test and boss_testing(); t timestamptz := boss_clock(testing); d integer := boss_ph_day(t); ev public.boss_events; slot integer := 0;
   prefix text := case when testing then 'test-' else 'boss-' end;
 begin
-  if t >= boss_event_start(d) + interval '1 hour' then d := d + 1; end if;
-  select * into ev from boss_events where id = prefix || d;
+  while t >= boss_spawn_start(d, slot) + interval '1 hour' loop
+    slot := slot + 1;
+    if slot = 3 then d := d + 1; slot := 0; end if;
+  end loop;
+  select * into ev from boss_events where id = prefix || d || '-' || slot;
   if not found then
-    ev := row(prefix || d, d, boss_city(d), d, boss_event_start(d), boss_event_start(d) + interval '1 hour', 1000000000, 1000000000, null)::boss_events;
+    ev := row(prefix || d || '-' || slot, d, boss_city(d * 3 + slot), d * 3 + slot, boss_spawn_start(d, slot), boss_spawn_start(d, slot) + interval '1 hour', 1000000000, 1000000000, null)::boss_events;
     if t >= ev.starts_at then insert into boss_events values (ev.*) on conflict (id) do nothing; select * into ev from boss_events where id = ev.id; end if;
   end if;
   return ev;
@@ -166,6 +180,7 @@ begin
   end if;
   return jsonb_build_object(
     'id', ev.id, 'test', ev.id like 'test-%', 'city', ev.city, 'seed', ev.seed, 'startsAt', boss_ms(ev.starts_at), 'endsAt', boss_ms(ev.ends_at), 'maxHp', ev.max_hp, 'hp', ev.hp,
+    'nextStartsAt', boss_ms(boss_spawn_start(ev.day + case when ev.seed - ev.day * 3 = 2 then 1 else 0 end, (ev.seed - ev.day * 3 + 1) % 3)), 'nextCity', boss_city(ev.seed + 1),
     'defeatedAt', case when ev.defeated_at is null then null else boss_ms(ev.defeated_at) end, 'phase', boss_phase(ev, t), 'serverNow', boss_ms(t), 'totalDamage', total,
     'top', coalesce((select jsonb_agg(row_to_json(r) order by r.rank) from (
       select row_number() over (order by damage desc, user_id) as rank, user_id::text as id, name, damage, case when total > 0 then damage::double precision / total else 0 end as share
@@ -178,8 +193,9 @@ end $$;
 -- Kaiju damage per hit and fire-time cost (ms) per weapon, in the order hits are charged (KAIJU_DAMAGE in bossRules.js).
 create or replace function public.boss_arms() returns table (ord integer, id text, damage bigint, cost_ms integer) language sql immutable as $$
   values (1, 'hulk_smash', 1500000::bigint, 5000), (2, 'superman_heat', 1080000, 4000), (3, 'flash_lightning', 780000, 3000), (4, 'ironman_repulsor', 910000, 3500),
-    (5, 'fists', 50000, 450), (6, 'pistol', 34000, 367), (7, 'revolver', 98000, 792), (8, 'smg', 17500, 133), (9, 'shotgun', 145000, 1044),
-    (10, 'rifle', 32000, 225), (11, 'lmg', 26000, 154), (12, 'sniper', 290000, 1680), (13, 'rocket', 330000, 1700)
+    (5, 'thor_thunder', 1260000, 4500), (6, 'wonderwoman_lasso', 1120000, 4000), (7, 'strange_arcane', 910000, 3500),
+    (8, 'fists', 50000, 450), (9, 'pistol', 34000, 367), (10, 'revolver', 98000, 792), (11, 'smg', 17500, 133), (12, 'shotgun', 145000, 1044),
+    (13, 'rifle', 32000, 225), (14, 'lmg', 26000, 154), (15, 'sniper', 290000, 1680), (16, 'rocket', 330000, 1700)
 $$;
 revoke all on function public.boss_arms() from public, anon, authenticated; -- internal: players cannot call it
 
@@ -215,9 +231,9 @@ begin
   now_ms := boss_ms(t); start_ms := greatest(boss_ms(player.last_at), now_ms - 8000); budget := now_ms - start_ms + 1000;
   for arm in select * from boss_arms() order by ord loop
     claimed := least(coalesce((p_hits ->> arm.id)::numeric, 0), 100000)::bigint;
-    -- Powers (ord 1–4) charge recovery after the strike. One can begin with positive credit, then ALL attacks
+    -- Powers (ord 1–7) charge recovery after the strike. One can begin with positive credit, then ALL attacks
     -- repay its debt; mixing hero ids, guns or repeated RPCs cannot grant another independent damage budget.
-    n := greatest(0, least(claimed, (case when arm.ord <= 4 then ceil(budget::numeric / arm.cost_ms) else floor(budget::numeric / arm.cost_ms) end)::bigint));
+    n := greatest(0, least(claimed, (case when arm.ord <= 7 then ceil(budget::numeric / arm.cost_ms) else floor(budget::numeric / arm.cost_ms) end)::bigint));
     if n > 0 then
       accepted := accepted || jsonb_build_object(arm.id, n); budget := budget - n * arm.cost_ms; used := used + n * arm.cost_ms;
       dmg := dmg + n * arm.damage; n_hits := n_hits + n;
@@ -314,21 +330,24 @@ grant execute on function public.boss_state(boolean), public.boss_hit(text, json
 -- ---- Test mode, safe on the real project. The owner sets a test clock; only players who open the game with ?bosstest
 -- in the address follow it, and they fight separate test events ('test-…') whose damage never counts toward the weekly
 -- board or rewards. Everyone else keeps the real schedule. Run these in the SQL editor (players cannot call them):
---   select public.boss_test_clock('11:58');           -- testers see the countdown, on today's city
---   select public.boss_test_clock('12:05', 'manila');  -- testers fight, on a day the kaiju attacks Manila
+--   select public.boss_test_clock('countdown');           -- testers see the countdown, on today's city
+--   select public.boss_test_clock('active', 'manila');  -- testers fight, on a day the kaiju attacks Manila
 --   select public.boss_test_reset();                   -- a fresh test kaiju (deletes test events and test damage)
 --   select public.boss_test_clock_off();               -- revert: test mode off and every test event and test damage deleted
 create or replace function public.boss_test_clock(ph_time text, p_city text default null) returns text language plpgsql security definer set search_path = public as $$
 declare real_now timestamptz := boss_real_now(); d integer := boss_ph_day(boss_real_now()); target timestamptz;
 begin
-  if ph_time !~ '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' then raise exception 'Use HH:MM, 24-hour Philippine time, for example 12:05'; end if;
+  if ph_time not in ('active', 'countdown') and ph_time !~ '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' then raise exception 'Use active, countdown, or HH:MM Philippine time'; end if;
   if p_city is not null then
     if p_city <> all (array['miami','tokyo','manila','london','dubai','rio','cape']) then raise exception 'Unknown city %', p_city; end if;
-    while boss_city(d) <> p_city loop d := d + 1; end loop;
+    if ph_time not in ('active', 'countdown') then raise exception 'Use active or countdown when choosing a city'; end if;
+    while boss_city(d * 3) <> p_city loop d := d + 1; end loop;
   end if;
-  target := to_timestamp(d::double precision * 86400 - 28800) + ph_time::interval;
+  target := case ph_time when 'active' then boss_spawn_start(d, 0) + interval '5 minutes'
+    when 'countdown' then boss_spawn_start(d, 0) - interval '2 minutes'
+    else to_timestamp(d::double precision * 86400 - 28800) + ph_time::interval end;
   insert into public.boss_test_clock (id, offset_ms) values (true, boss_ms(target) - boss_ms(real_now)) on conflict (id) do update set offset_ms = excluded.offset_ms;
-  return format('Test clock: %s PH time; the test kaiju attacks %s. Open the game with ?bosstest. Revert with boss_test_clock_off().', to_char((target at time zone 'UTC') + interval '8 hours', 'YYYY-MM-DD HH24:MI'), boss_city(d));
+  return format('Test clock: %s PH time. Open the game with ?bosstest to see Aegis Titan and its schedule. Revert with boss_test_clock_off().', to_char((target at time zone 'UTC') + interval '8 hours', 'YYYY-MM-DD HH24:MI'));
 end $$;
 create or replace function public.boss_test_reset() returns text language plpgsql security definer set search_path = public as $$
 begin delete from public.boss_events where id like 'test-%'; return 'Test events and test damage deleted.'; end $$;

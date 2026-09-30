@@ -17,7 +17,7 @@ import { seatNear, venueAt, venueBlocks } from './venues.js';
 import { updateHelicopters } from './policeAir.js';
 import { HEALTH, hurtPlayer, markCombat, regenerateHealth, syncEventHealth } from './playerHealth.js';
 import { CHEAT_MOVEMENT } from './cheatCodes.js';
-import { activateHeroPower, heroMovement, kaijuPowerTarget, resetHeroPower, stepHeroPower } from './heroPowers.js';
+import { activateHeroPower, cityPowerTarget, guardMultiplier, heroMovement, heroPower, kaijuPowerTarget, resetHeroPower, stepHeroPower } from './heroPowers.js';
 
 export const CITIES = [
   { id: 'miami', name: 'Miami', country: 'United States', district: 'Ocean Drive', region: 'North America', color: '#ff8bb5', sky: '#d998ac', ground: '#9ba78b', buildings: ['#f5ccb5', '#b6d5cf', '#dbb1c9'], trees: 'palm', map: [25, 39], seed: 7, tagline: 'Pink skies. Fast cars. A fresh start.' },
@@ -136,8 +136,9 @@ export function createSession(city, save = {}, appearance = null, arrival = null
   Object.assign(s, { bossEvent: null, boss: null, bossHits: {}, bossDeaths: 0, bossDeathReports: save.bossDeathReports || [], bossMemory: new Set(), baseBlocks: s.blocks, ruins: null });
   Object.assign(s, { maxHealth: HEALTH.base, healthBuffEvent: null, regenQuiet: 0, regenerating: false });
   s.cheats = { ...(save.cheats || {}) };
-  // Retain recovery across city travel; editing and respawning must not refresh a Kaiju strike.
+  // Retain recovery across city travel; editing and respawning must not refresh an Aegis Titan strike.
   s.heroAttackCooldown = Number.isFinite(save.heroAttackCooldown) ? Math.max(0, Math.min(5, save.heroAttackCooldown)) : 0;
+  s.heroGuardCooldown = Number.isFinite(save.heroGuardCooldown) ? Math.max(0, Math.min(10, save.heroGuardCooldown)) : 0;
   if (arrival === 'boat') {
     s.boat = createBoat(ARRIVAL); s.boating = true;
     s.message = `Welcome to ${city.name}! Steer for the marina pier on the waterfront and press F to go ashore.`;
@@ -201,7 +202,7 @@ export const travelBlocked = s => s.mission ? 'Finish or abandon your contract f
 export function promptFor(s) {
   if (s.down) return null;
   if (s.riding) return s.train.station !== null ? { key: 'E', action: 'interact', text: `Get off at ${STATIONS[s.train.station].name}` } : { key: null, text: `Metro · next stop ${STATIONS[s.train.next].name}` };
-  if (s.stun > 0) return { key: null, text: 'Stunned by the roar!' };
+  if (s.stun > 0) return { key: null, text: 'Stunned by the EMP pulse!' };
   if (s.seated) return { key: 'E', action: 'interact', text: 'Get up' };
   if (s.metro) return { key: 'E', action: 'interact', text: `Waiting for the metro · ${Math.ceil(arrivalIn(s.worldTime ?? s.time, s.metro.station))} s · E to leave` };
   const at = actor(s), point = objectivePoint(s);
@@ -309,7 +310,7 @@ export function toggleVehicle(s) {
 }
 export const PISTOL_RANGE = WEAPONS.pistol.range, FIST_RANGE = WEAPONS.fists.range;
 // The robot's plating takes the edge off every kind of damage.
-const armorOf = s => s.player.look?.armor || 1;
+const armorOf = s => (s.player.look?.armor || 1) * guardMultiplier(s);
 const needsAmmo = s => s.owned.some(id => (s.mags[id] ?? 0) < WEAPONS[id].magazine);
 // Switch to a weapon you own (fists are always available). A reload in progress is cancelled.
 export function equip(s, id) {
@@ -394,44 +395,54 @@ export function startReload(s) {
   s.reload = w.reload; notify(s, 'Reloading...'); return true;
 }
 export function useHeroPower(s) {
-  if (s.appearance?.kind === 'hulk') {
+  const ability = heroPower(s);
+  if (ability?.ground && ((!s.player.grounded && s.player.height > 0.12) || s.player.flying)) return false;
+  if (ability?.combat) {
     if (s.heroAttackCooldown > 0) return false;
     if (kaijuPowerTarget(s)) return useKaijuPower(s);
   }
   const power = activateHeroPower(s);
   if (!power) return false;
-  if (power === 'smash') {
+  if (ability.combat) {
     const p = s.player;
     markCombat(s);
+    s.heroAttackCooldown = ability.cooldown; s.cooldown = Math.max(s.cooldown, ability.cooldown);
     for (const e of s.enemies) {
       const dx = e.x - p.x, dz = e.z - p.z, distance = Math.hypot(dx, dz);
-      if (e.health <= 0 || e.child || distance > 9 || Math.abs((e.height || 0) - (p.height || 0)) > 3 || !clearSight(p, e, s.blocks)) continue;
-      injure(s, e, 65 * (1 - distance / 18), dx || 0.1, dz, 'punch');
-      pushCharacter(e, dx || 0.1, dz, 14, 3); e.knockdown = 1.4;
+      if (e.health <= 0 || e.child || distance > ability.radius || Math.abs((e.height || 0) - (p.height || 0)) > 3 || !clearSight(p, e, s.blocks) || castShot(s, p, { x: e.x, y: (e.height || 0) + 2.2, z: e.z }, { target: e })) continue;
+      injure(s, e, 65 * (1 - distance / (ability.radius * 2)), dx || 0.1, dz, 'punch');
+      pushCharacter(e, dx || 0.1, dz, power === 'smash' ? 14 : 8, 3); e.knockdown = 1.4;
       raiseHeat(s, Math.max(1, s.heat));
     }
-    notify(s, 'Hulk smash!');
+    notify(s, `${ability.name}!`);
   } else if (power === 'flight') notify(s, s.player.powerActive ? 'Flight on. Space to rise, Ctrl to descend; G to land.' : 'Flight off. Returning to the ground.');
+  else if (power === 'guard') notify(s, 'Bracelet guard: 40% less incoming damage for five seconds.');
   else notify(s, 'Speed burst!');
   return true;
 }
-// A dedicated boss attack (H/touch), independent of the held gun and of flight/speed toggles.
+// H/touch prioritizes an in-range Aegis Titan, otherwise a hostile city actor; every hit shares recovery with guns.
 export function useKaijuPower(s) {
-  if (s.heroAttackCooldown > 0 || s.cooldown > 0 || (s.appearance?.kind === 'hulk' && s.player.powerCooldown > 0)) return false;
-  const target = kaijuPowerTarget(s);
-  if (!target) { notify(s, 'Kaiju power needs an active event, clear sight and a target in range. Ground attacks need solid ground.'); return false; }
+  if (s.heroAttackCooldown > 0 || s.cooldown > 0 || (heroPower(s)?.combat && s.player.powerCooldown > 0)) return false;
+  const target = kaijuPowerTarget(s) || cityPowerTarget(s);
+  if (!target) { notify(s, 'Power attack needs clear sight and an Aegis Titan or hostile in range. Ground attacks need solid ground.'); return false; }
   const { power, from, to, heading } = target, p = s.player;
-  if (castShot(s, p, to)) { notify(s, 'Your Kaiju power is blocked by cover.'); return false; }
+  if (castShot(s, p, to, { target: target.enemy })) { notify(s, 'Your power is blocked by cover.'); return false; }
   if (s.appearance.kind === 'hulk') {
-    activateHeroPower(s); p.powerPulse.radius = power.reach;
+    if (!activateHeroPower(s)) return false;
+    p.powerPulse.radius = target.enemy ? target.city.reach : power.reach;
   }
   markCombat(s); p.heading = heading;
   s.heroAttackCooldown = power.costMs / 1000;
   s.cooldown = Math.max(s.cooldown, s.heroAttackCooldown);
-  s.bossHits[power.id] = (s.bossHits[power.id] || 0) + 1;
+  if (target.enemy) {
+    const dx = to.x - p.x, dz = to.z - p.z;
+    injure(s, target.enemy, target.city.damage, dx || 0.1, dz, 'punch');
+    pushCharacter(target.enemy, dx || 0.1, dz, target.city.push, 1.5); target.enemy.knockdown = 0.6;
+    if (target.enemy.kind === 'police') raiseHeat(s, Math.max(1, s.heat));
+  } else s.bossHits[power.id] = (s.bossHits[power.id] || 0) + 1;
   p.kaijuPowerFx = { from, to, color: power.color, time: s.time, kind: s.appearance.kind };
-  s.kaijuImpact = { ...to, time: s.time, kind: power.id, id: (s.kaijuImpact?.id || 0) + 1 };
-  notify(s, `${power.name} launched at the Kaiju!`);
+  if (!target.enemy) s.kaijuImpact = { ...to, time: s.time, kind: power.id, id: (s.kaijuImpact?.id || 0) + 1 };
+  notify(s, `${power.name}${target.enemy ? ' hit the hostile!' : ' launched at the Aegis Titan!'}`);
   return true;
 }
 export function attack(s) {
@@ -487,7 +498,7 @@ function freeAimShot(s, w) {
       const short = Math.min(1, w.range / Math.max(1, flat)), end = { x: from.x + (aim.x - from.x) * short, y: muzzle.y + (aim.y - muzzle.y) * short, z: from.z + (aim.z - from.z) * short };
       s.shots.push({ x: from.x, z: from.z, y: muzzle.y, tx: end.x, ty: end.y, tz: end.z, ttl: 0.12, police: false, weapon: s.weapon });
       s.actions.push({ id: ++s.actionSeq, time: s.time, kind: 'shot', combo: 0, x: end.x, z: end.z, blood: false });
-      if (s.time - (s.reachHint ?? -9) > 4) { s.reachHint = s.time; notify(s, `Too far for the ${w.name.toLowerCase()}: get within ${w.reach} m of the kaiju.`); }
+      if (s.time - (s.reachHint ?? -9) > 4) { s.reachHint = s.time; notify(s, `Too far for the ${w.name.toLowerCase()}: get within ${w.reach} m of Aegis Titan.`); }
       return;
     }
   }

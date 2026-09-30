@@ -63,6 +63,7 @@ export function createCharacter(scene, kit, palette = {}) {
   const { box } = kit, kind = palette.kind || 'human';
   const skin = palette.skin || '#d6a07d', shirt = palette.shirt || '#496b92', pants = palette.pants || '#344653';
   const hulk = kind === 'hulk', ironman = kind === 'ironman', flash = kind === 'flash', superman = kind === 'superman';
+  const thor = kind === 'thor', wonderwoman = kind === 'wonderwoman', strange = kind === 'strange';
   const brute = kind === 'brute' || hulk, robot = kind === 'robot' || ironman, wolf = kind === 'wolf';
   const avatar = new THREE.Group(); avatar.visible = false; avatar.scale.setScalar(palette.scale || 1); scene.add(avatar);
   const body = new THREE.Group(); body.name = 'body'; avatar.add(body);
@@ -83,7 +84,7 @@ export function createCharacter(scene, kit, palette = {}) {
     box([0.18, 0.23, 0.18], shade(skin, 0.5), [0, 2.32, 0], body);
   } else {
     box([0.84, 0.95, 0.5], shirt, [0, 1.77, 0], body);
-    box([0.26, 0.7, 0.025], wolf ? shade(skin, 1.15) : superman || flash ? shirt : '#e6e8df', [0, 1.88, 0.263], body);
+    box([0.26, 0.7, 0.025], wolf ? shade(skin, 1.15) : superman || flash || thor || wonderwoman || strange ? shirt : '#e6e8df', [0, 1.88, 0.263], body);
     box([0.88, 0.12, 0.53], shade(pants, 0.85), [0, 1.29, 0], body);
     box([0.23, 0.23, 0.24], shade(skin, 0.88), [0, 2.32, 0], body);
   }
@@ -111,6 +112,31 @@ export function createCharacter(scene, kit, palette = {}) {
     box([0.46, 0.42, 0.04], skin, [0, -0.02, 0.3], head);
     for (const side of [-1, 1]) box([0.14, 0.045, 0.035], '#a8f5ff', [side * 0.13, 0.06, 0.33], head);
     box([0.23, 0.23, 0.055], '#a8f5ff', [0, 1.94, 0.32], body);
+  }
+  if (thor || strange) {
+    cape = new THREE.Group(); cape.name = 'hero-cloak'; cape.position.set(0, 2.2, -0.3); body.add(cape);
+    box([1.1, 1.75, 0.06], '#a92339', [0, -0.8, -0.08], cape);
+    for (const side of [-1, 1]) box([0.24, 0.35, 0.15], thor ? '#c5d2df' : '#a92339', [side * 0.38, 2.18, 0], body).rotation.z = side * 0.25;
+  }
+  if (thor) {
+    for (const x of [-0.25, 0.25]) for (const y of [1.7, 2.03]) box([0.2, 0.2, 0.05], '#c5d2df', [x, y, 0.29], body);
+    const hammer = new THREE.Group(); hammer.name = 'thunder-hammer'; hammer.position.set(0.55, 1.8, -0.4); body.add(hammer);
+    box([0.12, 0.8, 0.12], '#765540', [0, -0.24, 0], hammer);
+    box([0.6, 0.3, 0.32], '#aabacb', [0, 0.23, 0], hammer);
+  }
+  if (wonderwoman) {
+    box([0.6, 0.1, 0.05], '#edc65f', [0, 0.19, 0.29], head).name = 'golden-tiara';
+    box([0.09, 0.1, 0.02], '#c8323e', [0, 0.19, 0.33], head).rotation.z = Math.PI / 4;
+    for (const side of [-1, 1]) box([0.35, 0.07, 0.05], '#edc65f', [side * 0.14, 2.03, 0.3], body).rotation.z = side * 0.35;
+    box([0.9, 0.12, 0.56], '#edc65f', [0, 1.3, 0], body);
+    const lasso = new THREE.Group(); lasso.name = 'golden-lasso'; body.add(lasso);
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; box([0.045, 0.13, 0.045], '#ffe18b', [0.43 + Math.sin(a) * 0.17, 1.22 + Math.cos(a) * 0.25, 0.25], lasso).rotation.z = -a; }
+  }
+  if (strange) {
+    box([0.22, 0.22, 0.06], '#edc65f', [0, 1.99, 0.31], body).name = 'arcane-amulet';
+    box([0.09, 0.09, 0.03], '#75e4c1', [0, 1.99, 0.35], body);
+    box([0.8, 0.13, 0.55], '#765540', [0, 1.4, 0], body);
+    box([0.23, 0.11, 0.035], palette.hair || '#46362e', [0, -0.24, 0.285], head);
   }
   // The wolf's tail, from the small of the back; it wags when standing still.
   let tail = null;
@@ -140,6 +166,7 @@ export function createCharacter(scene, kit, palette = {}) {
       box([0.25, 0.36, 0.29], shirt, [0, -0.16, 0], elbow);
       box([0.24, 0.25, 0.25], skin, [0, -0.1, 0], wrist);
     }
+    if (wonderwoman) box([0.29, 0.22, 0.32], '#d7e0e8', [0, -0.23, 0], elbow);
     arms.push(arm);
     const leg = new THREE.Group(); leg.name = side === 1 ? 'right-hip' : 'left-hip'; leg.position.set(side * 0.23, 1.25, 0); avatar.add(leg);
     box(brute ? [0.44, 0.55, 0.48] : [0.34, 0.55, 0.4], pants, [0, -0.25, 0], leg);
@@ -194,7 +221,7 @@ export function createCharacter(scene, kit, palette = {}) {
         body.rotation.x += (0.2 * motion - body.rotation.x) * flight;
       }
       if (cape) { cape.rotation.x = 0.12 + motion * 0.45 + flight * 0.3 + Math.sin(animationTime * 6) * (0.025 + motion * 0.06); }
-      if (hulk && player.powerActive && player.powerTime > 0) {
+      if ((hulk || thor) && player.powerActive && player.powerTime > 0) {
         const smash = Math.sin(Math.min(1, player.powerTime / 0.65) * Math.PI);
         body.rotation.x += smash * 0.5;
         arms.forEach(arm => { arm.rotation.x = -smash * 1.4; });

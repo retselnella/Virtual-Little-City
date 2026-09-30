@@ -5,7 +5,7 @@ import { cleanCharacter, playerLook } from '../../src/models/worldTour/character
 import { CITIES, attack, createSession, equip, recover, setAppearance, stepWorld, useHeroPower, useKaijuPower } from '../../src/models/worldTour/worldAdventure.js';
 import { BOSS_HP, KAIJU_POWERS } from '../../src/models/worldTour/bossRules.js';
 import { kaijuPose } from '../../src/models/worldTour/worldBoss.js';
-import { FLASH_MOVEMENT, kaijuPowerTarget, stepHeroPower } from '../../src/models/worldTour/heroPowers.js';
+import { CITY_POWERS, FLASH_MOVEMENT, cityPowerTarget, guardMultiplier, kaijuPowerTarget, stepHeroPower } from '../../src/models/worldTour/heroPowers.js';
 import { disposePhysics } from '../../src/models/worldTour/physicsEngine.js';
 import { encodeProfile, cleanProfile, encodeState, cleanState, samplePlayer } from '../../src/models/worldTour/multiplayer.js';
 import { createCharacter } from '../../src/scenes/shared/character.js';
@@ -24,12 +24,14 @@ function run(s, seconds, input = {}, dt = 1 / 60) {
 test('heroes keep their costumes, body scale and rig through save/network round trips', () => {
   const geometry = new THREE.BoxGeometry(), material = new THREE.MeshBasicMaterial();
   const kit = { box(size, color, position, parent) { const mesh = new THREE.Mesh(geometry, material); mesh.scale.set(...size); mesh.position.set(...position); parent.add(mesh); return mesh; } };
-  for (const kind of ['hulk', 'superman', 'flash', 'ironman']) {
+  for (const kind of Object.keys(KAIJU_POWERS)) {
     const look = cleanCharacter({ kind });
     assert.equal(cleanCharacter(JSON.parse(JSON.stringify(look))).kind, kind);
     const remote = cleanProfile(encodeProfile(look, 'miami'));
     assert.equal(remote.look.kind, kind); assert.equal(remote.scale, playerLook(look).scale);
     const rig = createCharacter(new THREE.Group(), kit, { ...look, scale: remote.scale });
+    const accessory = { thor: 'thunder-hammer', wonderwoman: 'golden-lasso', strange: 'arcane-amulet' }[kind];
+    if (accessory) assert.ok(rig.avatar.getObjectByName(accessory), `${kind} has a distinct costume`);
     for (const side of ['left', 'right']) for (const part of ['shoulder', 'elbow', 'hand', 'hip', 'knee']) assert.ok(rig.avatar.getObjectByName(`${side}-${part}`));
     for (const flying of [false, true, false]) for (let i = 0; i < 100; i++) {
       rig.update({ x: 1, z: 2, height: flying ? 20 : 0, heading: i * 0.1, speed: 56, flying }, 1 / 60);
@@ -54,7 +56,7 @@ test('Hulk smash has range, height and wall checks, cooldown, and real knockback
 });
 
 test('flight smoothly rises, settles to hover, respects the ceiling and lands', t => {
-  for (const kind of ['superman', 'ironman']) {
+  for (const kind of ['superman', 'ironman', 'strange']) {
     const s = quiet(t, kind); assert.equal(useHeroPower(s), true);
     run(s, 1, { jump: true }); assert.ok(s.player.height > 15);
     run(s, 0.6); const hover = s.player.height; run(s, 0.5); assert.ok(Math.abs(s.player.height - hover) < 0.03);
@@ -66,7 +68,7 @@ test('flight smoothly rises, settles to hover, respects the ceiling and lands', 
 });
 
 test('speed burst and flight cannot tunnel through a thin wall, even with stacked cheats', t => {
-  for (const kind of ['flash', 'superman']) {
+  for (const kind of Object.keys(KAIJU_POWERS)) {
     const s = quiet(t, kind, [{ x: 8, z: 25, width: 100, depth: 0.2, height: 220 }]);
     s.cheats.speed = true; useHeroPower(s);
     run(s, 2, { forward: true, run: true, jump: kind === 'superman' }, 0.05);
@@ -178,9 +180,66 @@ function eventFight(t, kind) {
   const s = quiet(t, kind);
   s.bossEvent = { id: 'boss-test', startsAt: 1000000, endsAt: 4600000, city: s.city, phase: 'active', hp: BOSS_HP, seed: 1 };
   s.worldTime = 1200; s.boss = { ...kaijuPose(200), t: 200, alive: true };
-  Object.assign(s.player, { x: s.boss.x + (KAIJU_POWERS[kind]?.ground ? 35 : 100), z: s.boss.z, grounded: true });
+  Object.assign(s.player, { x: s.boss.x + (KAIJU_POWERS[kind]?.ground ? 35 : Math.min(100, KAIJU_POWERS[kind]?.reach * 0.7)), z: s.boss.z, grounded: true });
   return s;
 }
+
+test('every hero can strike a city hostile with bounded damage and shared recovery, without targeting bystanders', t => {
+  for (const kind of Object.keys(KAIJU_POWERS)) {
+    const s = quiet(t, kind), stats = CITY_POWERS[kind];
+    const enemy = { id: 'gang', kind: 'gang', x: 8, z: 18, health: 250, heading: 0, cooldown: 100 };
+    s.enemies = [enemy]; s.pedestrians = [{ id: 'bystander', kind: 'civilian', x: 8, z: 14, health: 100 }];
+    assert.equal(cityPowerTarget(s)?.enemy, enemy);
+    assert.equal(useKaijuPower(s), true, kind);
+    assert.equal(enemy.health, 250 - stats.damage); assert.equal(s.pedestrians[0].health, 100);
+    assert.deepEqual(s.bossHits, {}); assert.ok(s.player.kaijuPowerFx);
+    assert.ok(Math.hypot(enemy.kickX, enemy.kickZ) <= 12.01, 'knockback stays bounded');
+    assert.equal(useKaijuPower(s), false); const ammo = s.mags.pistol; attack(s); assert.equal(s.mags.pistol, ammo);
+    setAppearance(s, cleanCharacter({ kind: kind === 'thor' ? 'hulk' : 'thor' })); assert.equal(useKaijuPower(s), false, 'editing cannot reset strike recovery');
+    s.heroAttackCooldown = 0; s.cooldown = 0; enemy.child = true;
+    assert.equal(cityPowerTarget(s), null); assert.equal(useKaijuPower(s), false, 'children are excluded even from malformed enemy lists');
+  }
+});
+
+test('city powers reject blocked, distant, airborne-ground and incapacitated attacks without consuming recovery', t => {
+  for (const change of [s => { s.blocks = [{ x: 8, z: 16, width: 10, depth: 0.2, height: 20 }]; },
+    s => { s.enemies[0].z = 200; }, s => { s.player.height = 10; }, s => { s.down = 1; },
+    s => { s.driving = true; }, s => { s.stun = 1; }, s => { s.player.knockdown = 1; }]) {
+    const s = quiet(t, 'wonderwoman'); s.enemies = [{ id: 'gang', kind: 'gang', x: 8, z: 20, health: 200 }];
+    change(s); assert.equal(useKaijuPower(s), false); assert.equal(s.heroAttackCooldown, 0); assert.equal(s.enemies[0].health, 200);
+  }
+});
+
+test('Thor pulse obeys cover, spares children, shares attack recovery and can hit the Kaiju', t => {
+  const s = quiet(t, 'thor', [{ x: 8, z: 16, width: 5, depth: 0.2, height: 20 }]);
+  s.enemies = [
+    { id: 'near', kind: 'gang', x: 12, z: 12, health: 200 },
+    { id: 'wall', kind: 'gang', x: 8, z: 20, health: 200 },
+    { id: 'kid', kind: 'gang', x: 8, z: 13, health: 100, child: true },
+  ];
+  assert.ok(useHeroPower(s)); assert.ok(s.enemies[0].health < 200);
+  assert.equal(s.enemies[1].health, 200); assert.equal(s.enemies[2].health, 100);
+  assert.equal(useKaijuPower(s), false); assert.equal(useHeroPower(s), false);
+  const boss = eventFight(t, 'thor'); assert.ok(useHeroPower(boss)); assert.equal(boss.bossHits.thor_thunder, 1);
+  const airborne = eventFight(t, 'thor'); airborne.player.height = 8; airborne.player.grounded = false;
+  assert.equal(useHeroPower(airborne), false, 'the ground pulse requires solid footing');
+  assert.ok(useKaijuPower(airborne), 'the ranged lightning strike works from the air');
+});
+
+test('Wonder Woman guard reduces real damage, expires, and cannot be refreshed through edits, recovery or travel', t => {
+  const guarded = quiet(t, 'wonderwoman'), plain = quiet(t, 'wonderwoman');
+  for (const s of [guarded, plain]) s.enemies = [{ id: 'gang', kind: 'gang', x: 8, z: 16, health: 200, cooldown: 0 }];
+  assert.ok(useHeroPower(guarded)); assert.equal(guardMultiplier(guarded), 0.6);
+  run(guarded, 0.05); run(plain, 0.05);
+  assert.ok(plain.health < 100); assert.ok(Math.abs((100 - guarded.health) / (100 - plain.health) - 0.6) < 0.01);
+  guarded.enemies = []; run(guarded, 5.1); assert.equal(guardMultiplier(guarded), 1); assert.equal(useHeroPower(guarded), false);
+  setAppearance(guarded, cleanCharacter({ kind: 'thor' })); setAppearance(guarded, cleanCharacter({ kind: 'wonderwoman' }));
+  assert.equal(useHeroPower(guarded), false); recover(guarded); assert.equal(useHeroPower(guarded), false);
+  const travelled = createSession(CITIES[1], guarded, guarded.appearance);
+  assert.equal(useHeroPower(travelled), false); assert.ok(travelled.heroGuardCooldown > 0);
+  stepHeroPower(travelled, 5); assert.ok(useHeroPower(travelled));
+  travelled.driving = true; assert.equal(guardMultiplier(travelled), 1);
+});
 
 test('each hero queues a distinct Kaiju hit, shows its effect and shares recovery with guns', t => {
   for (const [kind, spec] of Object.entries(KAIJU_POWERS)) {

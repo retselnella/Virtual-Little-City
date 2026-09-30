@@ -245,8 +245,9 @@
 
 /* World boss: event banner, floating damage, the boss panel and the world map markers. */
 .boss-banner{position:absolute;z-index:3;top:82px;left:50%;transform:translate(-50%);width:min(520px,calc(100% - 700px));min-width:340px;padding:10px 14px;border-radius:14px;background:#1b0f12e8;border:1px solid #ff6b5a55;box-shadow:0 8px 30px #0006}
-.boss-banner header{display:flex;align-items:baseline;gap:10px;font-size:12px}
-.boss-banner header b{font-size:15px;letter-spacing:3px;color:#ff8f7f}
+.boss-banner header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;font-size:12px}
+.boss-banner header b{font-size:15px;letter-spacing:1px;color:#ff8f7f;white-space:nowrap}
+.boss-next{margin:5px 0 0;font-size:11px;color:#ffd6a0;font-variant-numeric:tabular-nums}
 .boss-banner header em{margin-left:auto;font-style:normal;font-weight:700;color:#ffd6a0;font-variant-numeric:tabular-nums}
 .boss-hp{position:relative;height:16px;margin:8px 0;border-radius:4px;background:#ffffff14;overflow:hidden}
 .boss-hp i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#c9272b,#ff6b3d);transition:width .6s linear}
@@ -516,7 +517,8 @@
 .adventure.touch .npc-prompt{top:42%;bottom:auto;z-index:7}
 .adventure.touch .weapon-bar{left:auto;right:var(--edge-r);transform:none;bottom:calc(var(--edge-b) + 196px * var(--cluster));padding:3px;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:min(60vw,420px)}
 .adventure.touch .weapon-bar button{padding:6px 8px;font-size:10px}
-.adventure.touch .boss-banner{top:calc(var(--touch-top) - 40px);width:min(420px,calc(100% - 270px));min-width:0}
+.adventure.touch .boss-banner{top:calc(var(--touch-top) - 40px);bottom:auto;left:50%;right:auto;transform:translateX(-50%);width:min(420px,calc(100% - 270px));min-width:0}
+@media(orientation:portrait) and (max-width:760px){.adventure.touch .boss-banner{top:calc(var(--touch-top) + 220px);width:calc(100% - 28px)}}
 /* The joystick: anywhere in the lower-left area; the ring comes to your thumb. */
 .touch-stick{position:absolute;z-index:3;left:0;bottom:0;width:46%;height:46%;touch-action:none}
 .touch-stick-base{position:absolute;left:calc(var(--edge-l) + 76px);bottom:calc(var(--edge-b) + 76px);width:132px;height:132px;margin:-66px 0 -66px -66px;border-radius:50%;border:2px solid #ffffff4d;background:radial-gradient(circle,#0f1c2533 0 40%,#0f1c2566 70%);box-shadow:0 0 0 6px #ffffff0d;opacity:.75;transition:opacity .15s}

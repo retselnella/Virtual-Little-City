@@ -2,9 +2,9 @@
 // server enforces (supabase/world-boss.sql implements exactly the same rules in Postgres, and tests check that both
 // agree); the browser only uses them to run the same-browser local mode and to predict what the server will answer.
 // All times are epoch milliseconds; the event follows Philippine time (UTC+8), like the game's clock.
-export const BOSS_NAME = 'Kaiju';
+export const BOSS_NAME = 'Aegis Titan';
 export const BOSS_HP = 1_000_000_000;
-export const EVENT = Object.freeze({ hourPh: 12, durationMs: 60 * 60 * 1000, warningMs: 60 * 60 * 1000 });
+export const EVENT = Object.freeze({ windowsPh: Object.freeze([8, 14, 20]), durationMs: 60 * 60 * 1000, warningMs: 60 * 60 * 1000 });
 export const CITY_ORDER = Object.freeze(['miami', 'tokyo', 'manila', 'london', 'dubai', 'rio', 'cape']);
 // Damage per hit is decided here, never by the client, and differs per weapon. Each hit also costs fire time: `costMs`
 // is the fastest a player can keep that weapon firing, cooldowns and reloads included (see weapons.js; tests check
@@ -20,6 +20,9 @@ export const KAIJU_POWERS = Object.freeze({
   superman: { id: 'superman_heat', name: 'Heat vision', damage: 1_080_000, costMs: 4000, reach: 180, color: '#ff6255' },
   flash: { id: 'flash_lightning', name: 'Lightning strike', damage: 780_000, costMs: 3000, reach: 45, ground: true, color: '#ffd34e' },
   ironman: { id: 'ironman_repulsor', name: 'Repulsor blast', damage: 910_000, costMs: 3500, reach: 160, color: '#8eeaff' },
+  thor: { id: 'thor_thunder', name: 'Thunder strike', damage: 1_260_000, costMs: 4500, reach: 100, color: '#b6d9ff' },
+  wonderwoman: { id: 'wonderwoman_lasso', name: 'Lasso strike', damage: 1_120_000, costMs: 4000, reach: 65, ground: true, color: '#ffe18b' },
+  strange: { id: 'strange_arcane', name: 'Arcane bolt', damage: 910_000, costMs: 3500, reach: 150, color: '#c299ff' },
 });
 export const KAIJU_DAMAGE = Object.freeze({
   ...Object.fromEntries(Object.values(KAIJU_POWERS).map(p => [p.id, { damage: p.damage, costMs: p.costMs, power: true }])),
@@ -39,22 +42,27 @@ export const FIRE_WINDOW_MS = 8000, FIRE_GRACE_MS = 1000;
 export const kaijuDps = id => Math.round(KAIJU_DAMAGE[id].damage * 1000 / KAIJU_DAMAGE[id].costMs);
 export const HIT_RANGE = 220, DEATH_COOLDOWN_MS = 8000;
 export const REWARDS = Object.freeze([
-  { from: 1, to: 1, tier: 'Champion', cash: 100_000, title: 'Kaiju Slayer' },
-  { from: 2, to: 10, tier: 'Top 10', cash: 50_000, title: 'Kaiju Hunter' },
+  { from: 1, to: 1, tier: 'Champion', cash: 100_000, title: 'Titan Slayer' },
+  { from: 2, to: 10, tier: 'Top 10', cash: 50_000, title: 'Titan Hunter' },
   { from: 11, to: 100, tier: 'Top 100', cash: 10_000, title: 'Defender' },
 ]);
 
 const DAY = 86_400_000, PH = 8 * 3_600_000;
-// Day number in Philippine time; the event of day d starts at 12:00 PHT and the boss appears on a city in turn.
+// Three shared, deterministic random minutes each Philippine day. Integer arithmetic also runs in Postgres.
 export const phDay = ms => Math.floor((ms + PH) / DAY);
-export function eventForDay(day) {
-  const startsAt = day * DAY - PH + EVENT.hourPh * 3_600_000;
-  return { id: `boss-${day}`, day, city: CITY_ORDER[((day % CITY_ORDER.length) + CITY_ORDER.length) % CITY_ORDER.length], seed: day, startsAt, endsAt: startsAt + EVENT.durationMs, maxHp: BOSS_HP };
+const mod = (n, m) => ((n % m) + m) % m;
+export function eventForDay(day, slot = 0) {
+  if (!Number.isInteger(day) || !Number.isInteger(slot) || slot < 0 || slot > 2) throw new RangeError('Invalid boss day or slot');
+  let random = mod(mod(day, 2147483647) * 48271 + (slot + 1) * 69621, 2147483647);
+  random = mod(random * 48271, 2147483647);
+  const startsAt = day * DAY - PH + (EVENT.windowsPh[slot] * 60 + random % 180) * 60_000, seed = day * 3 + slot;
+  return { id: `boss-${day}-${slot}`, day, slot, city: CITY_ORDER[mod(seed, CITY_ORDER.length)], seed, startsAt, endsAt: startsAt + EVENT.durationMs, maxHp: BOSS_HP };
 }
-// The event that matters at `now`: today's if it has not finished yet, otherwise tomorrow's.
+export const eventsForDay = day => [0, 1, 2].map(slot => eventForDay(day, slot));
+export const bossTimeText = ms => new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(ms) + ' PHT';
+// Keep a defeated event until its hour ends, then advance to the next slot.
 export function currentEvent(now) {
-  const today = eventForDay(phDay(now));
-  return now < today.endsAt ? today : eventForDay(phDay(now) + 1);
+  return eventsForDay(phDay(now)).find(event => now < event.endsAt) || eventForDay(phDay(now) + 1);
 }
 // scheduled (far off) → countdown (in the hour before) → active → defeated or ended.
 export function phaseAt(event, now, hp = event.maxHp, defeatedAt = null) {
@@ -141,6 +149,7 @@ export function eventState(store, now, playerId = null) {
   const board = ranking(record.players), me = playerId && record.players[playerId];
   return {
     id: event.id, city: event.city, seed: event.seed, startsAt: event.startsAt, endsAt: event.endsAt, maxHp: event.maxHp, hp: record.hp, defeatedAt: record.defeatedAt,
+    nextStartsAt: currentEvent(event.endsAt).startsAt, nextCity: currentEvent(event.endsAt).city,
     phase: phaseAt(record, now, record.hp, record.defeatedAt), serverNow: now, top: board.rows, totalDamage: board.total,
     me: me ? { damage: me.damage, hits: me.hits, deaths: me.deaths, rank: board.rankOf(playerId) } : { damage: 0, hits: 0, deaths: 0, rank: null },
   };

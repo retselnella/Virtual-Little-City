@@ -17,7 +17,7 @@ export function nearbyNpc(s, clearSight) {
 }
 function lines(s, person) {
   if (person.panic || s.heat > 0) return ['Please give us some space! We need to get somewhere safe.', 'Did you hear those sirens? I am heading away from the trouble.', 'Careful! There are people crossing here!'];
-  if (s.boss?.alive) return ['That Kaiju is enormous! Please keep it away from the neighborhood.', 'A Kaiju in our city? I picked quite a day to go for a walk.', 'Watch out for the Kaiju! Stay clear of its feet.'];
+  if (s.boss?.alive) return ['That Aegis Titan is enormous! Please keep it away from the neighborhood.', 'Aegis Titan in our city? I picked quite a day to go for a walk.', 'Watch out for the Aegis Titan! Stay clear of its feet.'];
   if (person.child) return ['I am counting all the colorful cars. The blue ones are winning!', 'When I grow up, I want to explore every island!', 'Race you to the next corner! Wait, I have to stay with my family.'];
   const local = ['The waterfront is my favorite place to unwind.', 'You can take the metro across town. Beats getting stuck in traffic!', 'The Lounge has music and a dance floor. Have you been?', 'I came out for a quick walk and stayed for the street food.'];
   if (person.home) return ['Fresh snacks and neighborhood gossip! That is my specialty.', 'The joggers always say they are just looking. Then they smell the food.', 'I get to meet half the neighborhood at this little stall.'];

@@ -47,7 +47,7 @@ test('dialogue uses roles and danger context, while hub healing keeps priority o
   const { s, person } = scene();
   s.health = 50; interact(s); assert.equal(s.health, 100); assert.equal(s.npcDialogue, undefined);
   interact(s); assert.equal(s.npcDialogue.role, 'Neighborhood guide');
-  s.time += 1; s.boss = { alive: true }; talk(s); assert.match(s.npcDialogue.text, /Kaiju/);
+  s.time += 1; s.boss = { alive: true }; talk(s); assert.match(s.npcDialogue.text, /Aegis Titan/);
   s.time += 1; s.heat = 1; talk(s); assert.match(s.npcDialogue.text, /safe|sirens|crossing/);
   s.time += 1; s.heat = 0; s.boss = null; person.child = true; person.role = 'kid'; person.guide = false;
   talk(s); assert.equal(s.npcDialogue.role, 'Young explorer');

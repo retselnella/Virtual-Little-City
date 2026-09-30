@@ -27,7 +27,7 @@ function KindPicker({ value, onPick }) {
   return <fieldset className="creator-group"><legend>Character</legend>
     <div className="creator-kinds">{Object.entries(KINDS).map(([id, kind]) =>
       <button key={id} type="button" aria-pressed={value === id} onClick={() => onPick('kind', id)}>
-        <span className="creator-kind-icon" aria-hidden="true">{KIND_ICONS[id] || { hulk: '✊', superman: 'S', flash: 'ϟ', ironman: '◈' }[id]}</span><strong>{kind.name}</strong>
+        <span className="creator-kind-icon" aria-hidden="true">{KIND_ICONS[id] || { hulk: '✊', superman: 'S', flash: 'ϟ', ironman: '◈', thor: '⚒', wonderwoman: 'W', strange: '✧' }[id]}</span><strong>{kind.name}</strong>
       </button>)}</div>
   </fieldset>;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { connectBoss, describeBossError } from '../services/bossService.js';
-import { BOSS_NAME } from '../models/worldTour/bossRules.js';
+import { bossTimeText, BOSS_NAME } from '../models/worldTour/bossRules.js';
 import { notify } from '../models/worldTour/worldAdventure.js';
 import { CITIES } from '../models/worldTour/worldAdventure.js';
 import { bossPollDelay, startPolling } from '../services/bossPolling.js';
@@ -53,7 +53,7 @@ export function useWorldBoss(session, playerName, clockOffset, test = false) {
       const before = lastPhase.current; lastPhase.current = `${ev.id}:${ev.phase}`;
       if (!before || before === lastPhase.current) return;
       const where = CITIES.find(c => c.id === ev.city)?.name || ev.city;
-      const text = { countdown: `${BOSS_NAME} warning: it will rise from the sea off ${where} at 12:00 PH time.`, active: `${BOSS_NAME} has appeared in ${where}! Every player can join the fight.`,
+      const text = { countdown: `${BOSS_NAME} warning: it will rise from the sea off ${where} at ${bossTimeText(ev.startsAt)}.`, active: `${BOSS_NAME} has appeared in ${where}! Every player can join the fight.`,
         defeated: `${BOSS_NAME} has been defeated in ${where}!`, ended: `${BOSS_NAME} has retreated from ${where}. The city is rebuilt.` }[ev.phase];
       if (text) notify(session.current, text);
     }

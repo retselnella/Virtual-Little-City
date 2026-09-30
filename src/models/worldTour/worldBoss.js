@@ -20,12 +20,12 @@ const walked = t => t < WADE ? KAIJU.wadeSpeed * Math.max(0, t) : ENTRY.from.x -
 
 function rng(seed, n) { let h = Math.imul((seed * 2654435761) ^ (n * 40503 + 7), 2246822519); h ^= h >>> 15; h = Math.imul(h, 3266489917); h ^= h >>> 13; return (h >>> 0) / 4294967296; }
 export const ATTACKS = Object.freeze({
-  fire: { name: 'Fire breath', windup: 1.2, active: 3.2, cooldown: 2 },
-  laser: { name: 'Atomic beam', windup: 2.0, active: 2.0, cooldown: 3 },
-  slam: { name: 'Ground slam', windup: 1.5, active: 0.6, cooldown: 1 },
-  roar: { name: 'Roar', windup: 0.8, active: 0.8, cooldown: 4 },
-  meteors: { name: 'Fireball barrage', windup: 1.0, active: 3.6, cooldown: 2 },
-  tail: { name: 'Tail sweep', windup: 1.0, active: 1.2, cooldown: 1 },
+  fire: { name: 'Plasma vent', windup: 1.2, active: 3.2, cooldown: 2 },
+  laser: { name: 'Reactor beam', windup: 2.0, active: 2.0, cooldown: 3 },
+  slam: { name: 'Seismic hammer', windup: 1.5, active: 0.6, cooldown: 1 },
+  roar: { name: 'EMP pulse', windup: 0.8, active: 0.8, cooldown: 4 },
+  meteors: { name: 'Missile barrage', windup: 1.0, active: 3.6, cooldown: 2 },
+  tail: { name: 'Rear shockwave', windup: 1.0, active: 1.2, cooldown: 1 },
 });
 const ORDER = ['fire', 'laser', 'slam', 'roar', 'meteors', 'tail'];
 // The i-th attack of an event: its type (never the same twice running, and respecting each attack's cooldown), timing

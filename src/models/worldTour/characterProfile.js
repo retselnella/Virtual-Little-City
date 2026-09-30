@@ -27,6 +27,18 @@ export const KINDS = Object.freeze({
     perk: 'Armoured flight with thruster effects. G toggles flight; Space rises, Ctrl descends.',
     defaults: { skin: '#c9a54b', shirt: '#c95b5b', pants: '#c95b5b', shoes: '#b5523b' },
     skin: [['#b8bec6', 'Chrome'], ['#5b636d', 'Gunmetal'], ['#c9a54b', 'Gold'], ['#e8ecef', 'Pearl'], ['#3f8f8f', 'Teal'], ['#8c3b3b', 'Rust red']] },
+  thor: { name: 'Thor', skinLabel: 'Skin tone', hair: true, scale: 1.09, strength: 1.7, armor: 0.75, jump: 1.4, power: 'storm',
+    perk: 'G releases a thunder pulse. H calls lightning against the Aegis Titan or a nearby hostile.',
+    defaults: { skin: '#e0ac85', hair: '#c7a266', hairStyle: 'long', shirt: '#2b3240', pants: '#2f3338', shoes: '#2a2a2a' },
+    skin: [['#f3cfb0', 'Porcelain'], ['#e0ac85', 'Beige'], ['#d6a07d', 'Honey'], ['#c18b63', 'Tan'], ['#9a6644', 'Bronze'], ['#6d452e', 'Brown'], ['#4d3122', 'Deep brown']] },
+  wonderwoman: { name: 'Wonder Woman', skinLabel: 'Skin tone', hair: true, scale: 1.04, strength: 1.6, armor: 0.8, jump: 1.3, power: 'guard',
+    perk: 'G grants a five-second guard that reduces incoming damage. H strikes with a golden lasso.',
+    defaults: { skin: '#d6a07d', hair: '#161616', hairStyle: 'long', shirt: '#c95b5b', pants: '#1f3a5f', shoes: '#b5523b' },
+    skin: [['#f3cfb0', 'Porcelain'], ['#e0ac85', 'Beige'], ['#d6a07d', 'Honey'], ['#c18b63', 'Tan'], ['#9a6644', 'Bronze'], ['#6d452e', 'Brown'], ['#4d3122', 'Deep brown']] },
+  strange: { name: 'Doctor Strange', skinLabel: 'Skin tone', hair: true, scale: 1, armor: 0.9, power: 'flight',
+    perk: 'G toggles levitation; Space rises, Ctrl descends. H fires an arcane bolt at the Aegis Titan or a hostile.',
+    defaults: { skin: '#d6a07d', hair: '#46362e', shirt: '#496b92', pants: '#1f3a5f', shoes: '#2a2a2a' },
+    skin: [['#f3cfb0', 'Porcelain'], ['#e0ac85', 'Beige'], ['#d6a07d', 'Honey'], ['#c18b63', 'Tan'], ['#9a6644', 'Bronze'], ['#6d452e', 'Brown'], ['#4d3122', 'Deep brown']] },
 });
 export const CHARACTER_OPTIONS = Object.freeze({
   kind: Object.entries(KINDS).map(([id, k]) => [id, k.name]),

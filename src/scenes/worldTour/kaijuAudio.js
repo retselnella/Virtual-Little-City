@@ -1,4 +1,4 @@
-// Kaiju sounds, synthesised with the Web Audio API (no audio files): a roar, footfall thuds, blasts, a charging and
+// Titan sounds, synthesised with the Web Audio API: an EMP discharge, mechanical steps, blasts, a charging and
 // firing beam, fire and collapsing buildings. Browsers only allow sound after the player interacts with the page, so
 // the audio context starts on the first key press or tap. `volume` (0…1) falls off with distance from the camera.
 export function createKaijuAudio() {
@@ -31,7 +31,7 @@ export function createKaijuAudio() {
     source.connect(filter); const length = envelope(filter, volume, attack, hold, release); source.start(); source.stop(ctx.currentTime + length + 0.05);
   }
   const sounds = {
-    roar: v => { tone('sawtooth', 140, 55, v * 0.35, 0.15, 1.2, 0.8); tone('square', 90, 40, v * 0.2, 0.2, 1.1, 0.7); rumble(v * 0.5, 700, 0.1, 1.2, 0.8); },
+    roar: v => { tone('square', 220, 110, v * 0.15, 0.02, 0.25, 0.4); tone('sine', 880, 55, v * 0.25, 0.01, 0.1, 0.7); rumble(v * 0.4, 500, 0.01, 0.15, 0.6); },
     step: v => { tone('sine', 70, 30, v * 0.9, 0.01, 0.05, 0.5); rumble(v * 0.4, 200, 0.01, 0.05, 0.4); },
     slam: v => { tone('sine', 60, 25, v, 0.01, 0.1, 1.2); rumble(v * 0.9, 400, 0.01, 0.2, 1.4); },
     tail: v => rumble(v * 0.7, 900, 0.05, 0.3, 0.8),

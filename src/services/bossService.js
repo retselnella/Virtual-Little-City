@@ -27,11 +27,11 @@ export async function connectBoss({ configured = ONLINE_CONFIGURED, clock = () =
     claim: async () => { const cash = await rpc('boss_claim_rewards'); weekly.clear(); return cash; },
   };
 }
-// A short, fixable explanation of why the event server failed, for the Kaiju panel.
+// A short, fixable explanation of why the event server failed, for the Aegis Titan panel.
 export function describeBossError(error) {
   const text = String(error?.message || error || ''), code = error?.code ? ` (${error.code})` : '';
-  if (error?.code === 'PGRST203' || /could not choose the best candidate/i.test(text)) return `An older copy of the Kaiju functions is still on the server${code}. In Supabase → SQL Editor, run: drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`;
-  if (error?.code === 'PGRST202' || /could not find the function/i.test(text)) return `The Kaiju functions on the server are missing or out of date${code}. In Supabase → SQL Editor, run the whole supabase/world-boss.sql with nothing highlighted.`;
+  if (error?.code === 'PGRST203' || /could not choose the best candidate/i.test(text)) return `An older copy of the Aegis Titan functions is still on the server${code}. In Supabase → SQL Editor, run: drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`;
+  if (error?.code === 'PGRST202' || /could not find the function/i.test(text)) return `The Aegis Titan functions on the server are missing or out of date${code}. In Supabase → SQL Editor, run the whole supabase/world-boss.sql with nothing highlighted.`;
   if (error?.code === '42501' || /permission denied/i.test(text)) return `The server refused the request${code}. Run the whole supabase/world-boss.sql again in the Supabase SQL Editor.`;
   if (/anonymous sign-ins are disabled/i.test(text)) return 'Anonymous sign-ins are off in Supabase (Authentication → Sign In / Providers).';
   return `Server error${code}: ${text.slice(0, 200) || 'no response'}.`;

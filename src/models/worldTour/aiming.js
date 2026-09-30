@@ -33,8 +33,8 @@ export function capsuleHit(o, d, a, b, r) {
 }
 
 // The kaiju's body for aiming, as capsules in its own frame (x to its right, y up, z forward; metres), following the
-// model in kaijuScene.js (built at 1/10 scale): legs that swing as it walks, belly and chest, the plates on its back,
-// neck, head, arms and a tail that curls up behind it and sways.
+// model in kaijuScene.js (built at 1/10 scale): articulated legs, armored chest,
+// cooling pack, helmet and swinging arms.
 const SCALE = 10;
 const rotX = (p, a) => ({ x: p.x, y: p.y * Math.cos(a) - p.z * Math.sin(a), z: p.y * Math.sin(a) + p.z * Math.cos(a) });
 const rotY = (p, a) => ({ x: p.x * Math.cos(a) + p.z * Math.sin(a), y: p.y, z: -p.x * Math.sin(a) + p.z * Math.cos(a) });
@@ -42,9 +42,8 @@ const add = (p, q) => ({ x: p.x + q.x, y: p.y + q.y, z: p.z + q.z });
 const scaled = p => ({ x: p.x * SCALE, y: p.y * SCALE, z: p.z * SCALE });
 const FIXED = [
   { part: 'body', a: { x: 0, y: 54, z: 0 }, b: { x: 0, y: 106, z: 3 }, r: 18.5 },
-  { part: 'body', a: { x: 0, y: 56, z: -13 }, b: { x: 0, y: 126, z: -9 }, r: 7 }, // dorsal plates
+  { part: 'body', a: { x: 0, y: 65, z: -14 }, b: { x: 0, y: 116, z: -14 }, r: 7 }, // cooling pack
   { part: 'body', a: { x: 0, y: 112, z: 9 }, b: { x: 0, y: 126, z: 14 }, r: 10 }, // neck
-  ...[-1, 1].map(side => ({ part: 'arm', a: { x: side * 17, y: 104, z: 13 }, b: { x: side * 16, y: 88, z: 27 }, r: 6 })),
 ];
 // Its pose at `t` seconds into the event, with the attack moves the scene plays (seeded like the attacks themselves):
 // leaning into a slam, twisting for a tail sweep, raising or dipping its head.
@@ -55,21 +54,18 @@ export function kaijuHitbox(t, seed = null) {
   const turn = attack?.type === 'tail' ? Math.sin(Math.min(1, (t - attack.start) / (attack.end - attack.start)) * Math.PI) * 0.9 : 0;
   const nod = { fire: live ? 0.25 : -0.3 * wind, laser: 0.2, roar: -0.55 * wind, meteors: -0.4 }[attack?.type] || 0;
   const head = p => scaled(add({ x: 0, y: 13.1, z: 2 }, rotX(p, nod)));
-  parts.push({ part: 'head', a: head({ x: 0, y: 0.3, z: -0.2 }), b: head({ x: 0, y: 0.1, z: 2.2 }), r: 9.5 });
+  parts.push({ part: 'head', a: head({ x: 0, y: 0.3, z: -0.2 }), b: head({ x: 0, y: 0.1, z: 0.6 }), r: 10 });
   for (const side of [-1, 1]) {
     const swing = Math.sin(stride + (side > 0 ? 0 : Math.PI)), hipAngle = swing * 0.35, kneeAngle = Math.max(0, -swing) * 0.5, hip = { x: side * 1.05, y: 5.2, z: 0 };
     const inHip = p => add(hip, rotX(p, hipAngle)), knee = inHip({ x: 0, y: -2.5, z: 0.2 }), inKnee = p => inHip(add({ x: 0, y: -2.5, z: 0.2 }, rotX(p, kneeAngle)));
     parts.push({ part: 'leg', a: scaled(hip), b: scaled(knee), r: 8.5 }, { part: 'leg', a: scaled(knee), b: scaled(inKnee({ x: 0, y: -2.2, z: 0.1 })), r: 6.5 },
       { part: 'leg', a: scaled(inKnee({ x: 0, y: -2.35, z: -0.6 })), b: scaled(inKnee({ x: 0, y: -2.35, z: 1.6 })), r: 4 });
   }
-  // The tail: nine segments, each turned a little more than the one before (as the scene animates them).
-  let at = { x: 0, y: 4.6, z: -1.8 }, yaw = 0, pitch = 0, size = 1.8;
-  for (let k = 0; k < 9; k++) {
-    if (k) at = add(at, rotY(rotX({ x: 0, y: -0.12, z: -1.35 }, pitch), yaw));
-    yaw += Math.sin(t * 0.9 - k * 0.5) * 0.12 * (1 + k * 0.15); pitch += 0.05 + k * 0.01;
-    const end = add(at, rotY(rotX({ x: 0, y: 0, z: -1.4 }, pitch), yaw));
-    parts.push({ part: 'tail', a: scaled(at), b: scaled(end), r: size * 0.42 * SCALE });
-    size *= 0.84;
+  for (const [k, side] of [-1, 1].entries()) {
+    const angle = attack?.type === 'slam' ? (live ? 1.1 : -0.8 * wind) : Math.sin(stride + k) * 0.15;
+    const arm = p => scaled(add({ x: side * 2, y: 10.6, z: 0.45 }, rotX(p, angle)));
+    parts.push({ part: 'arm', a: arm({ x: 0, y: 0, z: 0 }), b: arm({ x: 0, y: -1.7, z: 0 }), r: 7 },
+      { part: 'arm', a: arm({ x: 0, y: -1.9, z: 0.2 }), b: arm({ x: 0, y: -3.8, z: 0.25 }), r: 7 });
   }
   // The whole body bobs and rolls a little with each step.
   const roll = Math.sin(stride) * 0.04, bob = Math.abs(Math.sin(stride)) * 0.25 * SCALE;

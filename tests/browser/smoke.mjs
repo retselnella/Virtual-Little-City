@@ -129,7 +129,7 @@ try {
   // The world boss panel: event status, live ranking and the weekly board.
   await page.keyboard.press('KeyB');
   await page.getByRole('heading', { name: 'Live ranking' }).waitFor(); await page.getByRole('heading', { name: 'This week' }).waitFor();
-  assert.match(await page.locator('.boss-status').innerText(), /12:00 Philippine time/); await close();
+  assert.match(await page.locator('.boss-status').innerText(), /Three shared random spawns daily/); await close();
   await pause(); assert.equal(await button('Blood effects: Off').count(), 1);
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
@@ -205,19 +205,20 @@ try {
   await mobile.getByRole('button', { name: /^RESET Turn off/ }).click();
   await mobile.locator('.cheat-toggle').click();
   // The local preview clock exercises the event buff and mobile health HUD without a live Supabase project.
-  const eventCity = eventForDay(phDay(Date.now())).city;
+  const bossEvent = eventForDay(phDay(Date.now())), eventCity = bossEvent.city;
+  const phClock = ms => new Date(ms + 8 * 3600000).toISOString().slice(11, 16);
   await mobile.evaluate(city => {
     const save = JSON.parse(localStorage.getItem('little-city-world-v1')) || {};
     localStorage.setItem('little-city-world-v1', JSON.stringify({ ...save, city }));
   }, eventCity);
-  await mobile.goto(`${base}/?clock=12:05`, { waitUntil: 'networkidle' });
-  await mobile.getByText('KAIJU BUFF +500 HP', { exact: true }).waitFor();
+  await mobile.goto(`${base}/?clock=${phClock(bossEvent.startsAt + 300000)}`, { waitUntil: 'networkidle' });
+  await mobile.getByText('TITAN BUFF +500 HP', { exact: true }).waitFor();
   const health = mobile.getByRole('progressbar', { name: 'Player health' });
   assert.equal(await health.getAttribute('max'), '600');
   assert.equal(await health.getAttribute('value'), '600');
   assert.ok(await inView('.health-effect'), 'the event buff fits on a phone');
   await mobile.screenshot({ path: 'test-results/kaiju-health-buff-phone.png' });
-  await mobile.goto(`${base}/?clock=14:00`, { waitUntil: 'networkidle' });
+  await mobile.goto(`${base}/?clock=${phClock(bossEvent.endsAt + 60000)}`, { waitUntil: 'networkidle' });
   await mobile.waitForFunction(() => document.querySelector('progress[aria-label="Player health"]')?.max === 100 && !document.querySelector('.adventure-loading'));
   assert.equal(await mobile.locator('.health-effect').count(), 0, 'no event buff after the event hour');
   await phone.close();

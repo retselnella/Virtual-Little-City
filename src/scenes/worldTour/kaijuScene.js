@@ -2,15 +2,13 @@ import * as THREE from 'three';
 import { KAIJU, beamPoint, currentAttack, kaijuPose } from '../../models/worldTour/worldBoss.js';
 import { createKaijuAudio } from './kaijuAudio.js';
 
-// The kaiju and its attacks, drawn from the same deterministic behaviour the gameplay uses (worldBoss.js): a
-// procedurally built monster ~150 m tall (legs, belly, arms, head with a hinged jaw, glowing dorsal plates and a
-// swinging tail), plus telegraphs, fire, a beam, shockwaves, fireballs, explosions, debris and smoke.
+// Aegis Titan: articulated armor, reactor, visor and backpack. Effects share bounded pools.
 const SCALE = 10, FLAMES = 180, DEBRIS = 260;
 
 export function createKaiju(root) {
   const disposables = [], unit = new THREE.BoxGeometry(1, 1, 1); disposables.push(unit);
   const mat = (color, extra = {}) => { const m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, flatShading: true, ...extra }); disposables.push(m); return m; };
-  const skin = mat('#2c3530'), belly = mat('#5d6456'), claw = mat('#d8d2c2'), plate = mat('#9fb2b8', { emissive: '#6fd3ff', emissiveIntensity: 0 }), eye = mat('#ffd35a', { emissive: '#ffb020', emissiveIntensity: 2 });
+  const skin = mat('#354b65', { metalness: 0.7, roughness: 0.38 }), belly = mat('#9dabbc', { metalness: 0.6 }), claw = mat('#f5ad43'), plate = mat('#9fb2b8', { emissive: '#6fd3ff', emissiveIntensity: 0.8 }), eye = mat('#a8faff', { emissive: '#49dfff', emissiveIntensity: 2 });
   const box = (parent, material, size, position, rotation = [0, 0, 0]) => { const m = new THREE.Mesh(unit, material); m.scale.set(...size); m.position.set(...position); m.rotation.set(...rotation); parent.add(m); return m; };
   const group = new THREE.Group(), body = new THREE.Group(); group.add(body); group.scale.setScalar(SCALE); root.add(group);
   // Legs (hip → knee → foot), pelvis, belly, chest and arms.
@@ -19,36 +17,35 @@ export function createKaiju(root) {
     box(hip, skin, [1.5, 2.9, 1.7], [0, -1.2, 0]);
     const knee = new THREE.Group(); knee.position.set(0, -2.5, 0.2); hip.add(knee);
     box(knee, skin, [1.15, 2.4, 1.25], [0, -1.1, 0]); box(knee, skin, [1.6, 0.55, 2.3], [0, -2.35, 0.35]);
-    for (const t of [-0.5, 0, 0.5]) box(knee, claw, [0.25, 0.25, 0.5], [t, -2.45, 1.6]);
+    box(knee, claw, [1.2, 0.3, 0.15], [0, -0.3, 0.68]);
     return { hip, knee, side };
   });
   box(body, skin, [3, 2.2, 2.5], [0, 5.9, -0.1]); box(body, skin, [3.2, 3.6, 2.8], [0, 8.1, 0.1]); box(body, belly, [2.2, 3.4, 0.4], [0, 8, 1.55]);
   box(body, skin, [3.3, 2.4, 2.5], [0, 10.4, 0.45]);
+  // Reactor face and segmented armor make the silhouette distinctly mechanical.
+  box(body, plate, [1.2, 1.2, 0.25], [0, 9.2, 1.65], [0, 0, Math.PI / 4]);
+  box(body, eye, [0.55, 0.55, 0.28], [0, 9.2, 1.8], [0, 0, Math.PI / 4]);
+  for (const side of [-1, 1]) box(body, claw, [0.22, 2.2, 0.2], [side * 1.25, 8, 1.65]);
   const arms = [-1, 1].map(side => {
-    const shoulder = new THREE.Group(); shoulder.position.set(side * 1.7, 10.6, 1.2); body.add(shoulder);
-    box(shoulder, skin, [0.6, 1.8, 0.6], [0, -0.8, 0.2], [0.5, 0, side * 0.2]);
-    const elbow = new THREE.Group(); elbow.position.set(0, -1.6, 0.8); shoulder.add(elbow);
-    box(elbow, skin, [0.5, 1.4, 0.5], [0, -0.6, 0.3], [0.8, 0, 0]); for (const t of [-0.15, 0.15]) box(elbow, claw, [0.12, 0.12, 0.45], [t, -1.2, 0.8]);
+    const shoulder = new THREE.Group(); shoulder.position.set(side * 2, 10.6, 0.45); body.add(shoulder);
+    box(shoulder, belly, [1.25, 0.9, 1.6], [0, 0, 0]);
+    box(shoulder, skin, [1, 2, 1.2], [0, -0.9, 0]);
+    box(shoulder, claw, [1.04, 0.3, 1.24], [0, -1.7, 0]);
+    box(shoulder, belly, [1.05, 2, 1.2], [0, -2.7, 0.2]);
+    box(shoulder, skin, [1.3, 0.9, 1.5], [0, -3.8, 0.25]);
     return shoulder;
   });
-  // Neck, head, jaw and eyes.
-  const neck = new THREE.Group(); neck.position.set(0, 11.6, 1.1); body.add(neck); box(neck, skin, [1.7, 1.9, 1.7], [0, 0.6, 0.2], [0.35, 0, 0]);
+  const neck = new THREE.Group(); neck.position.set(0, 11.6, 1.1); body.add(neck);
+  box(neck, belly, [1.7, 1.9, 1.7], [0, 0.6, 0.2], [0.35, 0, 0]);
   const head = new THREE.Group(); head.position.set(0, 1.5, 0.9); neck.add(head);
-  box(head, skin, [1.7, 1.3, 2], [0, 0.2, 0.3]); box(head, skin, [1.3, 0.75, 1.6], [0, 0.1, 1.8]); box(head, skin, [1.8, 0.3, 1.2], [0, 0.85, 0.5]);
-  for (const side of [-1, 1]) { box(head, eye, [0.25, 0.18, 0.1], [side * 0.55, 0.55, 1.35]); for (let k = 0; k < 4; k++) box(head, claw, [0.1, 0.22, 0.1], [side * 0.5, -0.3, 1.2 + k * 0.4]); }
-  const jaw = new THREE.Group(); jaw.position.set(0, -0.25, 0.5); head.add(jaw); box(jaw, skin, [1.25, 0.4, 2.2], [0, -0.15, 1.1]);
-  const mouth = new THREE.Object3D(); mouth.position.set(0, -0.1, 2.7); head.add(mouth);
-  // Dorsal plates along the spine; they glow before the beam.
-  const plateGeometry = new THREE.ConeGeometry(0.9, 2.3, 3); disposables.push(plateGeometry);
-  [[0, 12.4, -0.8, 0.7], [0, 11, -1.3, 1], [0, 9.3, -1.5, 1.15], [0, 7.5, -1.5, 1.1], [0, 5.9, -1.4, 0.9], [0, 4.8, -2.4, 0.7], [0, 4.4, -3.8, 0.55]].forEach(([x, y, z, s]) => {
-    const m = new THREE.Mesh(plateGeometry, plate); m.position.set(x, y, z); m.scale.set(s, s, s * 0.28); m.rotation.x = -0.3; body.add(m);
-  });
-  // Tail: a chain of tapering segments, each swinging a little more than the last.
-  const tail = []; let parent = body, size = 1.8;
-  for (let k = 0; k < 9; k++) {
-    const seg = new THREE.Group(); seg.position.set(0, k ? -0.12 : 4.6, k ? -1.35 : -1.8); parent.add(seg);
-    box(seg, skin, [size, size * 0.85, 1.6], [0, 0, -0.7]); tail.push(seg); parent = seg; size *= 0.84;
-  }
+  box(head, skin, [1.8, 1.6, 1.8], [0, 0.2, 0.2]);
+  box(head, belly, [1.95, 0.35, 1.9], [0, 0.9, 0.2]);
+  box(head, eye, [1.5, 0.22, 0.12], [0, 0.45, 1.16]);
+  box(head, belly, [1.1, 0.45, 0.2], [0, -0.3, 1.14]);
+  // Chest cannon and compact cooling pack replace the jaw, dorsal spines and tail.
+  const mouth = new THREE.Object3D(); mouth.position.set(0, 9.2, 1.95); body.add(mouth);
+  box(body, skin, [1.5, 6, 1.1], [0, 9, -1.4]);
+  for (let k = 0; k < 5; k++) box(body, plate, [1.3, 0.22, 0.15], [0, 7 + k, -2]);
 
   // ---- Effects
   const additive = color => { const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }); disposables.push(m); return m; };
@@ -87,9 +84,8 @@ export function createKaiju(root) {
     group.rotation.set(boss && !boss.alive ? Math.min(1.2, boss.dying * 0.15) : 0, pose.heading, 0);
     legs.forEach(({ hip, knee, side }) => { const swing = Math.sin(stride + (side > 0 ? 0 : Math.PI)); hip.rotation.x = swing * 0.35; knee.rotation.x = Math.max(0, -swing) * 0.5; });
     body.position.y = Math.abs(Math.sin(stride)) * 0.25; body.rotation.z = Math.sin(stride) * 0.04;
-    tail.forEach((seg, k) => { seg.rotation.y = Math.sin(t * 0.9 - k * 0.5) * 0.12 * (1 + k * 0.15); seg.rotation.x = 0.05 + k * 0.01; });
     arms.forEach((a, k) => { a.rotation.x = Math.sin(stride + k) * 0.15; });
-    let jawOpen = 0.05, headPitch = 0, plateGlow = 0, bodyLean = 0, turn = 0;
+    let headPitch = 0, plateGlow = 0, bodyLean = 0, turn = 0;
     const attack = boss?.alive && ev ? currentAttack(ev.seed, t) : null;
     warnings.forEach(w => { w.visible = false; }); beam.visible = beamCore.visible = false; shock.visible = false; roarShell.visible = false; fireballs.forEach(f => { f.visible = false; });
     if (attack) {
@@ -97,9 +93,9 @@ export function createKaiju(root) {
       const phase = `${attack.id}:${live ? 'live' : 'wind'}`;
       if (phase !== lastPhase) { lastPhase = phase; if (live) audio.play(attack.type, loud); else if (attack.type === 'laser') audio.play('charge', loud); }
       const warn = (i, x, z, r) => { const w = warnings[i]; w.visible = true; w.position.set(x, 0.4, z); w.scale.setScalar(r * (0.9 + Math.sin(t * 10) * 0.05)); };
-      if (attack.type === 'fire') { jawOpen = 0.25 + wind * 0.45; headPitch = live ? 0.25 : -0.3 * wind; }
+      if (attack.type === 'fire') { headPitch = live ? 0.25 : -0.3 * wind; }
       if (attack.type === 'laser') {
-        plateGlow = live ? 3 : wind * 3; jawOpen = 0.2 + wind * 0.5; headPitch = 0.2;
+        plateGlow = live ? 3 : wind * 3; headPitch = 0.2;
         if (!live) { warn(0, attack.sweep[0].x, attack.sweep[0].z, 10); warn(1, attack.sweep[1].x, attack.sweep[1].z, 10); }
         else {
           mouth.getWorldPosition(mouthWorld); const hit = beamPoint(attack, Math.min(1, into)), end = new THREE.Vector3(hit.x, 0.5, hit.z), length = mouthWorld.distanceTo(end);
@@ -113,11 +109,11 @@ export function createKaiju(root) {
         else { shock.visible = true; shock.position.set(attack.target.x, 0.6, attack.target.z); shock.scale.setScalar(10 + into * 90); shock.material.opacity = 0.9 * (1 - into); if (into < 0.05) { burst(attack.target.x, 1, attack.target.z, 30, 40); flash(attack.target.x, 4, attack.target.z, 22); } }
       }
       if (attack.type === 'roar') {
-        headPitch = -0.55 * wind; jawOpen = 0.2 + 0.7 * wind;
+        headPitch = -0.55 * wind;
         if (live) { roarShell.visible = true; roarShell.position.set(pose.x, 120, pose.z); roarShell.scale.setScalar(40 + into * 260); roarShell.material.opacity = 0.18 * (1 - into); }
       }
       if (attack.type === 'meteors') {
-        jawOpen = 0.3 + 0.4 * wind; headPitch = -0.4;
+        headPitch = -0.4;
         attack.shells.forEach((shell, k) => {
           if (t < shell.at - 2.2) { if (!live) warn(k, shell.x, shell.z, 16); return; }
           if (t < shell.at) {
@@ -128,14 +124,14 @@ export function createKaiju(root) {
           } else if (t < shell.at + 0.3 && !boomed.has(`${attack.id}:${k}`)) { boomed.add(`${attack.id}:${k}`); if (boomed.size > 60) boomed.clear(); burst(shell.x, 1, shell.z, 16, 34); flash(shell.x, 4, shell.z, 18); audio.play('blast', loud * 0.8); }
         });
       }
-      if (attack.type === 'tail') { turn = Math.sin(Math.min(1, (t - attack.start) / (attack.end - attack.start)) * Math.PI) * 0.9; if (!live) warn(0, attack.target.x, attack.target.z, 50); }
+      if (attack.type === 'tail') { turn = Math.sin(Math.min(1, (t - attack.start) / (attack.end - attack.start)) * Math.PI) * 0.9; if (!live) warn(0, attack.target.x, attack.target.z, 50); else { shock.visible = true; shock.position.set(attack.target.x, 0.6, attack.target.z); shock.scale.setScalar(Math.min(50, 10 + into * 100)); shock.material.opacity = Math.max(0, 1 - into / 1.2); } }
       if (attack.type === 'fire' && live) {
         mouth.getWorldPosition(mouthWorld); const dir = new THREE.Vector3(attack.target.x - mouthWorld.x, 1 - mouthWorld.y, attack.target.z - mouthWorld.z).normalize();
         for (let k = 0; k < 6; k++) emitFlame(mouthWorld, dir, 120 + Math.random() * 40);
       }
     } else lastPhase = '';
-    jaw.rotation.x = jawOpen; head.rotation.x = headPitch; body.rotation.x = bodyLean; body.rotation.y = turn;
-    plate.emissiveIntensity = plateGlow; plate.emissive.set(plateGlow > 0 ? '#6fd3ff' : '#000000');
+    head.rotation.x = headPitch; body.rotation.x = bodyLean; body.rotation.y = turn;
+    plate.emissiveIntensity = 0.8 + plateGlow; plate.emissive.set('#6fd3ff');
     // Footfalls: a thud and a puff of dust at each step.
     if (boss?.alive) { const step = Math.floor(stride / Math.PI); if (step !== lastStep) { lastStep = step; audio.play('step', loud * 0.7); burst(pose.x + Math.sin(pose.heading + Math.PI / 2) * (step % 2 ? 10 : -10), 0.5, pose.z + Math.cos(pose.heading + Math.PI / 2) * (step % 2 ? 10 : -10), 5, 12); } }
     // Your hits land where you aimed: a spark for bullets, a fireball for rockets.

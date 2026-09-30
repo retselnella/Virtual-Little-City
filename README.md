@@ -1,6 +1,6 @@
 # Little City: World Tour
 
-An open-world action game that runs in your web browser. Sail between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, watch airliners land at the airport and helicopters circle downtown, play as a human, a wolf, a hulking brute or a robot, buy guns at the gun shop in Miami, fight, escape the police, race the ring road, finish contracts, and meet other players in the same city. Every day at 12:00 Philippine time a giant **Kaiju** rises off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
+An open-world action game that runs in your web browser. Sail between seven island cities, each on an island with its own landscape, ride the metro, drive out past the city limits to beaches, forests, farmland and mountains, watch airliners land at the airport and helicopters circle downtown, play as a human, a wolf, a hulking brute or a robot, buy guns at the gun shop in Miami, fight, escape the police, race the ring road, finish contracts, and meet other players in the same city. Three times daily at shared randomized Philippine times, the armored **Aegis Titan** arrives off one of the cities, and everyone fights it together for a place on the weekly leaderboard. Day and night follow the time in the Philippines, and the whole world shares one weather.
 
 **Contents**
 
@@ -15,7 +15,7 @@ An open-world action game that runs in your web browser. Sail between seven isla
    - [Day, night and weather](#day-night-and-weather)
 6. [Contracts](#6-contracts)
 7. [Fighting](#7-fighting)
-8. [Kaiju: the world boss](#8-kaiju-the-world-boss)
+8. [Aegis Titan: the world boss](#8-kaiju-the-world-boss)
 9. [Police and your wanted level](#9-police-and-your-wanted-level)
 10. [Driving](#10-driving)
 11. [Life on the streets](#11-life-on-the-streets)
@@ -49,6 +49,9 @@ The character creator appears before your first game.
   | **Superman** | blue suit, red cape and chest shield | Strong punches and controllable flight. |
   | **Flash** | red suit and cowl, gold lightning accents | 36 m/s sprint; G boosts sprinting to 108 m/s for 4 seconds. Combined cheats stay capped at 108 m/s. |
   | **Iron Man** | armour, gold faceplate and glowing chest reactor | Extra armour and flight with thruster effects. |
+  | **Thor** | red cape, silver armour discs and a hammer | G: 12 m thunder pulse; H: thunder strike. Strong punches and a higher jump. |
+  | **Wonder Woman** | gold tiara, bracelets and a lasso | G: 40% less incoming damage for 5 seconds, with 10-second recovery; H: lasso strike. |
+  | **Doctor Strange** | red cloak, raised collar and an amulet | G: controlled levitation; H: arcane bolt. |
 
 - **Look**: skin, fur or plating, hair style and colour (humans and brutes; a cap takes the hair colour), shirt, trousers and shoes. The creator only offers what each kind's model shows: a wolf walks on paws, so it has no shoes; a brute's shirt is a vest; a robot is painted instead of dressed (chest panel, shoulder pads and waist band, leg plating and feet). The name of each current choice appears next to its label.
 - **Build**: compact, average or tall. This changes your size in the game, not just how you look.
@@ -77,9 +80,10 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **R** | Reload the gun in your hands | | |
 | **E** | Collect, deliver, heal at the City Hub, take the metro at a station, or browse the gun shop | | |
 | **T** | Talk to a nearby street resident | | |
+| **G / H** | Activate your hero's special power / attack an in-range Aegis Titan or hostile | | |
 | **M** | World map and sailing | World map and sailing | World map and sailing |
 | **L** | Contract board | Contract board | Contract board |
-| **B** | Kaiju event and rankings | Kaiju event and rankings | Kaiju event and rankings |
+| **B** | Aegis Titan event and rankings | Aegis Titan event and rankings | Aegis Titan event and rankings |
 | **N** | Music player and playlist | Music player and playlist | Music player and playlist |
 | **Esc** | Pause menu and controls | Pause menu | Pause menu |
 | **Mouse drag / scroll** | Turn and zoom the camera (a quick click fires; a drag turns) | Turn and zoom the camera | Turn and zoom the camera |
@@ -116,7 +120,7 @@ Open **City cheats** at the lower left. Type a code and press Enter, or tap a su
 | `RESET` | Switch off flight, speed and jump cheats. |
 | `HELP` | List the available codes. |
 
-Enter movement codes while on foot. Codes cannot revive a wasted player. These commands do not directly change money, Kaiju HP, damage records or rewards.
+Enter movement codes while on foot. Codes cannot revive a wasted player. These commands do not directly change money, Aegis Titan HP, damage records or rewards.
 
 ## 4. Reading the screen
 
@@ -125,7 +129,7 @@ Enter movement codes while on foot. Codes cannot revive a wasted player. These c
 - **Top right**: your name, **wanted stars**, cash, **health** (it glows red when low), and your weapon with ammunition, or your speed while driving.
 - **Left panel**: your current objective and the distance to the gold marker. **Find a contract** or **Contract details** opens the contract board. On a sea voyage it shows your course, and on the metro the next stop. The **GPS** buttons on the island map set the gold marker to a place such as the marina or the airport.
 - **Weapon bar** (above the controls): fists and every gun you own, with rounds left. Click one or press its number.
-- **Kaiju banner** (under the sky chip, from an hour before the event): the countdown, then the Kaiju's health, the time left, and your damage and rank. See [Kaiju: the world boss](#8-kaiju-the-world-boss).
+- **Aegis Titan banner** (under the sky chip, from an hour before the event): the countdown, then the Aegis Titan's health, the time left, and your damage and rank. See [Aegis Titan: the world boss](#8-kaiju-the-world-boss).
 - **Police panel** (while wanted): what the police are doing, such as dispatching, en route, searching your last known location, on scene, or trying to arrest you.
 - **Minimap** (bottom left): a round map centred on you, with north up. It zooms out as you drive faster, and a gold arrow on its edge points to an objective that is off the map. **Map ↗** opens the world map.
   - white arrow: you
@@ -147,7 +151,7 @@ Enter movement codes while on foot. Codes cannot revive a wasted player. These c
 
 Seven cities are available: **Miami, Tokyo, Manila, London, Dubai, Rio de Janeiro and Cape Town**. Each is a large district with its own skyline, colours, traffic, pedestrians and waterfront, on its own island.
 
-Press **M** for the **World map**, the game's one map: the whole world at once, with every city by its usual name, the island you are on marked **YOU ARE HERE** (and named above the map), how many players are online in each, and, around event time, where the Kaiju is.
+Press **M** for the **World map**, the game's one map: the whole world at once, with every city by its usual name, the island you are on marked **YOU ARE HERE** (and named above the map), how many players are online in each, and, around event time, where the Aegis Titan is.
 
 There are two ways to reach another island: **teleport** there instantly, or **sail** there.
 
@@ -222,56 +226,58 @@ Each city has six contracts, 42 in total:
 
 - **Guns**: everyone has a pistol. More are sold at **Ocean Drive Arms**, the gun shop in Miami (the red storefront across the avenue from the City Hub; the map's GPS has a **Gun shop** button). Walk to its door and press **E**. Guns you buy are yours for good, in every city. Ammunition is free: each gun reloads automatically when empty, or press **R**.
 
-  | Key | Gun | Price | Magazine | Range | Kaiju damage per hit | Kaiju damage per second | Kaiju reach | Notes |
+  | Key | Gun | Price | Magazine | Range | Aegis Titan damage per hit | Aegis Titan damage per second | Aegis Titan reach | Notes |
   | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-  | 1 | **Fists** | free | | 5 m | 50,000 | ~111k | 32 m | Jab, cross, hook. Only reaches the Kaiju under its feet. |
+  | 1 | **Fists** | free | | 5 m | 50,000 | ~111k | 32 m | Jab, cross, hook. Only reaches the Aegis Titan under its feet. |
   | 2 | **Pistol** | free | 15 | 65 m | 34,000 | ~93k | 170 m | Strongest up to about 25 m. |
   | 3 | **Magnum revolver** | $6,500 | 6 | 80 m | 98,000 | ~124k | 170 m | Six heavy rounds; drops most people in one shot. |
   | 4 | **SMG** | $12,000 | 40 | 50 m | 17,500 | ~132k | 170 m | Fully automatic and very fast; weak per bullet. |
-  | 5 | **Shotgun** | $16,000 | 8 | 32 m | 145,000 | ~139k | 70 m | Devastating up close (and knocks people down); get close to the Kaiju. |
+  | 5 | **Shotgun** | $16,000 | 8 | 32 m | 145,000 | ~139k | 70 m | Devastating up close (and knocks people down); get close to the Aegis Titan. |
   | 6 | **Assault rifle** | $24,000 | 30 | 110 m | 32,000 | ~142k | 170 m | Automatic and long range: the best all-rounder. |
   | 7 | **Light machine gun** | $38,000 | 100 | 95 m | 26,000 | ~169k | 170 m | A 100-round belt, then a long reload. |
-  | 8 | **Sniper rifle** | $52,000 | 5 | 200 m | 290,000 | ~173k | 210 m | Bolt-action; the only gun that hits the Kaiju from beyond 170 m. |
+  | 8 | **Sniper rifle** | $52,000 | 5 | 200 m | 290,000 | ~173k | 210 m | Bolt-action; the only gun that hits the Aegis Titan from beyond 170 m. |
   | 9 | **Rocket launcher** | $75,000 | 4 | 120 m | 330,000 | ~194k | 170 m | Explodes where it lands, hurting everyone nearby (you too, if you are close). |
 
-  The shop shows all of this for each gun. *Kaiju damage per second* includes reloading, so it is what you really deal when firing without stopping. It rises with the price, and the best gun deals about twice as much as the free pistol.
+  The shop shows all of this for each gun. *Aegis Titan damage per second* includes reloading, so it is what you really deal when firing without stopping. It rises with the price, and the best gun deals about twice as much as the free pistol.
 
 - **Switching**: **Q** cycles through fists and your guns; **1–9** pick one directly; or click the weapon bar. Switching cancels a reload. Handguns are aimed at arm's length with both hands; long guns are shouldered.
 - **Fists**: press **J** quickly for a **jab, cross and hook**. The hook knocks people off their feet; they get up again unless they were defeated.
-- **Aiming with a mouse**: with a gun in hand, the pointer becomes a crosshair and your shot goes exactly where it points: at a person, a car, a wall, or any part of the Kaiju, from its feet up to its head. Your character turns and raises the gun towards it. The crosshair turns **red** on someone you can hit and on the Kaiju within your gun's reach, and **amber** on the Kaiju when it is too far for this gun. Click to fire once, hold the right mouse button (or **J**) to keep firing.
+- **Aiming with a mouse**: with a gun in hand, the pointer becomes a crosshair and your shot goes exactly where it points: at a person, a car, a wall, or any part of the Aegis Titan, from its feet up to its head. Your character turns and raises the gun towards it. The crosshair turns **red** on someone you can hit and on the Aegis Titan within your gun's reach, and **amber** on the Aegis Titan when it is too far for this gun. Click to fire once, hold the right mouse button (or **J**) to keep firing.
 - **Aiming without a mouse** (touch screens, or keyboard only): the game locks onto the best target in front of the camera: armed threats first, and bystanders only when they are in front of you. The ring on the ground shows who you will hit.
 - **Cover**: buildings, cars and lamp posts block bullets, for you and for anyone shooting at you. Standing still makes you easier to hit. Sprinting and distance make enemies miss more.
 - **Children** can never be targeted or hurt.
-- **Health**: at zero health you are **WASTED** and wake up at the City Hub. Once the police pursuit has ended, spend **8 seconds** without attacking, taking damage or being threatened by a nearby gang member to regenerate **5 HP per second**, up to your normal **100 HP**. New damage or attacks restart the delay. Automatic regeneration is disabled during the Kaiju fight. To heal immediately, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills every gun.
+- **Health**: at zero health you are **WASTED** and wake up at the City Hub. Once the police pursuit has ended, spend **8 seconds** without attacking, taking damage or being threatened by a nearby gang member to regenerate **5 HP per second**, up to your normal **100 HP**. New damage or attacks restart the delay. Automatic regeneration is disabled during the Aegis Titan fight. To heal immediately, walk onto the City Hub forecourt and press **E** while you are not wanted. This also refills every gun.
 - **Bodies and blood** are cleared a few seconds (6) after someone falls. Blood effects can be switched off in the pause menu.
 
-## 8. Kaiju: the world boss
+## 8. Aegis Titan: the world boss
 
-Every day at **12:00 Philippine time**, a giant Kaiju, taller than the city's towers, rises from the sea off one of the seven cities and attacks it for **one hour**. The cities take turns, one per day. It has **1,000,000,000 HP** shared by every player in the world.
+**Updating an online project:** rerun the whole `supabase/world-boss.sql` in the Supabase SQL Editor before deploying this client. The migration installs the three-slot schedule and preserves historical damage, rankings and earned rewards. No external scheduler is needed: the server resolves the active or next slot on each request.
 
-- **Before**: an hour ahead, a banner announces where it will appear, with a countdown. Sail there in time. The World map marks the city.
-- **The fight**: it wades ashore and stomps through the streets. Point at it with the mouse and fire (click, hold the right button, or **J**); on a touch screen the attack button aims at it for you. Every gun works within its **Kaiju reach** (170 m for most, 70 m for the shotgun, 210 m for the sniper rifle, under its feet for fists), and each deals its own damage per hit (see the table in [Fighting](#7-fighting)). Better guns deal more damage per second, but no gun is more than about twice the free pistol, so the leaderboard rewards time spent fighting. Drag the camera up to look up at it: the view tilts past your character so you can aim at its head. While it attacks, gunfire alone does not bring the police (only hitting people does). It fights back in turn with a **fire breath** cone, a sweeping **laser beam**, a **ground slam** shockwave that knocks you down, a **roar** that stuns you for a moment, a rain of **meteors** (watch for the red circles on the ground) and a **tail sweep**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
-- **Event health buff**: while the Kaiju is alive in your city, you gain **+500 current and maximum HP** (a healthy player goes from **100 to 600 HP**). The bonus is applied once, and the HUD shows it. Respawning and City Hub healing restore the active maximum. Leaving the city, defeating the Kaiju or reaching the event's end removes the buff and caps remaining health at 100 without killing an injured survivor. Kaiju attacks use flat damage: stomp 8, fire 10/second, laser 36, slam 10–40, roar 3, each meteor 24, tail 26, before armour or vehicle protection. Slam knockdown and roar stun last 0.8 seconds.
+**Aegis Titan** is an original giant armored robot with a glowing reactor and visor. It arrives **three times daily**, at randomized minutes within **08:00-10:59**, **14:00-16:59** and **20:00-22:59 Philippine time (UTC+8)**. The date determines each exact time and city, shared by every player and stable across reloads. Each fight lasts **up to one hour**, with at least two hours between fights; cities rotate each spawn. It has **1,000,000,000 HP** shared by every player in the world.
+
+- **Before**: the banner always shows the next arrival countdown and city, with the exact Philippine date/time in the event panel. An additional warning is announced during the final hour. Sail there in time. The World map marks the city.
+- **The fight**: it wades ashore and stomps through the streets. Point at it with the mouse and fire (click, hold the right button, or **J**); on a touch screen the attack button aims at it for you. Every gun works within its **Aegis Titan reach** (170 m for most, 70 m for the shotgun, 210 m for the sniper rifle, under its feet for fists), and each deals its own damage per hit (see the table in [Fighting](#7-fighting)). Better guns deal more damage per second, but no gun is more than about twice the free pistol, so the leaderboard rewards time spent fighting. Drag the camera up to look up at it: the view tilts past your character so you can aim at its head. While it attacks, gunfire alone does not bring the police (only hitting people does). It fights back in turn with a **plasma vent** cone, a sweeping **reactor beam**, a **seismic hammer** shockwave that knocks you down, an **EMP pulse** that stuns you for a moment, a rain of **missiles** (watch for the red circles on the ground) and a **rear shockwave**. Its feet crush anything underneath. Attacks hurt, throw you back, and can leave you **WASTED**. Red warnings on the ground show where the next attack will land.
+- **Event health buff**: while the Aegis Titan is alive in your city, you gain **+500 current and maximum HP** (a healthy player goes from **100 to 600 HP**). The bonus is applied once, and the HUD shows it. Respawning and City Hub healing restore the active maximum. Leaving the city, defeating the Aegis Titan or reaching the event's end removes the buff and caps remaining health at 100 without killing an injured survivor. Aegis Titan attacks use flat damage: stomp 8, plasma 10/second, beam 36, hammer 10-40, EMP 3, each missile 24, rear shockwave 26, before armour or vehicle protection. Hammer knockdown and EMP stun last 0.8 seconds.
 - **Destruction**: buildings, trees and lamp posts it hits collapse into rubble and craters. The damage stays for the whole hour and the city is restored when the event ends.
-- **The end**: when its HP reaches zero it is **defeated**. If time runs out first, it **retreats**. Either way, the next day's event is prepared.
+- **The end**: when its HP reaches zero it is **defeated**. If time runs out first, it **retreats**. Either way, the next scheduled spawn is prepared. Defeating it early keeps the completed ranking visible until the hour ends, with a countdown to the next fight.
 
-Press **B** (or the **Kaiju** button) for the event panel:
+Press **B** (or the **Aegis Titan** button) for the event panel:
 
-- the event status, the Kaiju's HP, and your damage, rank, hits and deaths
+- the event status, the Aegis Titan's HP, and your damage, rank, hits and deaths
 - the **live ranking**: rank, player, total damage and share of the damage dealt
 - the **weekly leaderboard**, which adds up everyone's damage from Monday 00:00 to Sunday 23:59 Philippine time and then resets
 
-Every death in the event city while the Kaiju is alive counts toward your event deaths, regardless of what killed you or whether you have landed a hit. Recovering or travelling does not discard a queued death. Reports keep their original event and are retried with the same ID after a network failure, so a lost response cannot count twice. Pending reports live in the current page; closing or reloading it before delivery can still lose an unsent report. To enable this fix online, rerun the whole `supabase/world-boss.sql` before deploying the updated app; it adds `boss_record_death()` and a private receipt table while preserving existing counts.
+Every death in the event city while the Aegis Titan is alive counts toward your event deaths, regardless of what killed you or whether you have landed a hit. Recovering or travelling does not discard a queued death. Reports keep their original event and are retried with the same ID after a network failure, so a lost response cannot count twice. Pending reports live in the current page; closing or reloading it before delivery can still lose an unsent report. To enable this fix online, rerun the whole `supabase/world-boss.sql` before deploying the updated app; it adds `boss_record_death()` and a private receipt table while preserving existing counts.
 
 Weekly rewards (claim them from the panel once the week is over; each reward can be claimed once):
 
 | Final weekly rank | Reward |
 | --- | --- |
-| #1 | $100,000 and the "Kaiju Slayer" title |
-| #2–10 | $50,000 and the "Kaiju Hunter" title |
+| #1 | $100,000 and the "Titan Slayer" title |
+| #2–10 | $50,000 and the "Titan Hunter" title |
 | #11–100 | $10,000 and the "Defender" title |
 
-**Superhero attacks:** during an active event in your city, press **H** or tap the **Kaiju power** button above City cheats. It aims at the Kaiju when you are in range with clear sight. Hulk's **G** smash also uses Titan smash when the boss is in range. Flight and speed toggles themselves do not cause damage. Powers cost no ammo and contribute to boss HP, your damage and rankings through the same server as guns.
+**Superhero attacks:** press **H** or tap the attack button above City cheats. An in-range Aegis Titan takes priority; otherwise the power targets the nearest visible hostile (gang member or officer), never a civilian or child. City combat uses separate damage and ranges: Hulk 90 / 9 m, Superman 65 / 65 m, Flash 55 / 24 m, Iron Man 75 / 55 m, Thor 90 / 45 m, Wonder Woman 100 / 28 m, Doctor Strange 70 / 60 m. Walls and vehicles block attacks. Hulk and Thor can also use **G** to strike an in-range boss; otherwise they release a ground pulse. Flight, guard and speed activations do not deal damage. Powers cost no ammo and contribute to boss HP and rankings through the same server as guns.
 
 | Hero / power | Damage per hit | Recovery | Range to boss centre | Sustained damage / second |
 | --- | ---: | ---: | ---: | ---: |
@@ -279,13 +285,16 @@ Weekly rewards (claim them from the panel once the week is over; each reward can
 | Superman / Heat vision | 1,080,000 | 4 s | 180 m | 270,000 |
 | Flash / Lightning strike | 780,000 | 3 s | 45 m, on the ground | 260,000 |
 | Iron Man / Repulsor blast | 910,000 | 3.5 s | 160 m | 260,000 |
+| Thor / Thunder strike | 1,260,000 | 4.5 s | 100 m | 280,000 |
+| Wonder Woman / Lasso strike | 1,120,000 | 4 s | 65 m, on the ground | 280,000 |
+| Doctor Strange / Arcane bolt | 910,000 | 3.5 s | 150 m | 260,000 |
 | Rocket launcher (comparison) | 330,000 | Firing cycle with reloads | 170 m | 194,118 |
 
-The closest attacks carry more risk; ranged powers give up some damage for reach. All four outperform every gun per hit and by about 34–55% in sustained damage. Guns retain their existing price/damage progression. A strike locks other attacks until recovery finishes; switching weapons, editing a character, respawning or travelling cannot refresh its recovery. Flying and moving still work during recovery. Power effects are local; HP and rankings are shared online.
+The closest attacks carry more risk; ranged powers give up some damage for reach. All seven outperform every gun against the Aegis Titan per hit and by about 34–55% in sustained damage. A strike or ground pulse locks other attacks until recovery finishes; switching weapons, editing a character, respawning or travelling cannot refresh its recovery. Wonder Woman's guard also keeps its recovery across those changes. It stacks with her base armour for 52% total damage reduction, not invulnerability. Flying and moving still work during attack recovery. Power effects use a fixed pool of 24 pieces; HP and rankings are shared online.
 
 **Online update required:** rerun the whole `supabase/world-boss.sql` in the Supabase SQL Editor before deploying this version. It updates the existing hit function and damage table without deleting event progress or rankings. Local play works immediately. Older server functions do not recognise superhero hit IDs.
 
-**Fair play**: the game reports hit counts by weapon or power, never damage amounts. The server calculates damage from its own table and charges every hit against one shared firing-time budget, including cooldowns and reloads. Each player earns one second per second, banks up to 8 seconds, and gets one second for network jitter. A power can start with positive credit and charges its recovery afterward; all attacks must repay that same recovery debt. Mixing powers, guns or repeated requests cannot create extra budgets. The server also checks the active event, city and distance to its own computed Kaiju position, caps damage to remaining HP, and owns HP, defeat, deaths, rankings and rewards.
+**Fair play**: the game reports hit counts by weapon or power, never damage amounts. The server calculates damage from its own table and charges every hit against one shared firing-time budget, including cooldowns and reloads. Each player earns one second per second, banks up to 8 seconds, and gets one second for network jitter. A power can start with positive credit and charges its recovery afterward; all attacks must repay that same recovery debt. Mixing powers, guns or repeated requests cannot create extra budgets. The server also checks the active event, city and distance to its own computed Aegis Titan position, caps damage to remaining HP, and owns HP, defeat, deaths, rankings and rewards.
 
 ### Music
 
@@ -330,7 +339,7 @@ Your car is the cyan coupe next to the City Hub. Walk up to it and press **F**. 
 
 Around 125–140 street residents populate each city, with more walkers concentrated downtown. You will see families with children holding hands, office workers taking phone calls, joggers stretching between runs, and friends chatting. There are food stalls with vendors and queues, bus stops where people sit and wait, and benches. People walk to these places, stay a while and move on. Traffic drives in lanes and stops at red lights behind the crosswalk. People on foot wait at the kerb for a crossing signal and a gap in traffic, and step around parked cars. Nearby danger makes them flee; vendors return once it is calm.
 
-Walk close to a street resident and press **T**, or tap **Talk to [name]**, for a random conversation popup. **E / Use** also talks when there is no nearby venue or contract action. Residents have different lines based on their role and react to superheroes, wanted activity, and the Kaiju. Alex welcomes newcomers by the City Hub. Use **Chat again** for another line or **Say goodbye** to leave. Conversations close after nine seconds or when you walk away; they never pause the game or hold someone in a road crossing. The crowd size and conversation history stay bounded. Run `npm run test:npcs` to check desktop and touch conversations in Chrome.
+Walk close to a street resident and press **T**, or tap **Talk to [name]**, for a random conversation popup. **E / Use** also talks when there is no nearby venue or contract action. Residents have different lines based on their role and react to superheroes, wanted activity, and the Aegis Titan. Alex welcomes newcomers by the City Hub. Use **Chat again** for another line or **Say goodbye** to leave. Conversations close after nine seconds or when you walk away; they never pause the game or hold someone in a road crossing. The crowd size and conversation history stay bounded. Run `npm run test:npcs` to check desktop and touch conversations in Chrome.
 
 Overhead, an airliner lands on the airport runway, turns round and takes off again every two and a half minutes, jets cross the sky high up, a red news helicopter circles downtown and a yellow tour helicopter follows the coast. They follow the shared world clock, so everyone sees the same aircraft.
 
@@ -353,7 +362,7 @@ The status under the city name shows your connection:
 Things to know:
 
 - Other players are visible, including when they drive, sail or ride the metro, but pass through you, and you cannot fight each other. Traffic, pedestrians, police, contracts and money are your own, so the person another player hits exists only in their game: you see the attack and the blood, not the victim.
-- You only see players in **your current city**. Sail to the same city to meet. The Kaiju is shared by everyone in the world.
+- You only see players in **your current city**. Sail to the same city to meet. The Aegis Titan is shared by everyone in the world.
 - To test on one computer, open the game in two tabs or two browsers. Each tab is a separate player.
 
 ## 13. Saves and settings
@@ -363,7 +372,7 @@ The game saves automatically **in your browser** on this device:
 - your character
 - cash, completed contracts, your current city and the guns you own
 - the blood effects setting
-- your **guest identity**: online, the game signs you in anonymously the first time and keeps that session in this browser, so every later visit is the same guest, with the same Kaiju damage, weekly rank and rewards. Without an online server, a guest id is saved instead.
+- your **guest identity**: online, the game signs you in anonymously the first time and keeps that session in this browser, so every later visit is the same guest, with the same Aegis Titan damage, weekly rank and rewards. Without an online server, a guest id is saved instead.
 
 An unfinished contract restarts after reloading the page. Saves do not move between browsers or devices. Clearing this site's data in your browser resets everything, including your character and your guest identity (a new guest starts from zero on the leaderboards). If your browser blocks storage (for example some private modes), the game still works, but progress lasts only until you close it.
 
@@ -379,9 +388,9 @@ The **pause menu** (Esc) has: **Resume**, **Blood effects on/off**, **Return to 
 | I am stuck | Pause and choose **Return to City Hub**. |
 | It is too dark to see | Night follows Philippine time. Zoom the camera in; street lamps and lit windows help in the city. |
 | I cannot travel | Finish or abandon your contract, lose your wanted stars, and wait until you are back on your feet. Then press Sail on the map, take the boat from the marina on the east waterfront and head for open sea on the course shown. |
-| The Kaiju panel says "an older copy of the Kaiju functions is still on the server" | An old copy of `world-boss.sql` was run after the new one. Run the latest file again (or `drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`). |
-| My Kaiju damage does not count | Get within your gun's reach (170 m for most guns; an amber crosshair means too far) and be in its city. The panel (**B**) shows your hits as the server counts them. |
-| The Kaiju panel says the functions are "missing or out of date" | The game was updated. Run the whole latest `supabase/world-boss.sql` again in the Supabase SQL Editor (it keeps your data). |
+| The Aegis Titan panel says "an older copy of the Aegis Titan functions is still on the server" | An old copy of `world-boss.sql` was run after the new one. Run the latest file again (or `drop function if exists public.boss_state(); drop function if exists public.boss_event_now();`). |
+| My Aegis Titan damage does not count | Get within your gun's reach (170 m for most guns; an amber crosshair means too far) and be in its city. The panel (**B**) shows your hits as the server counts them. |
+| The Aegis Titan panel says the functions are "missing or out of date" | The game was updated. Run the whole latest `supabase/world-boss.sql` again in the Supabase SQL Editor (it keeps your data). |
 | I cannot collect a reward | Stop fully at the marker, and lose all wanted stars first. |
 | I do not see my friend | Check you are both in the same city and both show **Online**. On one computer, use two different browsers. |
 
@@ -419,7 +428,7 @@ Without this, only tabs of the same browser share the world. Online play uses a 
      SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
      ```
    - **On Vercel**: Project → Settings → **Environment Variables**. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production (and Preview if you use it). The names `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` also work. Marking them Sensitive is fine. Then **redeploy**: the values are built into the site, so a new deployment is needed.
-7. **The Kaiju event**: in the SQL Editor, also run the whole of [`supabase/world-boss.sql`](supabase/world-boss.sql). It creates the event, damage, weekly board and reward tables (hidden from players; they can only use the game's checked functions) and the reward tiers, which you can change in the `boss_reward_tiers` table. Paste the whole file and click **Run** with nothing highlighted (with text highlighted, Supabase runs only the selection). Run it again whenever the game is updated; it keeps your data. Weeks are closed automatically the first time anyone opens the board after Monday 00:00 PH time; if you have the `pg_cron` extension, the file shows an optional schedule for it. Without this step, online play works but the Kaiju panel says the event server cannot be reached.
+7. **The Aegis Titan event**: in the SQL Editor, also run the whole of [`supabase/world-boss.sql`](supabase/world-boss.sql). It creates the event, damage, weekly board and reward tables (hidden from players; they can only use the game's checked functions) and the reward tiers, which you can change in the `boss_reward_tiers` table. Paste the whole file and click **Run** with nothing highlighted (with text highlighted, Supabase runs only the selection). Run it again whenever the game is updated; it keeps your data. Weeks are closed automatically the first time anyone opens the board after Monday 00:00 PH time; if you have the `pg_cron` extension, the file shows an optional schedule for it. Without this step, online play works but the Aegis Titan panel says the event server cannot be reached.
 8. **Check it**: the build log shows `Multiplayer: online via SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY`, and the game shows **Online · 0 other players here**.
 
 If it does not connect, the chip names the problem (hover it for Supabase's exact message; the browser console shows it too): missing Realtime policies, anonymous sign-ins turned off, or a wrong URL or key. Players in a normal and a private window are different guests, so they see each other only once online play works. A status stuck on **Connecting…** usually means step 4 was not run. **Local** means the values were not found by the build.
@@ -437,7 +446,7 @@ The repository includes `vercel.json`, so Vercel needs no extra settings. It ins
 
 For testing, add `?clock=HH:MM` (Philippine time, 24-hour) and/or `?weather=clear|cloudy|rain|storm` to the address, for example `/?clock=21:30&weather=rain`. The clock then runs on from that time. This only changes what that browser shows; everyone else keeps the shared live sky.
 
-Without Supabase, the Kaiju event runs in the same browser (all tabs share it), and the preview clock moves it too: `/?clock=11:58` shows the countdown and `/?clock=12:05` the fight. With Supabase configured, the event always follows the server's clock.
+Without Supabase, the Aegis Titan event runs in the same browser (all tabs share it), and the preview clock moves it too: `/?clock=HH:MM` previews a Philippine time. Use the exact arrival shown in the boss panel, or five minutes after it to preview a fight. With Supabase configured, the event always follows the server's clock.
 
 ### Music playlist
 
@@ -458,24 +467,24 @@ After adding, renaming or removing songs during development, restart the dev ser
 - Only include music you have permission to distribute publicly.
 
 Tip: a folder named **Lounge** becomes the Skyline Lounge's playlist: it starts when a player walks into the lounge (if nothing else is playing).
-### Testing the Kaiju event online
+### Testing the Aegis Titan event online
 
 `?clock=` cannot move an online event: the server owns the time, so players cannot fake it. Instead, the server has a **test mode** that is safe on your real project:
 
 - Only browsers opened with **`?bosstest`** in the address (for example `https://your-site/?bosstest`) join it. Everyone else keeps the real schedule and never sees it.
-- Testers fight a separate **test Kaiju** (marked **TEST** in the banner). Its damage never touches the real Kaiju, the weekly board or rewards.
+- Testers fight a separate **test Aegis Titan** (marked **TEST** in the banner). Its damage never touches the real Aegis Titan, the weekly board or rewards.
 - One command reverts everything.
 
 In your project's SQL Editor (players cannot call these; only you can):
 
 ```sql
-select public.boss_test_clock('11:58');           -- testers see the countdown, on today's city
-select public.boss_test_clock('12:05', 'manila');  -- testers fight, on a day the Kaiju attacks Manila
-select public.boss_test_reset();                   -- a fresh test Kaiju (deletes test events and test damage)
+select public.boss_test_clock('countdown');           -- testers see the countdown, on today's city
+select public.boss_test_clock('active', 'manila');  -- testers fight, on a day the Aegis Titan attacks Manila
+select public.boss_test_reset();                   -- a fresh test Aegis Titan (deletes test events and test damage)
 select public.boss_test_clock_off();               -- revert: test mode off, all test events and test damage deleted
 ```
 
-Then open the game with `?bosstest` (colleagues can too; everyone in test mode shares the same test Kaiju). The test clock keeps running from the time you set; the sky still shows the real time of day. While test mode is off, `?bosstest` does nothing.
+Then open the game with `?bosstest` (colleagues can too; everyone in test mode shares the same test Aegis Titan). The test clock keeps running from the time you set; the sky still shows the real time of day. While test mode is off, `?bosstest` does nothing.
 
 ### Database and API load as the game grows
 
@@ -494,7 +503,8 @@ Before a large launch, load-test against your project's actual capacity and enfo
 ### Checks before publishing
 
 ```bash
-npm test              # game rules, physics, islands, multiplayer, the Kaiju server rules (on a real Postgres), saves and security
+npm run test:boss     # Titan countdown, activation, defeat and next spawn on desktop and phone
+npm test              # game rules, physics, islands, multiplayer, the Aegis Titan server rules (on a real Postgres), saves and security
 npm run test:browser  # builds the site and plays it in Chrome, including two players
 npm run audit:security
 ```
@@ -503,4 +513,4 @@ npm run audit:security
 
 ### Credits
 
-Physics by [Rapier](https://rapier.rs), rendering by [Three.js](https://threejs.org), multiplayer by [Supabase Realtime](https://supabase.com/docs/guides/realtime). All characters (wolf, brute and robot included), guns, cars, boats, trains, scenery and the Kaiju itself are generated in code, and its sounds are synthesised in the browser, so there are no third-party models or audio with licences to track. The Kaiju server tests use [PGlite](https://pglite.dev).
+Physics by [Rapier](https://rapier.rs), rendering by [Three.js](https://threejs.org), multiplayer by [Supabase Realtime](https://supabase.com/docs/guides/realtime). All characters (wolf, brute and robot included), guns, cars, boats, trains, scenery and the Aegis Titan itself are generated in code, and its sounds are synthesised in the browser, so there are no third-party models or audio with licences to track. The Aegis Titan server tests use [PGlite](https://pglite.dev).

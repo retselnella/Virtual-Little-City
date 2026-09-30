@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CITIES } from '../../models/worldTour/worldAdventure.js';
-import { BOSS_NAME, KAIJU_POWERS, REWARDS, kaijuDps } from '../../models/worldTour/bossRules.js';
+import { BOSS_NAME, KAIJU_POWERS, REWARDS, kaijuDps, bossTimeText } from '../../models/worldTour/bossRules.js';
 
 // The game's world map (the same continents and city names as always), showing the whole world at once: where you are,
 // every city, and where the world boss is.
@@ -9,7 +9,7 @@ const CONTINENTS = ['M75 75L150 35 275 65 300 105 255 145 245 195 215 220 185 17
 const spot = c => ({ x: c.map[0] * 10, y: c.map[1] * 4.4 });
 export const cityName = id => CITIES.find(c => c.id === id)?.name || id;
 export function clockText(ms) { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60; return (h ? `${h}:${String(m).padStart(2, '0')}` : `${m}`) + `:${String(sec).padStart(2, '0')}`; }
-const fighting = ev => ev && (ev.phase === 'active' || ev.phase === 'countdown');
+const fighting = ev => ev && (ev.phase === 'active' || ev.phase === 'countdown' || ev.phase === 'scheduled');
 
 // `course` (a sea voyage in progress) and `selected` (the island you are pointing at) draw the sailing route from here.
 export function WorldAtlas({ city, event, online, selected, course, onSelect }) {
@@ -35,7 +35,7 @@ export function WorldAtlas({ city, event, online, selected, course, onSelect }) 
           <text x="10" y="-10" fill="#f3ece1" fontSize="13" fontWeight={mine ? 700 : 400}>{c.name}</text>
           {mine && <text x="10" y="8" className="atlas-here" fontSize="11" fontWeight="700">YOU ARE HERE{online.counts[c.id] ? ` · ${online.counts[c.id]} online` : ''}</text>}
           {!mine && online.counts[c.id] ? <text x="10" y="8" fill="#9fb6ba" fontSize="10">{online.counts[c.id]} online</text> : null}
-          {boss && <g transform="translate(0 26)" className="atlas-boss"><circle r="11" fill="#ff5a4e" /><path d="M-6 3l3-9 3 5 3-5 3 9z" fill="#2a1512" /><text x="15" y="4" fill="#ffb3a8" fontSize="11" fontWeight="700">{BOSS_NAME} · {event.phase === 'active' ? `${(event.hp / event.maxHp * 100).toFixed(1)}% HP` : '12:00 PH time'}</text></g>}
+          {boss && <g transform="translate(0 26)" className="atlas-boss"><circle r="11" fill="#ff5a4e" /><path d="M-6 3l3-9 3 5 3-5 3 9z" fill="#2a1512" /><text x="15" y="4" fill="#ffb3a8" fontSize="11" fontWeight="700">{BOSS_NAME} · {event.phase === 'active' ? `${(event.hp / event.maxHp * 100).toFixed(1)}% HP` : bossTimeText(event.startsAt)}</text></g>}
         </g>;
       })}
     </svg>
@@ -45,17 +45,19 @@ export function WorldAtlas({ city, event, online, selected, course, onSelect }) 
 // The event banner under the clock: the countdown, then the fight (HP, time left, your damage and rank).
 export function BossBanner({ boss, city, now, onOpen, onMap }) {
   const ev = boss.event;
-  if (!ev || !(ev.phase === 'countdown' || ev.phase === 'active' || ((ev.phase === 'defeated' || ev.phase === 'ended') && now < ev.endsAt + 600_000))) return null;
+  if (!ev) return null;
+  const upcoming = ev.phase === 'scheduled' || ev.phase === 'countdown';
   const where = cityName(ev.city), here = ev.city === city.id, pct = ev.hp / ev.maxHp * 100;
   return <section className={`boss-banner ${ev.phase}`} aria-label={`${BOSS_NAME} event`}>
     <header><b>{BOSS_NAME}</b><span>{where}</span>{ev.test && <mark className="boss-test">TEST</mark>}
-      {ev.phase === 'countdown' && <em>rises in {clockText(ev.startsAt - now)}</em>}
+      {upcoming && <em>arrives in {clockText(ev.startsAt - now)}</em>}
       {ev.phase === 'active' && <em>{clockText(ev.endsAt - now)} left</em>}
       {ev.phase === 'defeated' && <em>Defeated</em>}{ev.phase === 'ended' && <em>Retreated</em>}
     </header>
-    {ev.phase !== 'countdown' && <div className="boss-hp" role="progressbar" aria-valuemin="0" aria-valuemax={ev.maxHp} aria-valuenow={ev.hp} aria-label="Boss health"><i style={{ width: `${pct}%` }} /><span>{ev.hp.toLocaleString()} / {ev.maxHp.toLocaleString()} · {pct.toFixed(2)}%</span></div>}
+    {!upcoming && <div className="boss-hp" role="progressbar" aria-valuemin="0" aria-valuemax={ev.maxHp} aria-valuenow={ev.hp} aria-label="Boss health"><i style={{ width: `${pct}%` }} /><span>{ev.hp.toLocaleString()} / {ev.maxHp.toLocaleString()} · {pct.toFixed(2)}%</span></div>}
+    {(ev.phase === 'defeated' || ev.phase === 'ended') && ev.nextStartsAt && <p className="boss-next">Next: {cityName(ev.nextCity)} in {clockText(ev.nextStartsAt - now)}</p>}
     <footer>
-      {ev.phase === 'active' && !here ? <span>Attacking {where}: sail or fly there to fight.</span> : ev.phase === 'countdown' ? <span>{here ? 'It will rise from the sea east of this city.' : `Travel to ${where} before 12:00 to join the fight.`}</span> : <span>You: <b>{ev.me.damage.toLocaleString()}</b>{ev.me.rank ? ` · rank #${ev.me.rank}` : ''}</span>}
+      {ev.phase === 'active' && !here ? <span>Attacking {where}: sail or fly there to fight.</span> : upcoming ? <span>{bossTimeText(ev.startsAt)} / {here ? 'Arrives off the east coast.' : `Travel to ${where} to join.`}</span> : <span>You: <b>{ev.me.damage.toLocaleString()}</b>{ev.me.rank ? ` · rank #${ev.me.rank}` : ''}</span>}
       <button onClick={onOpen}>Ranking <kbd>B</kbd></button>{!here && <button onClick={onMap}>World map</button>}
     </footer>
   </section>;
@@ -74,12 +76,13 @@ export function BossPanel({ boss, city, now, onClaim }) {
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [boss.status]);
   if (!ev) return boss.status === 'error' ? <div className="boss-panel"><p>The event server cannot be reached right now. {BOSS_NAME}'s schedule and rankings will appear here once it can.</p>{boss.problem && <p className="boss-problem">{boss.problem}</p>}</div> : <p>Connecting to the event server…</p>;
-  const status = { scheduled: `Next appearance: ${cityName(ev.city)}, 12:00 PH time (in ${clockText(ev.startsAt - now)}).`, countdown: `Rises off ${cityName(ev.city)} in ${clockText(ev.startsAt - now)}.`,
+  const status = { scheduled: `Next appearance: ${cityName(ev.city)}, ${bossTimeText(ev.startsAt)} (in ${clockText(ev.startsAt - now)}).`, countdown: `Rises off ${cityName(ev.city)} in ${clockText(ev.startsAt - now)}.`,
     active: `Attacking ${cityName(ev.city)} · ${clockText(ev.endsAt - now)} left.`, defeated: `Defeated in ${cityName(ev.city)}.`, ended: `Retreated from ${cityName(ev.city)} when time ran out.` }[ev.phase];
   return <div className="boss-panel">
-    <p className="boss-status"><b>{status}</b> HP {ev.hp.toLocaleString()} / {ev.maxHp.toLocaleString()} ({(ev.hp / ev.maxHp * 100).toFixed(2)}%). Every day at 12:00 Philippine time {BOSS_NAME} rises off a different city for one hour. The server counts every hit.{city.id === ev.city ? ' It is on your island.' : ''}{ev.test ? ' This is a test event: its damage does not count toward the weekly board or rewards.' : ''}</p>
+    <p className="boss-status"><b>{status}</b> HP {ev.hp.toLocaleString()} / {ev.maxHp.toLocaleString()} ({(ev.hp / ev.maxHp * 100).toFixed(2)}%). {BOSS_NAME} is a giant armored robot with a charged reactor. Three shared random spawns daily: 08:00-10:59, 14:00-16:59 and 20:00-22:59 Philippine time. Each fight lasts up to one hour. The server counts every hit.{city.id === ev.city ? ' It is on your island.' : ''}{ev.test ? ' This is a test event: its damage does not count toward the weekly board or rewards.' : ''}</p>
+    <p>Arrival: {bossTimeText(ev.startsAt)}.{ev.nextStartsAt ? ` Next: ${cityName(ev.nextCity)}, ${bossTimeText(ev.nextStartsAt)} (in ${clockText(ev.nextStartsAt - now)}).` : ''}</p>
     <div className="boss-me"><div><small>YOUR DAMAGE</small><b>{ev.me.damage.toLocaleString()}</b></div><div><small>RANK</small><b>{ev.me.rank ? `#${ev.me.rank}` : '—'}</b></div><div><small>HITS</small><b>{ev.me.hits || 0}</b></div><div><small>DEATHS</small><b>{ev.me.deaths || 0}</b></div></div>
-    <details className="boss-power-guide"><summary>Superhero attacks · H or the Kaiju power button</summary>
+    <details className="boss-power-guide"><summary>Superhero attacks · H or the power button</summary>
       <p>Choose a hero in Edit character. Powers hit harder than any gun, with recovery shared across attacks. Get in range with clear sight; Hulk and Flash need solid ground. G still controls flight, speed or Hulk's smash.</p>
       <table className="boss-table"><thead><tr><th>Power</th><th>Damage</th><th>Recovery</th><th>Damage / s</th></tr></thead><tbody>
         {Object.values(KAIJU_POWERS).map(p => <tr key={p.id}><td>{p.name}</td><td>{p.damage.toLocaleString()}</td><td>{p.costMs / 1000}s</td><td>{kaijuDps(p.id).toLocaleString()}</td></tr>)}
