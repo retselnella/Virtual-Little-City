@@ -12,6 +12,7 @@ export function useWorldInput(paused, action, setPanel) {
     function down(e) {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable || paused.current) return;
       if (['BUTTON', 'A'].includes(e.target.tagName) && ['Space', 'Enter'].includes(e.code)) return;
+      if (e.code === 'KeyT') { e.preventDefault(); if (!e.repeat) actions.current('talk'); return; }
       if (mapping[e.code] || ['KeyH', 'KeyG', 'KeyF', 'KeyE', 'KeyQ', 'KeyR', 'KeyM', 'KeyL', 'KeyB', 'KeyN', 'KeyV', 'Escape'].includes(e.code)) e.preventDefault();
       held.current.add(e.code); update(); if (e.repeat) return;
       const key = { KeyH: 'kaijuPower', KeyG: 'power', KeyF: 'vehicle', KeyE: 'interact', KeyQ: 'weapon', KeyR: 'reload', KeyJ: 'attack', KeyV: 'minimap', ...(/^Digit[1-9]$/.test(e.code) ? { [e.code]: `slot${e.code.slice(5)}` } : {}) }[e.code]; if (key) actions.current(key);

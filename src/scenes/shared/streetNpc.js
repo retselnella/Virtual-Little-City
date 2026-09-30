@@ -88,7 +88,13 @@ export function createStreetNpc(scene, kit, { shirt = '#9ab6c0', police = false,
         }
         if (person.pose === 'sit') hips.position.y = 0.72;
       }
-      if (phone) phone.visible = idle && business;
+      if (!down && !person.panic && person.talking && speed < 0.3) {
+        arms[1].rotation.x = -0.7 + Math.sin(clock * 3) * 0.18;
+        elbows[1].rotation.x = -1.1 + Math.sin(clock * 4) * 0.15;
+      } else if (!down && !person.panic && jogger && idle) {
+        arms.forEach((arm, i) => { arm.rotation.x = -2.5; elbows[i].rotation.x = -0.6; });
+      }
+      if (phone) phone.visible = idle && business && !person.talking;
       if (dead) knees.forEach(k => { k.rotation.x = 0.35; });
     },
   };

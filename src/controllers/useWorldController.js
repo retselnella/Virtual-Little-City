@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, equip, guidePoint, interact, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, toggleVehicle } from '../models/worldTour/worldAdventure.js';
+import { CITIES, CONTRACTS, actor, attack, cancelCourse, createSession, equip, guidePoint, interact, notify, promptFor, recover, setAppearance, setCourse, setWaypoint, startContract, startReload, talk, toggleVehicle } from '../models/worldTour/worldAdventure.js';
+import { endNpcDialogue } from '../models/worldTour/npcDialogue.js';
 import { mountAdventure } from '../scenes/worldTour/adventureScene.js';
 import { disposePhysics } from '../models/worldTour/physicsEngine.js';
 
@@ -74,6 +75,8 @@ export function useWorldController(character = null, suspended = false) {
     if (key === 'attack') attack(s);
     if (key === 'power') useHeroPower(s);
     if (key === 'kaijuPower') useKaijuPower(s);
+    if (key === 'talk') talk(s);
+    if (key === 'endTalk') endNpcDialogue(s);
     if (key === 'interact') { interact(s); if (s.shopping) { s.shopping = false; open('shop'); return; } if (s.teleporting) { s.teleporting = false; open('world'); return; } }
     if (key === 'weapon') equip(s, nextWeapon(s.weapon, s.owned));
     if (key.startsWith('slot')) { const id = weaponForSlot(Number(key.slice(4))); if (id && !equip(s, id)) notify(s, `You do not own the ${WEAPONS[id].name}. The gun shop is in Miami.`); }

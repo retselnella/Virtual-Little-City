@@ -76,6 +76,7 @@ You can change your look at any time: pause the game (**Esc** or the **Ⅱ** but
 | **1 – 9** | Fists, pistol, revolver, SMG, shotgun, assault rifle, machine gun, sniper rifle, rocket launcher (the ones you own) | | |
 | **R** | Reload the gun in your hands | | |
 | **E** | Collect, deliver, heal at the City Hub, take the metro at a station, or browse the gun shop | | |
+| **T** | Talk to a nearby street resident | | |
 | **M** | World map and sailing | World map and sailing | World map and sailing |
 | **L** | Contract board | Contract board | Contract board |
 | **B** | Kaiju event and rankings | Kaiju event and rankings | Kaiju event and rankings |
@@ -327,7 +328,9 @@ Your car is the cyan coupe next to the City Hub. Walk up to it and press **F**. 
 
 ## 11. Life on the streets
 
-About 95 people live in each city. You will see families with children holding hands, office workers taking phone calls, joggers, and friends chatting. There are food stalls with vendors and queues, bus stops where people sit and wait, and benches. People walk to these places, stay a while and move on. Traffic drives in lanes, stops at red lights behind the crosswalk, and gives way to pedestrians. People on foot wait at the kerb and cross when the cars on that road have a red light and the way is clear, and they step around a car parked on the sidewalk, so walkers and cars never push into each other. Violence nearby sends everyone running; vendors come back once it is calm.
+Around 125–140 street residents populate each city, with more walkers concentrated downtown. You will see families with children holding hands, office workers taking phone calls, joggers stretching between runs, and friends chatting. There are food stalls with vendors and queues, bus stops where people sit and wait, and benches. People walk to these places, stay a while and move on. Traffic drives in lanes and stops at red lights behind the crosswalk. People on foot wait at the kerb for a crossing signal and a gap in traffic, and step around parked cars. Nearby danger makes them flee; vendors return once it is calm.
+
+Walk close to a street resident and press **T**, or tap **Talk to [name]**, for a random conversation popup. **E / Use** also talks when there is no nearby venue or contract action. Residents have different lines based on their role and react to superheroes, wanted activity, and the Kaiju. Alex welcomes newcomers by the City Hub. Use **Chat again** for another line or **Say goodbye** to leave. Conversations close after nine seconds or when you walk away; they never pause the game or hold someone in a road crossing. The crowd size and conversation history stay bounded. Run `npm run test:npcs` to check desktop and touch conversations in Chrome.
 
 Overhead, an airliner lands on the airport runway, turns round and takes off again every two and a half minutes, jets cross the sky high up, a red news helicopter circles downtown and a yellow tour helicopter follows the coast. They follow the shared world clock, so everyone sees the same aircraft.
 

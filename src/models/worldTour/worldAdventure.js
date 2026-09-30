@@ -2,6 +2,7 @@ import { ROAD_GRID, vehicle, createTraffic, createPatrols, driveVehicle, steerVe
 import { stepPhysics, castShot } from './physicsEngine.js';
 import { updatePolice } from './worldPolice.js';
 import { createPedestrians, stepPedestrians } from './worldPedestrians.js';
+import { nearbyNpc, npcName, talkToNpc, stepNpcDialogue } from './npcDialogue.js';
 import { playerLook } from './characterProfile.js';
 import { MARINA, SEA_LIMIT, islandFor } from './worldIsland.js';
 import { ARRIVAL, createBoat, landingSpot, stepBoat, stepVoyage, voyage } from './worldBoat.js';
@@ -192,6 +193,7 @@ export function setCourse(s, cityId) {
 }
 export function cancelCourse(s) { s.course = null; }
 const stationNear = s => STATIONS.findIndex(st => distance(s.player, st) < 20);
+export const talk = s => talkToNpc(s, clearSight);
 export const atTeleporter = s => onFoot(s) && !s.down && !!s.teleporter && distance(s.player, s.teleporter) < 4.5;
 // Why travelling (by sea or teleporter) is not possible right now, or null.
 export const travelBlocked = s => s.mission ? 'Finish or abandon your contract first.' : s.heat > 0 ? 'Lose the police first.' : s.down ? 'Wait until you are back on your feet.' : null;
@@ -208,11 +210,13 @@ export function promptFor(s) {
   if (s.driving) return null;
   if (distance(s.player, s.boat) < 15) return { key: 'F', action: 'vehicle', text: 'Take the boat' };
   if (stationNear(s) >= 0) return { key: 'E', action: 'interact', text: `Take the metro · ${STATIONS[stationNear(s)].name} station` };
-  if (distance(s.player, s.car) < 9) return { key: 'F', action: 'vehicle', text: 'Get in your car' };
   if (atGunShop(s.city, s.player)) return { key: 'E', action: 'interact', text: 'Browse Ocean Drive Arms' };
   if (atTeleporter(s)) return { key: 'E', action: 'interact', text: 'Teleport to another island' };
   const seat = freeSeat(s); if (seat) return { key: 'E', action: 'interact', text: 'Sit on the sofa' };
   if (distance(s.player, HUB) < 13 && (s.health < s.maxHealth || needsAmmo(s))) return { key: 'E', action: 'interact', text: 'Heal at the City Hub' };
+  const person = nearbyNpc(s, clearSight);
+  if (person) return { key: 'T', action: 'talk', text: `Talk to ${npcName(person)}` };
+  if (distance(s.player, s.car) < 9) return { key: 'F', action: 'vehicle', text: 'Get in your car' };
   return null;
 }
 export function notify(s, message) { s.message = message; s.messageTime = 5; }
@@ -230,7 +234,7 @@ export function startContract(s, id) {
   notify(s, 'Contract started: ' + mission.title); return true;
 }
 export function interact(s) {
-  if (s.down) return;
+  if (s.down || s.stun > 0) return;
   // The metro: get off at a station, leave the platform, or wait for the next train.
   if (s.riding) {
     const stop = s.train.station;
@@ -273,7 +277,8 @@ export function interact(s) {
     if (s.heat > 0) { notify(s, 'The shop keeper locks the door: lose the police first.'); return; }
     s.shopping = true; return;
   }
-  if (distance(at, HUB) < 13 && onFoot(s) && s.heat === 0) { syncEventHealth(s); s.health = s.maxHealth; markCombat(s); s.mags = fullMagazines(s.owned); s.reload = 0; notify(s, 'City Hub: health and ammunition restored.'); return; }
+  if (distance(at, HUB) < 13 && onFoot(s) && s.heat === 0 && (s.health < s.maxHealth || needsAmmo(s))) { syncEventHealth(s); s.health = s.maxHealth; markCombat(s); s.mags = fullMagazines(s.owned); s.reload = 0; notify(s, 'City Hub: health and ammunition restored.'); return; }
+  if (talk(s)) return;
   notify(s, 'Move to the gold marker and stop to interact.');
 }
 export function toggleVehicle(s) {
@@ -702,6 +707,7 @@ function stepSimulation(s, input, dt, yaw) {
       s.arrest += dt; if (s.arrest >= 1.6) { bust(s); return; }
     } else s.arrest = Math.max(0, s.arrest - dt * 2);
   }
+  stepNpcDialogue(s, clearSight);
   stepPedestrians(s, p, dt);
   for (const person of [s.player, ...s.pedestrians]) person.hitCooldown = Math.max(0, (person.hitCooldown || 0) - dt);
   const physics = stepPhysics(s, dt);

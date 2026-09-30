@@ -209,7 +209,8 @@ test('a car striking an adult throws them as a ragdoll; a child is only pushed a
   run(s, 2, { forward: true }, () => { thrown ||= !!adult.ragdoll; bled ||= s.impacts.some(hit => hit.kind === 'car' && hit.blood); });
   assert.ok(thrown, 'the adult is thrown as a ragdoll'); assert.ok(adult.health < 60, 'and badly hurt: ' + adult.health); assert.ok(bled);
   strike(60); let carried = 0;
-  run(s, 2, { forward: true }, () => { if (Math.abs(child.x - 60) < 1.5 && child.z > 34) carried++; });
+  // Fleeing before the car reaches the child is normal; count only frames actually at its front bumper.
+  run(s, 2, { forward: true }, () => { if (Math.abs(child.x - s.car.x) < 1.5 && child.z > 34 && child.z - s.car.z > 0 && child.z - s.car.z < 4) carried++; });
   assert.ok(carried < 6, 'the child is pushed aside, not carried along by the bumper');
   assert.equal(child.health, 100); assert.ok(!child.ragdoll, 'children are never ragdolled or injured');
   assert.ok(Math.abs(child.x - 60) > 1 || Math.abs(child.z - 30) > 1, 'but they are pushed clear of the car');

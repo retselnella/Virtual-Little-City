@@ -46,6 +46,7 @@ function SkyIcon({ sky }) {
 
 // The pause menu: controls, and the few things worth knowing.
 const CONTROLS = [['W A S D', 'Move, drive or steer the boat'], ['Shift / Space', 'Sprint / jump (Space: handbrake)'], ['F', 'Get in or out of your car or boat'], ['Mouse · J', 'Point to aim; click, hold right button or J to fire'],
+  ['T', 'Talk to a nearby resident'],
   ['G · H · Space / Ctrl', 'Movement power · Kaiju attack · rise / descend'],
   ['Q · 1–9 · R', 'Switch weapon · pick one · reload'], ['E', 'Pick up, deliver, metro, gun shop, heal'], ['M · L · B · N', 'Map · contracts · Kaiju · music'], ['Drag · scroll', 'Look around · zoom']];
 const TIPS = [
@@ -162,8 +163,19 @@ export default function WorldView({ controller, onEditCharacter }) {
     <BossBanner boss={boss} city={city} now={now} onOpen={() => open('boss')} onMap={() => openMap()} />
     <BossHits hits={boss.hits} />
     {hud.messageTime > 0 && <div className="adventure-toast" role="status">{hud.message}</div>}
+    {hud.npcDialogue && ready && !error && !panel && <aside className="npc-dialogue" aria-label="Resident conversation">
+      <div role="status" aria-live="polite" aria-atomic="true">
+        <small>{hud.npcDialogue.role}</small>
+        <strong>{hud.npcDialogue.name}</strong>
+        <p>{hud.npcDialogue.text}</p>
+      </div>
+      <div className="npc-dialogue-actions">
+        <button onClick={() => action('talk')}>Chat again</button>
+        <button onClick={() => action('endTalk')}>Say goodbye</button>
+      </div>
+    </aside>}
     {teleported > 0 && <div key={teleported} className="teleport-flash" aria-hidden="true" />}
-    {prompt && ready && !error && <button className={'adventure-prompt' + (prompt.key ? '' : ' passive')} disabled={!prompt.action} onClick={() => prompt.action && action(prompt.action)}>{prompt.key && <kbd>{prompt.key}</kbd>}<span>{prompt.text}</span></button>}
+    {prompt && ready && !error && !(hud.npcDialogue && prompt.action === 'talk') && <button className={'adventure-prompt' + (prompt.key ? '' : ' passive') + (prompt.action === 'talk' ? ' npc-prompt' : '')} disabled={!prompt.action} onClick={() => prompt.action && action(prompt.action)}>{prompt.key && <kbd>{prompt.key}</kbd>}<span>{prompt.text}</span></button>}
     {hud.down > 0 && <div className={'adventure-wasted' + (hud.downReason === 'busted' ? ' busted' : '')}><h2>{hud.downReason === 'busted' ? 'BUSTED' : 'WASTED'}</h2><p>{hud.downReason === 'busted' ? 'Released at the City Hub…' : 'Returning to the City Hub…'}</p></div>}
     {!ready && !error && <div className="adventure-loading"><span className="loading-ring" />Building {city.name}…</div>}
     {error && <div className="adventure-loading"><strong>The city needs WebGL.</strong><p>Enable hardware acceleration and reload to play.</p><button onClick={() => location.reload()}>Reload</button></div>}

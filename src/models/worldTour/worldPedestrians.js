@@ -61,7 +61,7 @@ function place(s, person, leader, spawn, slot) {
     x: spawn.point.x + rx * side - fx * back, z: spawn.point.z + rz * side - fz * back, heading, axis: spawn.axis, lane: spawn.lane,
     health: 100, speed: 0, fall: 0, fallVelocity: 0, knockdown: 0, height: 0, vy: 0, kickX: 0, kickZ: 0, moveX: 0, moveZ: 0,
     deadAt: undefined, idle: 0, pause: 6 + random(s) * 20, panic: false, ragdoll: null, getUp: 0,
-    mode: 'walk', pose: null, spot: null, route: null, stay: 0,
+    mode: 'walk', pose: null, spot: null, route: null, stay: 0, talking: false, chatUntil: 0,
   });
 }
 
@@ -175,6 +175,24 @@ export function createPedestrians(s) {
       people.push(person);
     });
   });
+  // A bounded downtown crowd makes the first few blocks feel inhabited, without multiplying the whole island's rigs.
+  for (let i = 0; i < 29; i++) {
+    const role = i % 7 === 6 ? 'jogger' : i % 4 === 2 ? 'business' : 'adult';
+    let spawn;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const axis = i % 2 ? 'x' : 'z', lane = pick(s, [-133, -107, -13, 13, 107, 133]);
+      let along = -140 + random(s) * 280;
+      for (const road of ROAD_GRID) if (Math.abs(along - road) < 17) along = road + (along < road ? -18 : 18);
+      const point = axis === 'z' ? { x: lane, z: along } : { x: along, z: lane };
+      spawn = { axis, lane, point };
+      if (people.every(p => length(p, point) > 4)) break;
+    }
+    if (i === 0) spawn = { axis: 'z', lane: 13, point: { x: 13, z: 16 } };
+    const person = { id: 'civilian-' + people.length, kind: 'civilian', role, child: false, group: 'downtown-' + i, leader: null, slot: null, direction: i % 2 ? 1 : -1, walk: role === 'jogger' ? 4.8 : 1.7 + random(s), look: look(s, role), guide: i === 0 };
+    place(s, person, person, spawn, null);
+    if (person.guide) { person.name = 'Alex'; person.idle = 30; person.idleHeading = -Math.PI / 2; }
+    people.push(person);
+  }
   populateSpots(s, people);
   return people;
 }
@@ -221,8 +239,13 @@ export function stepPedestrians(s, player, dt) {
     if (person.health <= 0 || person.knockdown > 0 || person.ragdoll) { if (person.spot) release(s, person); stepCharacterBody(person, 0, 0, dt); person.panic = false; continue; }
     const leader = person.leader === null ? null : people[person.leader];
     const following = leader && leader.health > 0;
-    const afraid = frightened(s, person, following ? leader : person) || (following && leader.panic);
+    const afraid = frightened(s, person, player) || !!(following && leader.panic);
     person.panic = afraid;
+    if (person.chatUntil > s.time && !afraid && !nearRoad(person[person.axis]) && (!following || length(person, leader) < 5)) {
+      stepCharacterBody(person, 0, 0, dt);
+      if (person.talking) person.heading = Math.atan2(player.x - person.x, player.z - person.z);
+      continue;
+    }
     if (following) {
       // Stay in formation beside or behind the leader (children hold the leader's hand).
       person.axis = leader.axis; person.lane = leader.lane; person.direction = leader.direction;
